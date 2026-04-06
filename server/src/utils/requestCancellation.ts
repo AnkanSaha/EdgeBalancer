@@ -8,6 +8,8 @@ export class RequestCancelledError extends Error {
   }
 }
 
+export type RequestCancellation = ReturnType<typeof createRequestCancellation>;
+
 export const createRequestCancellation = (req: Request, res: Response, operationId?: string | null) => {
   let cancelled = false;
 
