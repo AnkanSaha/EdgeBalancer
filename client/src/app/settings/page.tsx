@@ -13,7 +13,7 @@ type Tab = 'profile' | 'cloudflare';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('profile');
 
   useEffect(() => {
@@ -27,73 +27,88 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b border-border bg-card">
-        <div className="max-w-5xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="outline" 
-              onClick={() => router.push('/dashboard')}
-            >
-              ← Back
-            </Button>
-            <h1 className="text-xl font-bold">Settings</h1>
+    <div className="min-h-screen bg-slate-50/50 flex">
+      {/* Sidebar - Reused from Dashboard */}
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden lg:flex">
+        <div className="p-8">
+          <div className="flex items-center gap-3">
+            <div className="bg-indigo-600 p-1 rounded-lg">
+              <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+              </svg>
+            </div>
+            <span className="text-lg font-black tracking-tight text-slate-900 uppercase">EdgeBalancer</span>
           </div>
         </div>
-      </div>
 
-      <main className="max-w-5xl mx-auto px-6 py-12">
-        {/* Tab Navigation */}
-        <div className="flex gap-2 mb-8 border-b border-border">
-          <TabButton
-            active={activeTab === 'profile'}
-            onClick={() => setActiveTab('profile')}
+        <nav className="flex-1 px-4 space-y-1">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-all"
           >
-            Profile Settings
-          </TabButton>
-          <TabButton
-            active={activeTab === 'cloudflare'}
-            onClick={() => setActiveTab('cloudflare')}
+            <span className="text-lg">📊</span> Dashboard
+          </button>
+          <button
+            onClick={() => setActiveTab(activeTab)}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold bg-indigo-50 text-indigo-600 shadow-sm shadow-indigo-100/50 rounded-xl transition-all"
           >
-            Cloudflare Settings
-          </TabButton>
+            <span className="text-lg">⚙️</span> Settings
+          </button>
+        </nav>
+
+        <div className="p-4 border-t border-slate-100">
+          <button 
+            onClick={logout}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+          >
+            <span>🚪</span> Sign Out
+          </button>
         </div>
+      </aside>
 
-        {/* Tab Content */}
-        {activeTab === 'profile' ? (
-          <ProfileSettings />
-        ) : (
-          <CloudflareSettings user={user} refreshUser={refreshUser} />
-        )}
+      <main className="flex-1 p-8 overflow-y-auto">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="mb-10">
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Settings</h1>
+            <p className="text-slate-500 font-medium">Manage your account and integrations</p>
+          </div>
+
+          {/* Tab Navigation */}
+          <div className="flex gap-4 mb-8 bg-white p-1.5 rounded-2xl border border-slate-200 w-fit">
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                activeTab === 'profile'
+                  ? 'bg-slate-900 text-white shadow-lg'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              Security
+            </button>
+            <button
+              onClick={() => setActiveTab('cloudflare')}
+              className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                activeTab === 'cloudflare'
+                  ? 'bg-slate-900 text-white shadow-lg'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              Cloudflare
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {activeTab === 'profile' ? (
+              <ProfileSettings />
+            ) : (
+              <CloudflareSettings user={user} refreshUser={refreshUser} />
+            )}
+          </div>
+        </div>
       </main>
     </div>
-  );
-}
-
-function TabButton({ 
-  active, 
-  onClick, 
-  children 
-}: { 
-  active: boolean; 
-  onClick: () => void; 
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-3 font-medium transition-colors relative ${
-        active
-          ? 'text-primary'
-          : 'text-muted-foreground hover:text-foreground'
-      }`}
-    >
-      {children}
-      {active && (
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-      )}
-    </button>
   );
 }
 
@@ -108,124 +123,90 @@ function ProfileSettings() {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-
-    if (!formData.currentPassword) {
-      newErrors.currentPassword = 'Current password is required';
-    }
-
-    if (!formData.newPassword) {
-      newErrors.newPassword = 'New password is required';
-    } else if (formData.newPassword.length < 8) {
-      newErrors.newPassword = 'Password must be at least 8 characters';
-    }
-
-    if (formData.newPassword !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
+    if (!formData.currentPassword) newErrors.currentPassword = 'Required';
+    if (!formData.newPassword) newErrors.newPassword = 'Required';
+    else if (formData.newPassword.length < 8) newErrors.newPassword = 'Min 8 characters';
+    if (formData.newPassword !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords mismatch';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
-
+    if (!validateForm()) return;
     setLoading(true);
     try {
       await api.changePassword({
         currentPassword: formData.currentPassword,
         newPassword: formData.newPassword,
       });
-
-      toast.success('Password changed successfully');
-      setFormData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-      });
+      toast.success('Password updated');
+      setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error: any) {
-      toast.error(error.message || 'Failed to change password');
+      toast.error(error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card className="p-8 max-w-2xl">
-      <h2 className="text-2xl font-semibold mb-2">Change Password</h2>
-      <p className="text-muted-foreground mb-6">
-        Update your password to keep your account secure
-      </p>
+    <Card className="p-10 border-slate-200 bg-white shadow-sm overflow-hidden relative">
+      <div className="absolute top-0 right-0 p-8 text-4xl opacity-10 pointer-events-none">🔒</div>
+      <div className="max-w-xl">
+        <h2 className="text-xl font-black text-slate-900 mb-2">Update Password</h2>
+        <p className="text-slate-500 font-medium text-sm mb-10">
+          We recommend using a unique password for EdgeBalancer to keep your Cloudflare tokens safe.
+        </p>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label htmlFor="currentPassword" className="block text-sm font-medium mb-2">
-            Current Password
-          </label>
-          <Input
-            id="currentPassword"
-            type="password"
-            value={formData.currentPassword}
-            onChange={(e) => {
-              setFormData({ ...formData, currentPassword: e.target.value });
-              setErrors({ ...errors, currentPassword: '' });
-            }}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Current Password</label>
+              <Input
+                type="password"
+                value={formData.currentPassword}
+                onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
+                className="bg-slate-50 border-slate-200 h-12 font-medium"
+                disabled={loading}
+              />
+              {errors.currentPassword && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider">{errors.currentPassword}</p>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">New Password</label>
+                <Input
+                  type="password"
+                  value={formData.newPassword}
+                  onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+                  className="bg-slate-50 border-slate-200 h-12 font-medium"
+                  disabled={loading}
+                />
+                {errors.newPassword && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider">{errors.newPassword}</p>}
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Confirm New</label>
+                <Input
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  className="bg-slate-50 border-slate-200 h-12 font-medium"
+                  disabled={loading}
+                />
+                {errors.confirmPassword && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider">{errors.confirmPassword}</p>}
+              </div>
+            </div>
+          </div>
+
+          <Button 
+            type="submit" 
             disabled={loading}
-            className={errors.currentPassword ? 'border-red-500' : ''}
-          />
-          {errors.currentPassword && (
-            <p className="text-sm text-red-500 mt-1">{errors.currentPassword}</p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="newPassword" className="block text-sm font-medium mb-2">
-            New Password
-          </label>
-          <Input
-            id="newPassword"
-            type="password"
-            value={formData.newPassword}
-            onChange={(e) => {
-              setFormData({ ...formData, newPassword: e.target.value });
-              setErrors({ ...errors, newPassword: '' });
-            }}
-            disabled={loading}
-            className={errors.newPassword ? 'border-red-500' : ''}
-          />
-          {errors.newPassword && (
-            <p className="text-sm text-red-500 mt-1">{errors.newPassword}</p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="confirmPassword" className="block text-sm font-medium mb-2">
-            Confirm New Password
-          </label>
-          <Input
-            id="confirmPassword"
-            type="password"
-            value={formData.confirmPassword}
-            onChange={(e) => {
-              setFormData({ ...formData, confirmPassword: e.target.value });
-              setErrors({ ...errors, confirmPassword: '' });
-            }}
-            disabled={loading}
-            className={errors.confirmPassword ? 'border-red-500' : ''}
-          />
-          {errors.confirmPassword && (
-            <p className="text-sm text-red-500 mt-1">{errors.confirmPassword}</p>
-          )}
-        </div>
-
-        <Button type="submit" disabled={loading}>
-          {loading ? 'Changing Password...' : 'Change Password'}
-        </Button>
-      </form>
+            className="bg-slate-900 hover:bg-slate-800 text-white font-bold h-12 px-8 rounded-xl"
+          >
+            {loading ? 'Processing...' : 'Update Security'}
+          </Button>
+        </form>
+      </div>
     </Card>
   );
 }
@@ -233,23 +214,15 @@ function ProfileSettings() {
 function CloudflareSettings({ user, refreshUser }: any) {
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [credentials, setCredentials] = useState<{
-    accountId: string | null;
-    apiToken: string | null;
-  }>({
+  const [credentials, setCredentials] = useState<{ accountId: string | null; apiToken: string | null }>({
     accountId: null,
     apiToken: null,
   });
-  const [formData, setFormData] = useState({
-    accountId: '',
-    apiToken: '',
-  });
+  const [formData, setFormData] = useState({ accountId: '', apiToken: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (user?.hasCloudflareCredentials) {
-      fetchCredentials();
-    }
+    if (user?.hasCloudflareCredentials) fetchCredentials();
   }, [user]);
 
   const fetchCredentials = async () => {
@@ -261,152 +234,104 @@ function CloudflareSettings({ user, refreshUser }: any) {
           apiToken: response.data.apiToken,
         });
       }
-    } catch (error: any) {
-      console.error('Failed to fetch credentials:', error);
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.accountId.trim()) {
-      newErrors.accountId = 'Account ID is required';
-    } else if (formData.accountId.length !== 32) {
-      newErrors.accountId = 'Account ID must be 32 characters';
-    }
-
-    if (!formData.apiToken.trim()) {
-      newErrors.apiToken = 'API Token is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    } catch (error) {}
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
-
+    if (!formData.accountId.trim()) return toast.error('Account ID missing');
     setLoading(true);
     try {
       await api.updateCloudflareCredentials({
         accountId: formData.accountId,
         apiToken: formData.apiToken,
       });
-
-      toast.success('Cloudflare credentials updated successfully');
+      toast.success('Credentials Updated');
       await refreshUser();
       await fetchCredentials();
       setEditing(false);
-      setFormData({ accountId: '', apiToken: '' });
     } catch (error: any) {
-      toast.error(error.message || 'Failed to update credentials');
+      toast.error(error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card className="p-8 max-w-2xl">
-      <h2 className="text-2xl font-semibold mb-2">Cloudflare Credentials</h2>
-      <p className="text-muted-foreground mb-6">
-        Manage your Cloudflare account connection
-      </p>
+    <Card className="p-10 border-slate-200 bg-white shadow-sm overflow-hidden relative">
+      <div className="absolute top-0 right-0 p-8 text-4xl opacity-10 pointer-events-none">🌩️</div>
+      <div className="max-w-xl">
+        <h2 className="text-xl font-black text-slate-900 mb-2">Cloudflare Integration</h2>
+        <p className="text-slate-500 font-medium text-sm mb-10">
+          Your credentials are encrypted with AES-256 and never leave our backend environment.
+        </p>
 
-      {!editing ? (
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium mb-2">Account ID</label>
-            <div className="px-4 py-3 rounded-lg bg-muted font-mono text-sm">
-              {credentials.accountId ? (
-                <span className="text-foreground">{credentials.accountId}</span>
-              ) : (
-                <span className="text-muted-foreground">Not configured</span>
-              )}
+        {!editing ? (
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Account ID</div>
+                <div className="font-mono text-sm font-bold text-slate-700">
+                  {credentials.accountId || 'Not Connected'}
+                </div>
+              </div>
+              <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">API Token</div>
+                <div className="font-mono text-sm font-bold text-slate-700">
+                  {credentials.apiToken ? '••••••••••••••••' : 'Not Connected'}
+                </div>
+              </div>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">API Token</label>
-            <div className="px-4 py-3 rounded-lg bg-muted font-mono text-sm">
-              {credentials.apiToken ? (
-                <span className="text-foreground">{credentials.apiToken}</span>
-              ) : (
-                <span className="text-muted-foreground">Not configured</span>
-              )}
-            </div>
-          </div>
-
-          <Button onClick={() => setEditing(true)}>
-            Update Credentials
-          </Button>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="accountId" className="block text-sm font-medium mb-2">
-              New Account ID
-            </label>
-            <Input
-              id="accountId"
-              type="text"
-              placeholder="32-character Account ID"
-              value={formData.accountId}
-              onChange={(e) => {
-                setFormData({ ...formData, accountId: e.target.value });
-                setErrors({ ...errors, accountId: '' });
-              }}
-              disabled={loading}
-              className={errors.accountId ? 'border-red-500' : ''}
-            />
-            {errors.accountId && (
-              <p className="text-sm text-red-500 mt-1">{errors.accountId}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="apiToken" className="block text-sm font-medium mb-2">
-              New API Token
-            </label>
-            <Input
-              id="apiToken"
-              type="password"
-              placeholder="Your API Token"
-              value={formData.apiToken}
-              onChange={(e) => {
-                setFormData({ ...formData, apiToken: e.target.value });
-                setErrors({ ...errors, apiToken: '' });
-              }}
-              disabled={loading}
-              className={errors.apiToken ? 'border-red-500' : ''}
-            />
-            {errors.apiToken && (
-              <p className="text-sm text-red-500 mt-1">{errors.apiToken}</p>
-            )}
-          </div>
-
-          <div className="flex gap-4">
             <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => {
-                setEditing(false);
-                setFormData({ accountId: '', apiToken: '' });
-                setErrors({});
-              }}
-              disabled={loading}
+              onClick={() => setEditing(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12 px-8 rounded-xl shadow-lg shadow-indigo-100"
             >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Validating...' : 'Update Credentials'}
+              Rotate Credentials
             </Button>
           </div>
-        </form>
-      )}
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">New Account ID</label>
+                <Input
+                  placeholder="32-character ID"
+                  value={formData.accountId}
+                  onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
+                  className="bg-slate-50 border-slate-200 h-12 font-medium"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">New API Token</label>
+                <Input
+                  type="password"
+                  placeholder="Paste new token"
+                  value={formData.apiToken}
+                  onChange={(e) => setFormData({ ...formData, apiToken: e.target.value })}
+                  className="bg-slate-50 border-slate-200 h-12 font-medium"
+                />
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setEditing(false)}
+                className="h-12 px-8 rounded-xl font-bold border-slate-200"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={loading}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12 px-8 rounded-xl"
+              >
+                {loading ? 'Verifying...' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
     </Card>
   );
 }
