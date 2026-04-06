@@ -114,20 +114,18 @@ jobs:
             echo "Installing production dependencies..."
             npm ci --only=production
 
-            # Create .env file from GitHub Variables
+            # Create .env file from GitHub Secrets
             echo "Creating .env file..."
-            cat > .env << 'EOF'
-            MONGODB_URI=${{ vars.MONGODB_URI }}
-            JWT_SECRET=${{ vars.JWT_SECRET }}
-            ENCRYPTION_KEY=${{ vars.ENCRYPTION_KEY }}
-            PORT=${{ vars.PORT }}
-            CLIENT_URL=${{ vars.CLIENT_URL }}
-            CORS_ORIGIN=${{ vars.CORS_ORIGIN }}
-            NODE_ENV=${{ vars.NODE_ENV }}
-            FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
-            FIREBASE_CLIENT_EMAIL=${{ vars.FIREBASE_CLIENT_EMAIL }}
-            FIREBASE_PRIVATE_KEY=${{ vars.FIREBASE_PRIVATE_KEY }}
-            EOF
+            echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" > .env
+            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+            echo "ENCRYPTION_KEY=${{ secrets.ENCRYPTION_KEY }}" >> .env
+            echo "PORT=${{ secrets.PORT }}" >> .env
+            echo "CLIENT_URL=${{ secrets.CLIENT_URL }}" >> .env
+            echo "CORS_ORIGIN=${{ secrets.CORS_ORIGIN }}" >> .env
+            echo "NODE_ENV=${{ secrets.NODE_ENV }}" >> .env
+            echo "FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}" >> .env
+            echo "FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}" >> .env
+            echo 'FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}' >> .env
 
             # Start application with PM2
             echo "Starting application with PM2..."
