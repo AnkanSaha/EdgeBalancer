@@ -1,3 +1,7 @@
+/**
+ * EdgeBalancer Server Entry Point
+ * Fastify-based API server with MongoDB, JWT auth, and Firebase integration
+ */
 import dotenv from 'dotenv';
 import { connectDatabase } from './utils/database';
 import { buildServer } from './app';

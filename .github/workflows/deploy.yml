@@ -8,11 +8,33 @@ on:
       - 'config/**'
 
 jobs:
+  # Detect which files changed
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      server: ${{ steps.filter.outputs.server }}
+      config: ${{ steps.filter.outputs.config }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for file changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            server:
+              - 'server/**'
+            config:
+              - 'config/**'
+
   # Job 1: Deploy Server
   deploy-server:
     name: Deploy Server to VPS
     runs-on: ubuntu-latest
-    if: contains(github.event.commits[0].modified, 'server/') || contains(github.event.commits[0].added, 'server/')
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
 
     steps:
       - name: Checkout code
@@ -123,10 +145,10 @@ jobs:
   deploy-nginx:
     name: Deploy Nginx Config to VPS
     runs-on: ubuntu-latest
-    needs: [deploy-server]
+    needs: [changes, deploy-server]
     if: |
       always() &&
-      (contains(github.event.commits[0].modified, 'config/') || contains(github.event.commits[0].added, 'config/')) &&
+      needs.changes.outputs.config == 'true' &&
       (needs.deploy-server.result == 'success' || needs.deploy-server.result == 'skipped')
 
     steps:
