@@ -4,6 +4,7 @@ main = ".open-next/worker.js"
 compatibility_date = "2025-05-05"
 compatibility_flags = ["nodejs_compat"]
 keep_vars = true
+preview_urls = false
 
 [[rules]]
 type = "ESModule"
@@ -14,4 +15,4 @@ directory = ".open-next/assets"
 binding = "ASSETS"
 
 [observability.logs]
-enabled = true
+enabled = false
