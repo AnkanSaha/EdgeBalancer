@@ -15,7 +15,7 @@ import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const [loadBalancers, setLoadBalancers] = useState<LoadBalancer[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -168,6 +168,16 @@ export default function DashboardPage() {
             <div className="flex items-center gap-4">
               <Button variant="outline" onClick={() => router.push('/settings')}>
                 Settings
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={async () => {
+                  await logout();
+                  router.push('/login');
+                }}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                Sign Out
               </Button>
               <div className="text-sm text-muted-foreground">
                 {user?.email}
