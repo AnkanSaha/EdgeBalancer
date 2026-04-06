@@ -47,16 +47,27 @@ jobs:
           cache: 'npm'
           cache-dependency-path: server/package-lock.json
 
-      - name: Build server
+      - name: Build server and install dependencies
         run: |
           cd server
           npm ci
           npm run build
 
-      - name: Create deployment archive
+          # Install production dependencies
+          echo "Installing production dependencies..."
+          npm ci --only=production
+
+          # Remove dev dependencies cache
+          rm -rf node_modules/.cache
+
+      - name: Create deployment archive with node_modules
         run: |
           cd server
-          tar -czf ../server-deploy.tar.gz dist/ package.json package-lock.json
+          echo "Creating deployment archive..."
+          tar -czf ../server-deploy.tar.gz dist/ node_modules/ package.json package-lock.json
+
+          # Show archive size
+          ls -lh ../server-deploy.tar.gz
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -104,15 +115,15 @@ jobs:
           username: ${{ vars.SERVER_USER }}
           key: ${{ vars.SSH_PRIVATE_KEY }}
           script: |
-            # Extract files
+            # Extract files (includes node_modules from CI/CD)
             echo "Extracting deployment archive..."
             cd ~/edgebalancer
             tar -xzf ~/server-deploy.tar.gz
             rm ~/server-deploy.tar.gz
 
-            # Install production dependencies
-            echo "Installing production dependencies..."
-            npm ci --only=production
+            # Verify extraction
+            echo "Deployment contents:"
+            ls -la
 
             # Create .env file from GitHub Secrets
             echo "Creating .env file..."

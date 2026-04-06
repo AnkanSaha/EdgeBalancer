@@ -1,5 +1,5 @@
 import { assignDomainOrchestrator } from '../orchestrators/assign-domain.orchestrator'; 
-import { formatLoadBalancer } from '../services/formatter.service';
+import { formatLoadBalancer } from '../services/formatter.service'; 
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../../../types/http';
 
 export async function assignDomainController(
