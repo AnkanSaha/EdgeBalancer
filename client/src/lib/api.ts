@@ -43,13 +43,7 @@ class ApiClient {
   }
 
   async googleAuth(data: { idToken: string }): Promise<ApiResponse> {
-    // TEMPORARY: Call backend directly for testing
-    const response = await axios.post('https://apiedge.nexoral.in/api/auth/google', data, {
-      withCredentials: true,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await this.client.post('/auth/google', data);
     return response.data;
   }
 
