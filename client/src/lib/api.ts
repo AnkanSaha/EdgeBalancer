@@ -113,6 +113,16 @@ class ApiClient {
     return response.data;
   }
 
+  async pauseLoadBalancer(id: string, mode: 'release-domain' | 'keep-domain'): Promise<ApiResponse> {
+    const response = await this.client.post(`/loadbalancers/${id}/pause`, { mode });
+    return response.data;
+  }
+
+  async resumeLoadBalancer(id: string): Promise<ApiResponse> {
+    const response = await this.client.post(`/loadbalancers/${id}/resume`);
+    return response.data;
+  }
+
   // User/Profile endpoints
   async changePassword(data: any): Promise<ApiResponse> {
     const response = await this.client.put('/user/password', data);

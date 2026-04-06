@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmModal } from '@/components/ui/Modal';
+import { PauseModal } from '@/components/loadbalancers/PauseModal';
 import { DeploymentOverlay, DeploymentSuccessModal } from '@/components/loadbalancers/DeploymentExperience';
 import type { LoadBalancer } from '@/types/api';
 import toast from 'react-hot-toast';
@@ -18,6 +19,11 @@ export default function DashboardPage() {
   const [loadBalancers, setLoadBalancers] = useState<LoadBalancer[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actioningId, setActioningId] = useState<string | null>(null);
+  const [pauseModal, setPauseModal] = useState<{ isOpen: boolean; lb: LoadBalancer | null }>({
+    isOpen: false,
+    lb: null,
+  });
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; lb: LoadBalancer | null }>({
     isOpen: false,
     lb: null,
@@ -54,6 +60,44 @@ export default function DashboardPage() {
       toast.error(error.message || 'Failed to fetch load balancers');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openPauseModal = (lb: LoadBalancer) => {
+    setPauseModal({ isOpen: true, lb });
+  };
+
+  const handlePause = async (mode: 'release-domain' | 'keep-domain') => {
+    if (!pauseModal.lb) return;
+    const lb = pauseModal.lb;
+    setPauseModal({ isOpen: false, lb: null });
+    setActioningId(lb.id);
+
+    try {
+      const response = await api.pauseLoadBalancer(lb.id, mode);
+      if (response.success) {
+        toast.success(response.message || 'Load balancer paused');
+        fetchLoadBalancers();
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to pause load balancer');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  const handleResume = async (lb: LoadBalancer) => {
+    setActioningId(lb.id);
+    try {
+      const response = await api.resumeLoadBalancer(lb.id);
+      if (response.success) {
+        toast.success(response.message || 'Load balancer resumed');
+        fetchLoadBalancers();
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to resume load balancer');
+    } finally {
+      setActioningId(null);
     }
   };
 
@@ -160,11 +204,23 @@ export default function DashboardPage() {
                 key={lb.id}
                 loadBalancer={lb}
                 onDelete={openDeleteModal}
+                onPause={openPauseModal}
+                onResume={handleResume}
                 isDeleting={deletingId === lb.id}
+                isActioning={actioningId === lb.id}
               />
             ))}
           </div>
         )}
+
+        {/* Pause Modal */}
+        <PauseModal
+          isOpen={pauseModal.isOpen}
+          onClose={() => setPauseModal({ isOpen: false, lb: null })}
+          onConfirm={handlePause}
+          lbName={pauseModal.lb?.name || ''}
+          loading={!!actioningId}
+        />
 
         {/* Delete Confirmation Modal */}
         <ConfirmModal
@@ -234,11 +290,17 @@ function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
 function LoadBalancerCard({
   loadBalancer,
   onDelete,
-  isDeleting
+  onPause,
+  onResume,
+  isDeleting,
+  isActioning
 }: {
   loadBalancer: LoadBalancer;
   onDelete: (lb: LoadBalancer) => void;
+  onPause: (lb: LoadBalancer) => void;
+  onResume: (lb: LoadBalancer) => void;
   isDeleting: boolean;
+  isActioning: boolean;
 }) {
   const router = useRouter();
 
@@ -251,74 +313,123 @@ function LoadBalancerCard({
   };
 
   return (
-    <Card className="p-6 hover:shadow-lg transition-shadow">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1 min-w-0">
-          <p className="mb-1 text-xs uppercase tracking-[0.25em] text-muted-foreground">
-            {loadBalancer.name}
-          </p>
-          <h3 className="font-semibold text-lg mb-1 truncate">
-            {loadBalancer.fullDomain}
-          </h3>
-          <a
-            href={loadBalancer.workerUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-primary hover:underline truncate block"
-          >
-            {loadBalancer.workerUrl}
-          </a>
+    <Card className="p-6 hover:shadow-lg transition-shadow flex flex-col h-full">
+      <div className="flex-1">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1 min-w-0">
+            <p className="mb-1 text-xs uppercase tracking-[0.25em] text-muted-foreground">
+              {loadBalancer.name}
+            </p>
+            <h3 className="font-semibold text-lg mb-1 truncate">
+              {loadBalancer.fullDomain}
+            </h3>
+            <a
+              href={loadBalancer.workerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary hover:underline truncate block"
+            >
+              {loadBalancer.workerUrl}
+            </a>
+          </div>
+          <Badge variant={loadBalancer.status === 'active' ? 'default' : 'secondary'} className={loadBalancer.status === 'paused' ? 'border-amber-500 text-amber-600 bg-amber-50/50' : ''}>
+            {loadBalancer.status}
+          </Badge>
         </div>
-        <Badge variant={loadBalancer.status === 'active' ? 'default' : 'secondary'}>
-          {loadBalancer.status}
-        </Badge>
+
+        <div className="space-y-2 text-sm mb-4">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Origins</span>
+            <span className="font-medium">{loadBalancer.originCount}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Strategy</span>
+            <span className="font-medium">{loadBalancer.strategy}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Created</span>
+            <span className="font-medium">{formatDate(loadBalancer.createdAt)}</span>
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-2 text-sm mb-4">
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Origins</span>
-          <span className="font-medium">{loadBalancer.originCount}</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Strategy</span>
-          <span className="font-medium">{loadBalancer.strategy}</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Created</span>
-          <span className="font-medium">{formatDate(loadBalancer.createdAt)}</span>
-        </div>
-      </div>
-
-      <div className="pt-4 border-t border-border">
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            onClick={() => router.push(`/loadbalancers/${loadBalancer.id}/edit`)}
-            disabled={isDeleting}
-            className="w-full"
-          >
-            Edit
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => onDelete(loadBalancer)}
-            disabled={isDeleting}
-            className="w-full text-red-500 hover:text-red-600 hover:border-red-500 disabled:opacity-50"
-          >
-            {isDeleting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin mr-2"></div>
-                Deleting...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Delete
-              </>
-            )}
-          </Button>
+      <div className="pt-4 border-t border-border mt-auto">
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/loadbalancers/${loadBalancer.id}/edit`)}
+              disabled={isDeleting || isActioning}
+              className="w-full"
+            >
+              Edit
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => onDelete(loadBalancer)}
+              disabled={isDeleting || isActioning}
+              className="w-full text-red-500 hover:text-red-600 hover:border-red-500 disabled:opacity-50"
+            >
+              {isDeleting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Delete
+                </>
+              )}
+            </Button>
+          </div>
+          {loadBalancer.status === 'active' && (
+            <Button
+              variant="outline"
+              onClick={() => onPause(loadBalancer)}
+              disabled={isDeleting || isActioning}
+              className="w-full border-amber-500 text-amber-600 hover:bg-amber-50"
+            >
+              {isActioning ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                  Pausing...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Pause Traffic
+                </>
+              )}
+            </Button>
+          )}
+          {loadBalancer.status === 'paused' && (
+            <Button
+              variant="outline"
+              onClick={() => onResume(loadBalancer)}
+              disabled={isDeleting || isActioning}
+              className="w-full border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+            >
+              {isActioning ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                  Resuming...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Resume Traffic
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </Card>

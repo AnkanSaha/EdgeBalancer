@@ -19,6 +19,8 @@ import { updateLoadBalancer } from './controllers/update.controller';
 import { deleteLoadBalancer } from './controllers/delete.controller';
 import { validateLoadBalancerHostname } from './controllers/validate.controller';
 import { cancelLoadBalancerDeployment } from './controllers/cancel.controller';
+import { pauseLoadBalancerController } from './controllers/pause.controller';
+import { resumeLoadBalancerController } from './controllers/resume.controller';
 
 export default async function loadBalancerRoutes(app: FastifyInstance) {
   // List all load balancers
@@ -54,5 +56,15 @@ export default async function loadBalancerRoutes(app: FastifyInstance) {
   // Cancel load balancer operation
   app.post('/operations/:operationId/cancel', async (request, reply) =>
     runHandlers([authenticate, cancelLoadBalancerDeployment], request, reply)
+  );
+
+  // Pause load balancer
+  app.post('/:id/pause', async (request, reply) =>
+    runHandlers([authenticate, pauseLoadBalancerController], request, reply)
+  );
+
+  // Resume load balancer
+  app.post('/:id/resume', async (request, reply) =>
+    runHandlers([authenticate, resumeLoadBalancerController], request, reply)
   );
 }

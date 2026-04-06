@@ -25,7 +25,8 @@ export interface ILoadBalancer extends Document {
   weightedEnabled: boolean;
   placement: IPlacementConfig;
   zoneId: string;
-  status: string;
+  status: 'active' | 'paused' | 'inactive';
+  pauseMode?: 'release-domain' | 'keep-domain';
   workerUrl: string;
   createdAt: Date;
   updatedAt: Date;
@@ -98,8 +99,13 @@ const LoadBalancerSchema = new Schema<ILoadBalancer>(
     },
     status: {
       type: String,
-      enum: ['active', 'inactive'],
+      enum: ['active', 'paused', 'inactive'],
       default: 'active',
+    },
+    pauseMode: {
+      type: String,
+      enum: ['release-domain', 'keep-domain'],
+      default: null,
     },
     workerUrl: {
       type: String,

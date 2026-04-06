@@ -18,7 +18,8 @@ export type WorkerStrategy =
   | 'cookie-sticky'
   | 'weighted-cookie-sticky'
   | 'failover'
-  | 'geo-steering';
+  | 'geo-steering'
+  | 'paused';
 
 export interface WorkerConfig {
   origins: OriginServer[];
@@ -33,6 +34,7 @@ const TEMPLATE_MAP: Record<WorkerStrategy, string> = {
   'weighted-cookie-sticky': 'weightedCookieSticky.js',
   'failover': 'failover.js',
   'geo-steering': 'geoSteering.js',
+  'paused': 'paused.js',
 };
 
 const TEMPLATE_DIR = path.join(__dirname, 'workerTemplates');
