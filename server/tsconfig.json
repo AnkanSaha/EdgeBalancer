@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "commonjs",
-    "allowJs": true,
+    "allowJs": false,
     "lib": [
       "ES2020"
     ],
@@ -19,10 +19,11 @@
     "ignoreDeprecations": "5.0"
   },
   "include": [
-    "src/**/*"
+    "src/**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "src/services/workerTemplates/**/*.js"
   ]
 }
