@@ -1,0 +1,232 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'config/**'
+
+jobs:
+  # Job 1: Deploy Server
+  deploy-server:
+    name: Deploy Server to VPS
+    runs-on: ubuntu-latest
+    if: contains(github.event.commits[0].modified, 'server/') || contains(github.event.commits[0].added, 'server/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Build server
+        run: |
+          cd server
+          npm ci
+          npm run build
+
+      - name: Create deployment archive
+        run: |
+          cd server
+          tar -czf ../server-deploy.tar.gz dist/ package.json package-lock.json
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SERVER_HOST }}
+          username: ${{ vars.SERVER_USER }}
+          key: ${{ vars.SSH_PRIVATE_KEY }}
+          script: |
+            # Check if PM2 is installed
+            if ! command -v pm2 &> /dev/null; then
+                echo "Installing PM2..."
+                npm install -g pm2
+            fi
+
+            # Stop and delete existing PM2 process if running
+            if pm2 list | grep -q "edgebalancer-api"; then
+                echo "Stopping existing PM2 process..."
+                pm2 delete edgebalancer-api || true
+            fi
+
+            # Backup old deployment
+            if [ -d ~/edgebalancer ]; then
+                echo "Backing up old deployment..."
+                rm -rf ~/edgebalancer.backup
+                mv ~/edgebalancer ~/edgebalancer.backup
+            fi
+
+            # Create fresh directory
+            echo "Creating deployment directory..."
+            mkdir -p ~/edgebalancer
+
+      - name: Transfer files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ vars.SERVER_HOST }}
+          username: ${{ vars.SERVER_USER }}
+          key: ${{ vars.SSH_PRIVATE_KEY }}
+          source: "server-deploy.tar.gz"
+          target: "~/"
+
+      - name: Extract and setup application
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SERVER_HOST }}
+          username: ${{ vars.SERVER_USER }}
+          key: ${{ vars.SSH_PRIVATE_KEY }}
+          script: |
+            # Extract files
+            echo "Extracting deployment archive..."
+            cd ~/edgebalancer
+            tar -xzf ~/server-deploy.tar.gz
+            rm ~/server-deploy.tar.gz
+
+            # Install production dependencies
+            echo "Installing production dependencies..."
+            npm ci --only=production
+
+            # Create .env file from GitHub Variables
+            echo "Creating .env file..."
+            cat > .env << 'EOF'
+            MONGODB_URI=${{ vars.MONGODB_URI }}
+            JWT_SECRET=${{ vars.JWT_SECRET }}
+            ENCRYPTION_KEY=${{ vars.ENCRYPTION_KEY }}
+            PORT=${{ vars.PORT }}
+            CLIENT_URL=${{ vars.CLIENT_URL }}
+            CORS_ORIGIN=${{ vars.CORS_ORIGIN }}
+            NODE_ENV=${{ vars.NODE_ENV }}
+            FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+            FIREBASE_CLIENT_EMAIL=${{ vars.FIREBASE_CLIENT_EMAIL }}
+            FIREBASE_PRIVATE_KEY=${{ vars.FIREBASE_PRIVATE_KEY }}
+            EOF
+
+            # Start application with PM2
+            echo "Starting application with PM2..."
+            pm2 start dist/index.js --name edgebalancer-api
+            pm2 save
+
+            # Setup PM2 startup script (only runs if not already configured)
+            pm2 startup | tail -n 1 | bash || true
+
+            # Show status
+            pm2 list
+            echo "Server deployment completed successfully!"
+
+  # Job 2: Deploy Nginx Configuration
+  deploy-nginx:
+    name: Deploy Nginx Config to VPS
+    runs-on: ubuntu-latest
+    needs: [deploy-server]
+    if: |
+      always() &&
+      (contains(github.event.commits[0].modified, 'config/') || contains(github.event.commits[0].added, 'config/')) &&
+      (needs.deploy-server.result == 'success' || needs.deploy-server.result == 'skipped')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Transfer nginx config to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ vars.SERVER_HOST }}
+          username: ${{ vars.SERVER_USER }}
+          key: ${{ vars.SSH_PRIVATE_KEY }}
+          source: "config/edgebalancer.conf"
+          target: "~/nginx-temp/"
+          strip_components: 1
+
+      - name: Deploy nginx configuration
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SERVER_HOST }}
+          username: ${{ vars.SERVER_USER }}
+          key: ${{ vars.SSH_PRIVATE_KEY }}
+          script: |
+            # Check if nginx is installed
+            if ! command -v nginx &> /dev/null; then
+                echo "Error: nginx is not installed on the server"
+                exit 1
+            fi
+
+            # Check if setup has been completed
+            if [ ! -f ~/nginx-reload.sh ]; then
+                echo "Error: Server setup not completed. Please run scripts/server-setup.sh on the server first."
+                exit 1
+            fi
+
+            # Copy new configuration to user-owned directory
+            echo "Updating nginx configuration..."
+            cp ~/nginx-temp/edgebalancer.conf ~/nginx-configs/edgebalancer.conf
+
+            # Reload nginx using the reload script (no sudo needed in CI/CD)
+            echo "Reloading nginx..."
+            bash ~/nginx-reload.sh
+
+            # Cleanup temp directory
+            rm -rf ~/nginx-temp
+
+            echo "Nginx configuration deployed successfully!"
+
+      - name: Obtain SSL Certificate with Certbot
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.SERVER_HOST }}
+          username: ${{ vars.SERVER_USER }}
+          key: ${{ vars.SSH_PRIVATE_KEY }}
+          script: |
+            # Check if certbot is installed
+            if ! command -v certbot &> /dev/null; then
+                echo "Warning: Certbot is not installed. Run scripts/server-setup.sh to install."
+                exit 0
+            fi
+
+            # Extract domain from nginx config
+            DOMAIN=$(grep -oP 'server_name\s+\K[^;]+' ~/nginx-configs/edgebalancer.conf | tr -d ' ')
+            echo "Domain from config: $DOMAIN"
+
+            # Check if certificate already exists
+            if sudo certbot certificates 2>/dev/null | grep -q "Certificate Name: $DOMAIN"; then
+                echo "✓ SSL certificate already exists for $DOMAIN"
+                echo "Certificate will auto-renew via systemd timer (twice daily)"
+
+                # Test renewal (dry-run)
+                echo "Testing certificate renewal..."
+                sudo certbot renew --dry-run --cert-name "$DOMAIN" || echo "Note: Renewal dry-run failed, but this is normal if cert is not close to expiry"
+            else
+                echo "No SSL certificate found for $DOMAIN"
+                echo "Obtaining SSL certificate from Let's Encrypt..."
+
+                # Obtain certificate using nginx plugin (automatic config)
+                sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email ${{ vars.LETSENCRYPT_EMAIL }} --redirect
+
+                if [ $? -eq 0 ]; then
+                    echo "✓ SSL certificate obtained successfully!"
+                    echo "Certificate will auto-renew via systemd timer"
+                    echo ""
+                    echo "Your site is now accessible at:"
+                    echo "  https://$DOMAIN"
+                else
+                    echo "✗ Failed to obtain SSL certificate"
+                    echo "Common issues:"
+                    echo "  - DNS not pointing to this server"
+                    echo "  - Port 80/443 blocked by firewall"
+                    echo "  - Domain not resolving correctly"
+                    echo ""
+                    echo "You can manually obtain certificate later:"
+                    echo "  sudo certbot --nginx -d $DOMAIN"
+                    exit 1
+                fi
+            fi
+
+            # Show certificate status
+            echo ""
+            echo "Certificate Status:"
+            sudo certbot certificates
