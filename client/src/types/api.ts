@@ -9,7 +9,7 @@ export interface ApiResponse<T = any> {
 export interface User {
   id: string;
   name: string;
-  email: string;
+  email?: string | null;
   username: string;
   hasCloudflareCredentials: boolean;
   cloudflareAccountId?: string; // masked

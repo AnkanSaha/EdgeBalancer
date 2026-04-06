@@ -14,8 +14,11 @@ export default function LoginPage() {
   const router = useRouter();
   const { user, login, loginWithGoogle, loading: authLoading } = useAuth();
   const googleAuthEnabled = isFirebaseConfigured();
+  
   const [loading, setLoading] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
+  
+  // Email form state
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -29,24 +32,21 @@ export default function LoginPage() {
     }
   }, [user, authLoading, router]);
 
-  const validateForm = () => {
+  const validateEmailForm = () => {
     const newErrors: Record<string, string> = {};
-
     if (!formData.email || !/^\S+@\S+\.\S+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email';
     }
-
     if (!formData.password) {
       newErrors.password = 'Password is required';
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateEmailForm()) return;
 
     setLoading(true);
     try {
@@ -62,7 +62,6 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-
     try {
       await loginWithGoogle();
       toast.success('Signed in with Google');
@@ -89,11 +88,12 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
-          <p className="text-muted-foreground mt-2">Sign in to your account</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Welcome back</h1>
+          <p className="text-slate-400 mt-2 font-medium">Sign in to your account</p>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-8 shadow-sm transition-all duration-300">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl transition-all duration-500">
+          {/* Google Login */}
           {googleAuthEnabled && (
             <div className="space-y-4">
               <GoogleAuthButton busy={loading} label="Continue with Google" onClick={handleGoogleSignIn} />
@@ -102,71 +102,64 @@ export default function LoginPage() {
                 <div className="pt-2 text-center">
                   <button 
                     onClick={() => setShowEmailForm(true)}
-                    className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest"
+                    className="text-[10px] font-black text-slate-500 hover:text-white transition-colors uppercase tracking-widest"
                   >
-                    Or continue with email
+                    Or use email and password
                   </button>
                 </div>
               )}
             </div>
           )}
 
+          {/* Email Method */}
           {(!googleAuthEnabled || showEmailForm) && (
             <div className={googleAuthEnabled ? 'mt-8 animate-in fade-in slide-in-from-top-2 duration-500' : ''}>
               {googleAuthEnabled && (
                 <div className="relative mb-8">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-border" />
+                    <div className="w-full border-t border-slate-800" />
                   </div>
                   <div className="relative flex justify-center text-[10px] uppercase tracking-widest">
-                    <span className="bg-card px-3 text-muted-foreground font-bold">Email login</span>
+                    <span className="bg-slate-900 px-3 text-slate-500 font-bold">Email login</span>
                   </div>
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleEmailSubmit} className="space-y-5">
                 <div>
-                  <label htmlFor="email" className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">
-                    Email
-                  </label>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Email</label>
                   <Input
-                    id="email"
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     error={errors.email}
                     placeholder="you@example.com"
-                    autoComplete="email"
-                    className="h-12 bg-slate-950 border-white/20 text-white placeholder:text-slate-500 focus:border-white transition-all"
+                    className="h-12 bg-slate-950 border-white/10 text-white placeholder:text-slate-600 focus:border-white transition-all"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="password" senior-level text-xs font-black text-slate-500 uppercase tracking-widest mb-2>
-                    Password
-                  </label>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Password</label>
                   <Input
-                    id="password"
                     type="password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     error={errors.password}
                     placeholder="••••••••"
-                    autoComplete="current-password"
-                    className="h-12 bg-slate-950 border-white/20 text-white placeholder:text-slate-500 focus:border-white transition-all"
+                    className="h-12 bg-slate-950 border-white/10 text-white placeholder:text-slate-600 focus:border-white transition-all"
                   />
                 </div>
 
-                <Button type="submit" className="w-full h-12 font-bold bg-slate-900 hover:bg-slate-800 text-white" disabled={loading}>
-                  {loading ? 'Signing in...' : 'Sign In'}
+                <Button type="submit" className="w-full h-12 font-black bg-white text-black hover:bg-slate-200 transition-all rounded-xl shadow-lg" disabled={loading}>
+                  {loading ? 'Processing...' : 'Sign In'}
                 </Button>
               </form>
             </div>
           )}
 
-          <p className="mt-8 text-center text-sm text-muted-foreground font-medium">
+          <p className="mt-8 text-center text-sm text-slate-400 font-medium">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-primary font-bold hover:underline">
+            <Link href="/register" className="text-white font-bold hover:underline">
               Create account
             </Link>
           </p>

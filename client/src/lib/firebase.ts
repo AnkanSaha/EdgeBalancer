@@ -8,23 +8,24 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const requiredFirebaseKeys = Object.values(firebaseConfig);
-
-let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
+let app: FirebaseApp;
+let auth: Auth;
 
 export const googleAuthProvider = new GoogleAuthProvider();
 googleAuthProvider.setCustomParameters({ prompt: 'select_account' });
 
-export const isFirebaseConfigured = () => requiredFirebaseKeys.every(Boolean);
+export const isFirebaseConfigured = (): boolean => {
+  return !!(
+    firebaseConfig.apiKey &&
+    firebaseConfig.authDomain &&
+    firebaseConfig.projectId &&
+    firebaseConfig.appId
+  );
+};
 
-export const getFirebaseAuth = () => {
+export const getFirebaseAuth = (): Auth => {
   if (typeof window === 'undefined') {
     throw new Error('Firebase auth is only available in the browser');
-  }
-
-  if (!isFirebaseConfigured()) {
-    throw new Error('Firebase Google sign-in is not configured');
   }
 
   if (!app) {
@@ -37,5 +38,3 @@ export const getFirebaseAuth = () => {
 
   return auth;
 };
-
-export { firebaseConfig };

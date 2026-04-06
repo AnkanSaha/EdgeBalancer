@@ -50,15 +50,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithGoogle = async () => {
     const auth = getFirebaseAuth();
-    const credential = await signInWithPopup(auth, googleAuthProvider);
-
+    
     try {
-      const idToken = await credential.user.getIdToken(true);
+      const result = await signInWithPopup(auth, googleAuthProvider);
+      const idToken = await result.user.getIdToken();
+      
       const response = await api.googleAuth({ idToken });
 
       if (response.success && response.data?.user) {
         setUser(response.data.user);
       }
+    } catch (error) {
+      console.error('Google login error:', error);
+      throw error;
     } finally {
       await signOut(auth);
     }

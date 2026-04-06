@@ -2,10 +2,10 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IUser extends Document {
   name: string;
-  email: string;
+  email?: string | null;
   username: string;
+  firebaseUid?: string | null;
   password?: string | null;
-  googleId?: string | null;
   cloudflareAccountId?: string;
   cloudflareApiToken?: string;
   cloudflareAccountIdIv?: string;
@@ -25,11 +25,12 @@ const UserSchema = new Schema<IUser>(
     },
     email: {
       type: String,
-      required: [true, 'Email is required'],
       unique: true,
       lowercase: true,
       trim: true,
+      sparse: true,
       match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email'],
+      default: null,
     },
     username: {
       type: String,
@@ -52,7 +53,7 @@ const UserSchema = new Schema<IUser>(
         message: 'Password must be at least 8 characters',
       },
     },
-    googleId: {
+    firebaseUid: {
       type: String,
       unique: true,
       sparse: true,

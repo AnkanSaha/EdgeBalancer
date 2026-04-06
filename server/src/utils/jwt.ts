@@ -2,7 +2,8 @@ import jwt from 'jsonwebtoken';
 
 export interface JwtPayload {
   userId: string;
-  email: string;
+  email?: string | null;
+  firebaseUid?: string | null;
 }
 
 const JWT_EXPIRY = '24h';

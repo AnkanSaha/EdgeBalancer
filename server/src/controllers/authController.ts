@@ -1,6 +1,6 @@
 import { User } from '../models/User';
 import { hashPassword, comparePassword, generateUsername, generateToken } from '../utils';
-import { verifyFirebaseToken } from '../config/firebase';
+import { verifyFirebaseToken, isFirebaseConfigured } from '../config/firebase';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
@@ -69,6 +69,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     const token = generateToken({
       userId: user._id.toString(),
       email: user.email,
+      firebaseUid: user.firebaseUid,
     });
 
     // Set httpOnly cookie
@@ -144,65 +145,57 @@ export const getCurrentUser = async (req: Request, res: Response, next: NextFunc
 
 export const googleAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Check if Firebase is configured
+    if (!isFirebaseConfigured()) {
+      res.status(503);
+      throw new Error('Google authentication is not configured on this server');
+    }
+
     const { idToken } = req.body;
 
     if (!idToken) {
       res.status(400);
-      throw new Error('Firebase ID token is required');
+      throw new Error('Google authentication requires an ID token');
     }
 
-    // Verify the Firebase ID token
+    // 1. Verify Firebase ID token
     const decodedToken = await verifyFirebaseToken(idToken);
-    const { email, email_verified: emailVerified, name, uid } = decodedToken;
+    const { email, name, uid, email_verified } = decodedToken;
 
-    if (!email) {
+    if (!email || !email_verified) {
       res.status(400);
-      throw new Error('Email not found in Google account');
+      throw new Error('A verified Google email is required');
     }
 
-    if (!emailVerified) {
-      res.status(400);
-      throw new Error('Google account email must be verified');
-    }
-
-    // Find or create user
-    let user = await User.findOne({ email: email.toLowerCase() });
+    // 2. Find or create user
+    let user = await User.findOne({ 
+      $or: [{ firebaseUid: uid }, { email: email.toLowerCase() }] 
+    });
 
     if (!user) {
-      // Create new user with Google OAuth
       const username = await generateUsername(name || email.split('@')[0]);
-      
       user = await User.create({
         name: name || email.split('@')[0],
         email: email.toLowerCase(),
         username,
-        password: null,
-        googleId: uid,
+        firebaseUid: uid,
+        password: null, // OAuth users don't have a local password
       });
     } else {
-      if (user.googleId && user.googleId !== uid) {
-        res.status(409);
-        throw new Error('This email is already linked to a different Google account');
+      // Sync firebaseUid if not already set (e.g., if user registered with email previously)
+      if (!user.firebaseUid) {
+        user.firebaseUid = uid;
+        await user.save();
       }
-
-      if (!user.googleId) {
-        user.googleId = uid;
-      }
-
-      if (name && user.name !== name) {
-        user.name = name;
-      }
-
-      await user.save();
     }
 
-    // Generate JWT
+    // 3. Issue JWT
     const token = generateToken({
       userId: user._id.toString(),
       email: user.email,
+      firebaseUid: user.firebaseUid,
     });
 
-    // Set httpOnly cookie
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -212,7 +205,7 @@ export const googleAuth = async (req: Request, res: Response, next: NextFunction
 
     res.json({
       success: true,
-      message: 'Google authentication successful',
+      message: 'Authentication successful',
       data: {
         user: {
           id: user._id,
