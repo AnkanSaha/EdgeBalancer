@@ -57,6 +57,11 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
       throw new Error('User not found');
     }
 
+    if (!user.password) {
+      res.status(400);
+      throw new Error('This account uses Google sign-in and does not have a password to change');
+    }
+
     // Verify current password
     const isMatch = await comparePassword(currentPassword, user.password);
     if (!isMatch) {

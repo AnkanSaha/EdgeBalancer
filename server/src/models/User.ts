@@ -4,7 +4,8 @@ export interface IUser extends Document {
   name: string;
   email: string;
   username: string;
-  password: string;
+  password?: string | null;
+  googleId?: string | null;
   cloudflareAccountId?: string;
   cloudflareApiToken?: string;
   cloudflareAccountIdIv?: string;
@@ -39,8 +40,23 @@ const UserSchema = new Schema<IUser>(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
-      minlength: [8, 'Password must be at least 8 characters'],
+      default: null,
+      validate: {
+        validator(value: string | null | undefined) {
+          if (!value) {
+            return true;
+          }
+
+          return value.length >= 8;
+        },
+        message: 'Password must be at least 8 characters',
+      },
+    },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      default: null,
     },
     cloudflareAccountId: {
       type: String,

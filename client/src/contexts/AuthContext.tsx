@@ -2,12 +2,15 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { api } from '@/lib/api';
+import { getFirebaseAuth, googleAuthProvider } from '@/lib/firebase';
 import type { User } from '@/types/api';
+import { signInWithPopup, signOut } from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   register: (name: string, email: string, password: string, confirmPassword: string) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -45,6 +48,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginWithGoogle = async () => {
+    const auth = getFirebaseAuth();
+    const credential = await signInWithPopup(auth, googleAuthProvider);
+
+    try {
+      const idToken = await credential.user.getIdToken(true);
+      const response = await api.googleAuth({ idToken });
+
+      if (response.success && response.data?.user) {
+        setUser(response.data.user);
+      }
+    } finally {
+      await signOut(auth);
+    }
+  };
+
   const register = async (name: string, email: string, password: string, confirmPassword: string) => {
     await api.register({ name, email, password, confirmPassword });
   };
@@ -59,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, register, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, logout, register, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

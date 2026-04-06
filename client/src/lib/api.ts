@@ -42,6 +42,11 @@ class ApiClient {
     return response.data;
   }
 
+  async googleAuth(data: { idToken: string }): Promise<ApiResponse> {
+    const response = await this.client.post('/auth/google', data);
+    return response.data;
+  }
+
   async logout(): Promise<ApiResponse> {
     const response = await this.client.post('/auth/logout');
     return response.data;

@@ -11,13 +11,22 @@ import { Card } from '@/components/ui/Card';
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { refreshUser } = useAuth();
+  const { refreshUser, logout } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     accountId: '',
     apiToken: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push('/login');
+    } catch (error: any) {
+      toast.error('Failed to logout');
+    }
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -61,8 +70,21 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="w-full max-w-4xl">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative">
+      <div className="absolute top-6 right-6">
+        <Button 
+          variant="outline" 
+          onClick={handleLogout}
+          className="gap-2"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Sign Out
+        </Button>
+      </div>
+
+      <div className="w-full max-w-4xl mt-12">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">Connect Your Cloudflare Account</h1>
           <p className="text-muted-foreground">
