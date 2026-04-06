@@ -1,5 +1,5 @@
-import { Request, Response } from 'express';
 import { isLoadBalancerOperationCancelled } from './loadBalancerOperationStore';
+import type { AppRequest as Request, AppResponse as Response } from '../types/http';
 
 export class RequestCancelledError extends Error {
   constructor(message = 'Request cancelled by client') {

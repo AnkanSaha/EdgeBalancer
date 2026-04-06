@@ -1,12 +1,10 @@
-import { Router } from 'express';
+import type { FastifyInstance } from 'fastify';
 import { getProfile, changePassword } from '../controllers/userController';
 import { changePasswordValidation } from '../middleware/validators/userValidators';
-import { validate } from '../middleware/validation';
 import { authenticate } from '../middleware/auth';
+import { runHandlers } from '../utils/routeRunner';
 
-const router = Router();
-
-router.get('/profile', authenticate, getProfile);
-router.put('/password', authenticate, changePasswordValidation, validate, changePassword);
-
-export default router;
+export default async function userRoutes(app: FastifyInstance) {
+  app.get('/profile', async (request, reply) => runHandlers([authenticate, getProfile], request, reply));
+  app.put('/password', async (request, reply) => runHandlers([authenticate, ...changePasswordValidation, changePassword], request, reply));
+}

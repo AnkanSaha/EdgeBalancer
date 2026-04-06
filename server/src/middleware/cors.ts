@@ -1,19 +1,26 @@
-import cors from 'cors';
+import type { FastifyInstance } from 'fastify';
 
-const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'];
+const getAllowedOrigins = () => (
+  process.env.CORS_ORIGIN?.split(',').map((origin) => origin.trim()).filter(Boolean) ||
+  [process.env.CLIENT_URL || 'http://localhost:3000']
+);
 
-export const corsOptions = cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or Postman)
-    if (!origin) return callback(null, true);
+export const registerCors = (app: FastifyInstance) => {
+  app.addHook('onRequest', async (request, reply) => {
+    const origin = typeof request.headers.origin === 'string' ? request.headers.origin : undefined;
+    const allowedOrigins = getAllowedOrigins();
 
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    if (origin && allowedOrigins.includes(origin)) {
+      reply.header('Access-Control-Allow-Origin', origin);
+      reply.header('Vary', 'Origin');
     }
-  },
-  credentials: true, // Allow cookies
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-});
+
+    reply.header('Access-Control-Allow-Credentials', 'true');
+    reply.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+    reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-operation-id');
+
+    if (request.method === 'OPTIONS') {
+      reply.code(204).send();
+    }
+  });
+};

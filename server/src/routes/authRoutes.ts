@@ -1,14 +1,12 @@
-import { Router } from 'express';
+import type { FastifyInstance } from 'fastify';
 import { register, login, logout, getCurrentUser } from '../controllers/authController';
 import { registerValidation, loginValidation } from '../middleware/validators/authValidators';
-import { validate } from '../middleware/validation';
 import { authenticate } from '../middleware/auth';
+import { runHandlers } from '../utils/routeRunner';
 
-const router = Router();
-
-router.post('/register', registerValidation, validate, register);
-router.post('/login', loginValidation, validate, login);
-router.post('/logout', logout);
-router.get('/me', authenticate, getCurrentUser);
-
-export default router;
+export default async function authRoutes(app: FastifyInstance) {
+  app.post('/register', async (request, reply) => runHandlers([...registerValidation, register], request, reply));
+  app.post('/login', async (request: any, reply: any) => runHandlers([...loginValidation, login], request, reply));
+  app.post('/logout', async (request, reply) => runHandlers([logout], request, reply));
+  app.get('/me', async (request, reply) => runHandlers([authenticate, getCurrentUser], request, reply));
+}

@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import { Request, Response, NextFunction } from 'express';
 import { LoadBalancer } from '../models/LoadBalancer';
 import { User } from '../models/User';
 import { decrypt } from '../utils/encryption';
@@ -10,6 +9,7 @@ import { deleteWorker, deleteWorkerScript } from '../services/workerDeletion';
 import { CloudflareClient } from '../services/cloudflareClient';
 import { createRequestCancellation, RequestCancelledError } from '../utils/requestCancellation';
 import { beginLoadBalancerOperation, cancelLoadBalancerOperation, completeLoadBalancerOperation, isLoadBalancerOperationCancelled } from '../utils/loadBalancerOperationStore';
+import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
 type LoadBalancerStrategy =
   | 'round-robin'
@@ -325,7 +325,7 @@ export const validateLoadBalancerHostname = async (req: Request, res: Response, 
     if ((error as any).statusCode) {
       res.status((error as any).statusCode);
     }
-    next(error);
+    next(error as Error);
   }
 };
 
@@ -354,7 +354,7 @@ export const cancelLoadBalancerDeployment = async (req: Request, res: Response, 
       },
     });
   } catch (error) {
-    next(error);
+    next(error as Error);
   }
 };
 
@@ -384,7 +384,7 @@ export const getLoadBalancers = async (req: Request, res: Response, next: NextFu
     if ((error as any).statusCode) {
       res.status((error as any).statusCode);
     }
-    next(error);
+    next(error as Error);
   }
 };
 
@@ -426,7 +426,7 @@ export const getLoadBalancer = async (req: Request, res: Response, next: NextFun
     if ((error as any).statusCode) {
       res.status((error as any).statusCode);
     }
-    next(error);
+    next(error as Error);
   }
 };
 
@@ -572,7 +572,7 @@ export const createLoadBalancer = async (req: Request, res: Response, next: Next
     if ((error as any).statusCode) {
       res.status((error as any).statusCode);
     }
-    next(error);
+    next(error as Error);
   } finally {
     completeLoadBalancerOperation(operationId);
   }
@@ -880,7 +880,7 @@ export const updateLoadBalancer = async (req: Request, res: Response, next: Next
     if (error.statusCode) {
       res.status(error.statusCode);
     }
-    next(error);
+    next(error as Error);
   } finally {
     completeLoadBalancerOperation(operationId);
   }
@@ -947,6 +947,6 @@ export const deleteLoadBalancer = async (req: Request, res: Response, next: Next
     if ((error as any).statusCode) {
       res.status((error as any).statusCode);
     }
-    next(error);
+    next(error as Error);
   }
 };

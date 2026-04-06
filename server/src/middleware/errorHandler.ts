@@ -1,20 +1,18 @@
-import { Request, Response, NextFunction } from 'express';
+import type { FastifyInstance } from 'fastify';
 
-export const errorHandler = (
-  err: Error,
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  console.error('Error:', err);
+export const registerErrorHandler = (app: FastifyInstance) => {
+  app.setErrorHandler((error, request, reply) => {
+    const appError = error as Error & { statusCode?: number };
 
-  // Default error response
-  const statusCode = res.statusCode !== 200 ? res.statusCode : 500;
-  const message = err.message || 'Internal server error';
+    console.error('Error:', appError);
 
-  res.status(statusCode).json({
-    success: false,
-    message,
-    data: null,
+    const statusCode = appError.statusCode || (reply.statusCode !== 200 ? reply.statusCode : 500);
+    const message = appError.message || 'Internal server error';
+
+    reply.code(statusCode).send({
+      success: false,
+      message,
+      data: null,
+    });
   });
 };

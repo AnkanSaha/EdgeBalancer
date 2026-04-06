@@ -1,28 +1,59 @@
-import { body } from 'express-validator';
+import { validateBody } from '../validation';
+
+const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 export const registerValidation = [
-  body('name')
-    .trim()
-    .notEmpty().withMessage('Name is required')
-    .isLength({ min: 2, max: 100 }).withMessage('Name must be between 2 and 100 characters'),
-  body('email')
-    .trim()
-    .notEmpty().withMessage('Email is required')
-    .isEmail().withMessage('Please provide a valid email'),
-  body('password')
-    .notEmpty().withMessage('Password is required')
-    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
-  body('confirmPassword')
-    .notEmpty().withMessage('Please confirm your password')
-    .custom((value, { req }) => value === req.body.password)
-    .withMessage('Passwords do not match'),
+  validateBody((body) => {
+    const errors: string[] = [];
+    const name = typeof body?.name === 'string' ? body.name.trim() : '';
+    const email = typeof body?.email === 'string' ? body.email.trim() : '';
+    const password = typeof body?.password === 'string' ? body.password : '';
+    const confirmPassword = typeof body?.confirmPassword === 'string' ? body.confirmPassword : '';
+
+    if (!name) {
+      errors.push('Name is required');
+    } else if (name.length < 2 || name.length > 100) {
+      errors.push('Name must be between 2 and 100 characters');
+    }
+
+    if (!email) {
+      errors.push('Email is required');
+    } else if (!isEmail(email)) {
+      errors.push('Please provide a valid email');
+    }
+
+    if (!password) {
+      errors.push('Password is required');
+    } else if (password.length < 8) {
+      errors.push('Password must be at least 8 characters');
+    }
+
+    if (!confirmPassword) {
+      errors.push('Please confirm your password');
+    } else if (confirmPassword !== password) {
+      errors.push('Passwords do not match');
+    }
+
+    return errors;
+  }),
 ];
 
 export const loginValidation = [
-  body('email')
-    .trim()
-    .notEmpty().withMessage('Email is required')
-    .isEmail().withMessage('Please provide a valid email'),
-  body('password')
-    .notEmpty().withMessage('Password is required'),
+  validateBody((body) => {
+    const errors: string[] = [];
+    const email = typeof body?.email === 'string' ? body.email.trim() : '';
+    const password = typeof body?.password === 'string' ? body.password : '';
+
+    if (!email) {
+      errors.push('Email is required');
+    } else if (!isEmail(email)) {
+      errors.push('Please provide a valid email');
+    }
+
+    if (!password) {
+      errors.push('Password is required');
+    }
+
+    return errors;
+  }),
 ];

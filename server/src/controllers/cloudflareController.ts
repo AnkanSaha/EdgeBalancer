@@ -1,4 +1,3 @@
-import { Request, Response, NextFunction } from 'express';
 import { 
   validateCloudflareCredentials, 
   saveCloudflareCredentials,
@@ -6,6 +5,7 @@ import {
   getMaskedCredentials
 } from '../services/credentialsService';
 import { CloudflareClient } from '../services/cloudflareClient';
+import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
 export const saveCredentials = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -34,7 +34,7 @@ export const saveCredentials = async (req: Request, res: Response, next: NextFun
       data: null,
     });
   } catch (error) {
-    next(error);
+    next(error as Error);
   }
 };
 
@@ -65,7 +65,7 @@ export const updateCredentials = async (req: Request, res: Response, next: NextF
       data: null,
     });
   } catch (error) {
-    next(error);
+    next(error as Error);
   }
 };
 
@@ -94,7 +94,7 @@ export const getCredentials = async (req: Request, res: Response, next: NextFunc
       },
     });
   } catch (error) {
-    next(error);
+    next(error as Error);
   }
 };
 
@@ -130,6 +130,6 @@ export const getZones = async (req: Request, res: Response, next: NextFunction) 
       data: { zones },
     });
   } catch (error) {
-    next(error);
+    next(error as Error);
   }
 };

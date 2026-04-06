@@ -1,20 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
-import { verifyToken, JwtPayload } from '../utils/jwt';
+import { verifyToken } from '../utils/jwt';
+import type { AppHandler } from '../types/http';
 
-// Extend Express Request type to include user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: JwtPayload;
-    }
-  }
-}
-
-export const authenticate = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const authenticate: AppHandler = async (req, res, next): Promise<void> => {
   try {
     // Get token from httpOnly cookie
     const token = req.cookies?.token;
@@ -31,6 +18,6 @@ export const authenticate = async (
     next();
   } catch (error) {
     res.status(401);
-    next(error);
+    next(error as Error);
   }
 };

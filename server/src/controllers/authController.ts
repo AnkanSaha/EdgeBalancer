@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
 import { User } from '../models/User';
 import { hashPassword, comparePassword, generateUsername, generateToken } from '../utils';
+import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -37,7 +37,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       },
     });
   } catch (error) {
-    next(error);
+    next(error as Error);
   }
 };
 
@@ -87,7 +87,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       },
     });
   } catch (error) {
-    next(error);
+    next(error as Error);
   }
 };
 
@@ -100,7 +100,7 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
       data: null,
     });
   } catch (error) {
-    next(error);
+    next(error as Error);
   }
 };
 
@@ -132,6 +132,6 @@ export const getCurrentUser = async (req: Request, res: Response, next: NextFunc
       },
     });
   } catch (error) {
-    next(error);
+    next(error as Error);
   }
 };

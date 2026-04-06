@@ -1,7 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
 import { User } from '../models/User';
 import { hashPassword, comparePassword } from '../utils/password';
 import { getMaskedCredentials } from '../services/credentialsService';
+import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
 export const getProfile = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -37,7 +37,7 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
       },
     });
   } catch (error) {
-    next(error);
+    next(error as Error);
   }
 };
 
@@ -75,6 +75,6 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
       data: null,
     });
   } catch (error) {
-    next(error);
+    next(error as Error);
   }
 };

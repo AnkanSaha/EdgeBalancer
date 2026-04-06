@@ -1,14 +1,6 @@
-import express from 'express';
 import dotenv from 'dotenv';
-import cookieParser from 'cookie-parser';
-import 'express-async-errors';
 import { connectDatabase } from './utils/database';
-import { corsOptions } from './middleware/cors';
-import { errorHandler } from './middleware/errorHandler';
-import authRoutes from './routes/authRoutes';
-import cloudflareRoutes from './routes/cloudflareRoutes';
-import userRoutes from './routes/userRoutes';
-import loadBalancerRoutes from './routes/loadBalancerRoutes';
+import { buildServer } from './app';
 
 dotenv.config();
 
@@ -37,31 +29,19 @@ if (process.env.ENCRYPTION_KEY && process.env.ENCRYPTION_KEY.length !== 64) {
   process.exit(1);
 }
 
-const app = express();
 const PORT = process.env.PORT || 8000;
 
 // Connect to database
 connectDatabase();
 
-// Middleware
-app.use(corsOptions);
-app.use(express.json());
-app.use(cookieParser());
+const app = buildServer();
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ success: true, message: 'Server is running' });
-});
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/cloudflare', cloudflareRoutes);
-app.use('/api/user', userRoutes);
-app.use('/api/loadbalancers', loadBalancerRoutes);
-
-// Error handler (must be last)
-app.use(errorHandler);
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+app.listen({ port: Number(PORT), host: '0.0.0.0' })
+  .then(() => {
+    console.log(`🚀 Server running on port ${PORT}`);
+  })
+  .catch((error) => {
+    console.error('❌ Failed to start server');
+    console.error(error);
+    process.exit(1);
+  });

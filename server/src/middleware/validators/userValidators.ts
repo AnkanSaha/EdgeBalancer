@@ -1,13 +1,28 @@
-import { body } from 'express-validator';
+import { validateBody } from '../validation';
 
 export const changePasswordValidation = [
-  body('currentPassword')
-    .notEmpty().withMessage('Current password is required'),
-  body('newPassword')
-    .notEmpty().withMessage('New password is required')
-    .isLength({ min: 8 }).withMessage('New password must be at least 8 characters'),
-  body('confirmNewPassword')
-    .notEmpty().withMessage('Please confirm your new password')
-    .custom((value, { req }) => value === req.body.newPassword)
-    .withMessage('Passwords do not match'),
+  validateBody((body) => {
+    const errors: string[] = [];
+    const currentPassword = typeof body?.currentPassword === 'string' ? body.currentPassword : '';
+    const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : '';
+    const confirmNewPassword = typeof body?.confirmNewPassword === 'string' ? body.confirmNewPassword : '';
+
+    if (!currentPassword) {
+      errors.push('Current password is required');
+    }
+
+    if (!newPassword) {
+      errors.push('New password is required');
+    } else if (newPassword.length < 8) {
+      errors.push('New password must be at least 8 characters');
+    }
+
+    if (!confirmNewPassword) {
+      errors.push('Please confirm your new password');
+    } else if (confirmNewPassword !== newPassword) {
+      errors.push('Passwords do not match');
+    }
+
+    return errors;
+  }),
 ];
