@@ -10,8 +10,11 @@ class ApiClient {
   private client: AxiosInstance;
 
   constructor() {
+    // Call backend directly (no Next.js proxy)
+    const backendURL = process.env.NEXT_PUBLIC_API_URL || 'https://apiedge.nexoral.in';
+
     this.client = axios.create({
-      baseURL: '/api', // Call Next.js API routes instead of backend directly
+      baseURL: `${backendURL}/api`,
       withCredentials: true, // Include httpOnly cookies
       headers: {
         'Content-Type': 'application/json',
@@ -24,7 +27,7 @@ class ApiClient {
       (error: AxiosError<ApiResponse>) => {
         // Extract error message from API response or use default
         const message = error.response?.data?.message || error.message || 'An error occurred';
-        
+
         // Re-throw with structured error
         throw new Error(message);
       }
