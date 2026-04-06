@@ -5,13 +5,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "build:cf": "npx @opennextjs/cloudflare build",
+    "start": "next start",
+    "deploy:cf": "wrangler deploy --env=\"\""
   },
   "dependencies": {
     "@chakra-ui/next-js": "^2.4.2",
     "@chakra-ui/react": "^3.34.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@opennextjs/cloudflare": "^1.16.3",
     "axios": "^1.14.0",
     "clsx": "^2.1.1",
     "firebase": "^12.11.0",
