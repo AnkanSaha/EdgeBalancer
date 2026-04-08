@@ -42,7 +42,7 @@ class ApiClient {
 
   async login(data: any): Promise<ApiResponse> {
     const response = await this.client.post('/auth/login', data);
-    return response.data;
+    return response.data; 
   }
 
   async googleAuth(data: { idToken: string }): Promise<ApiResponse> {
