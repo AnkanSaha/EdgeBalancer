@@ -11,12 +11,12 @@ import toast from 'react-hot-toast';
 
 const STRATEGIES = [
   { id: 'round-robin', title: 'Round Robin', desc: 'Rotate requests across origins in edge-local sequence.', icon: 'Refresh' },
-  { id: 'weighted-rr', title: 'Weighted Round Robin', desc: 'Bias traffic toward stronger origins with per-server weights.', icon: 'Activity' },
+  { id: 'weighted-round-robin', title: 'Weighted Round Robin', desc: 'Bias traffic toward stronger origins with per-server weights.', icon: 'Activity' },
   { id: 'ip-hash', title: 'IP Hash', desc: 'Send the same client IP back to the same origin whenever possible.', icon: 'Key' },
-  { id: 'sticky', title: 'Sticky Session', desc: 'Set a cookie so repeat visitors stay on the same origin.', icon: 'Link' },
-  { id: 'weighted-sticky', title: 'Weighted Sticky', desc: 'Assign first visit by weight, then keep that visitor pinned with a cookie.', icon: 'Layers' },
+  { id: 'cookie-sticky', title: 'Sticky Session', desc: 'Set a cookie so repeat visitors stay on the same origin.', icon: 'Link' },
+  { id: 'weighted-cookie-sticky', title: 'Weighted Sticky', desc: 'Assign first visit by weight, then keep that visitor pinned with a cookie.', icon: 'Layers' },
   { id: 'failover', title: 'Failover', desc: 'Try origins in order and move to the next one when an origin fails.', icon: 'Shield' },
-  { id: 'geo', title: 'Geo Steering', desc: 'Route by Cloudflare country, colo, or continent matches before falling back.', icon: 'Globe' },
+  { id: 'geo-steering', title: 'Geo Steering', desc: 'Route by Cloudflare country, colo, or continent matches before falling back.', icon: 'Globe' },
 ];
 
 const STEPS = [
@@ -158,14 +158,26 @@ export default function CreateLoadBalancerPage() {
 
     setDeploying(true);
     try {
+      if (!selectedZone?.name) {
+        throw new Error('Please select a valid domain');
+      }
+
+      const trimmedSubdomain = form.subdomain.trim();
+      const weightedEnabled = form.strategy === 'weighted-round-robin' || form.strategy === 'weighted-cookie-sticky';
+      const placementHint = form.placementHint.trim();
+
       const payload = {
-        name: form.name,
+        name: form.name.trim(),
         zoneId: form.zoneId,
-        subdomain: form.subdomain,
-        origins: form.origins.map(o => ({ url: o.url, weight: o.weight })),
+        domain: selectedZone.name,
+        subdomain: trimmedSubdomain || undefined,
+        origins: form.origins.map((o) => ({ url: o.url, weight: o.weight })),
         strategy: form.strategy,
-        smartPlacement: form.smartPlacement,
-        placementHint: form.placementHint,
+        weightedEnabled,
+        placement: {
+          smartPlacement: form.smartPlacement,
+          ...(placementHint ? { region: placementHint } : {}),
+        },
       };
 
       const operationId = `create-${Date.now()}`;
@@ -185,7 +197,7 @@ export default function CreateLoadBalancerPage() {
     }
   };
 
-  const showWeights = form.strategy === 'weighted-rr' || form.strategy === 'weighted-sticky';
+  const showWeights = form.strategy === 'weighted-round-robin' || form.strategy === 'weighted-cookie-sticky';
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
@@ -271,7 +283,7 @@ export default function CreateLoadBalancerPage() {
           }
         />
 
-        <div style={{ padding: '32px', maxWidth: 820, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="create-form-shell" style={{ padding: '32px', maxWidth: 820, display: 'flex', flexDirection: 'column', gap: 20 }}>
           <FieldBlock n={1} title="Load Balancer Name"
             subtitle="Choose the exact Cloudflare Worker name used for this deployment">
             <div className="field">
@@ -302,7 +314,7 @@ export default function CreateLoadBalancerPage() {
             subtitle="Pick the Cloudflare zone that should point at this load balancer">
             <div className="field">
               <label className="field-label">Domain</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
+              <div className="domain-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
                 {zones.map(z => {
                   const active = form.zoneId === z.id;
                   return (
@@ -339,7 +351,7 @@ export default function CreateLoadBalancerPage() {
             subtitle="Optional hostname prefix for the active edge route">
             <div className="field">
               <label className="field-label">Subdomain</label>
-              <div style={{
+              <div className="subdomain-row" style={{
                 display: 'flex', alignItems: 'stretch',
                 border: '1px solid var(--line)', borderRadius: 'var(--radius)',
                 background: 'var(--bg-1)', overflow: 'hidden',
@@ -352,7 +364,7 @@ export default function CreateLoadBalancerPage() {
                   onFocus={() => setActiveStep(3)}
                   style={{ border: 'none', background: 'transparent', flex: 1 }}
                 />
-                <div style={{
+                <div className="subdomain-suffix" style={{
                   display: 'flex', alignItems: 'center', padding: '0 16px',
                   fontFamily: 'var(--mono)', fontSize: 13,
                   color: 'var(--text-3)', borderLeft: '1px solid var(--line)',
@@ -372,12 +384,11 @@ export default function CreateLoadBalancerPage() {
             subtitle="Add, remove, or rebalance the backends that receive traffic">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {form.origins.map((s, i) => (
-                <div key={s.id} style={{
+                <div key={s.id} className={`origin-row ${showWeights ? 'with-weights' : 'no-weights'}`} style={{
                   display: 'grid',
-                  gridTemplateColumns: showWeights ? '56px 1fr 110px 40px' : '56px 1fr 40px',
                   gap: 8, alignItems: 'center',
                 }}>
-                  <div style={{
+                  <div className="origin-index" style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     height: 44, border: '1px solid var(--line)',
                     borderRadius: 'var(--radius)', background: 'var(--bg-2)',
@@ -392,12 +403,16 @@ export default function CreateLoadBalancerPage() {
                     onFocus={() => setActiveStep(4)}
                   />
                   {showWeights && (
-                    <div style={{ position: 'relative' }}>
+                    <div className="weight-input-wrap" style={{ position: 'relative' }}>
                       <input
                         className="input input-mono"
-                        type="number" min={0} max={1000}
+                        type="number" min={1} max={100}
                         value={s.weight}
-                        onChange={e => updateOrigin(s.id, { weight: +e.target.value || 0 })}
+                        onChange={(e) => {
+                          const nextWeight = Number.parseInt(e.target.value, 10);
+                          const safeWeight = Number.isNaN(nextWeight) ? 1 : Math.max(1, Math.min(100, nextWeight));
+                          updateOrigin(s.id, { weight: safeWeight });
+                        }}
                         style={{ paddingRight: 32 }}
                       />
                       <span style={{
@@ -406,7 +421,7 @@ export default function CreateLoadBalancerPage() {
                       }}>wt</span>
                     </div>
                   )}
-                  <button
+                  <button className="remove-btn"
                     onClick={() => removeOrigin(s.id)}
                     disabled={form.origins.length === 1}
                     style={{
@@ -435,7 +450,7 @@ export default function CreateLoadBalancerPage() {
 
           <FieldBlock n={5} title="Traffic Strategy"
             subtitle="Switch how requests are distributed across your origin fleet">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
+            <div className="strategy-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
               {STRATEGIES.map(s => {
                 const Ico = Icons[s.icon as keyof typeof Icons];
                 const active = form.strategy === s.id;
@@ -534,7 +549,7 @@ export default function CreateLoadBalancerPage() {
             </div>
           </FieldBlock>
 
-          <div style={{
+          <div className="deploy-bar" style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             padding: '16px 20px', border: '1px solid var(--line)',
             borderRadius: 'var(--radius-lg)', background: 'var(--bg-1)',
@@ -546,7 +561,7 @@ export default function CreateLoadBalancerPage() {
                 <>Complete required fields to deploy</>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="deploy-actions" style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-ghost" onClick={() => router.push('/dashboard')}>Cancel</button>
               <button
                 className="btn btn-primary"
@@ -599,8 +614,56 @@ export default function CreateLoadBalancerPage() {
       </main>
 
       <style jsx>{`
+        .origin-row.no-weights {
+          grid-template-columns: 56px minmax(0, 1fr) 40px;
+        }
+
+        .origin-row.with-weights {
+          grid-template-columns: 56px minmax(0, 1fr) 110px 40px;
+        }
+
         @media (max-width: 900px) {
           .hide-md { display: none; }
+          .create-form-shell {
+            padding: 16px !important;
+            max-width: 100% !important;
+            gap: 14px !important;
+          }
+          .domain-grid,
+          .strategy-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .subdomain-row {
+            flex-direction: column;
+          }
+          .subdomain-suffix {
+            border-left: none !important;
+            border-top: 1px solid var(--line);
+            padding: 10px 12px !important;
+          }
+          .origin-row {
+            display: flex !important;
+            flex-direction: column;
+            align-items: stretch !important;
+          }
+          .origin-index {
+            height: 36px !important;
+          }
+          .weight-input-wrap,
+          .remove-btn {
+            width: 100%;
+          }
+          .deploy-bar {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 12px;
+          }
+          .deploy-actions {
+            width: 100%;
+          }
+          .deploy-actions :global(button) {
+            flex: 1;
+          }
         }
       `}</style>
     </div>
