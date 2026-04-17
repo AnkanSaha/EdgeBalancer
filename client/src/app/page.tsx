@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/shared/Logo';
 import { Icons } from '@/components/shared/Icons';

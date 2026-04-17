@@ -1,13 +1,13 @@
 'use client';
 
-import { Logo } from '@/components/shared/Icons';
+import { Logo } from '@/components/shared/Logo';
 import { Icons } from '@/components/shared/Icons';
 
 interface SidebarProps {
   current: string;
   onNav: (id: string) => void;
   onLogout: () => void;
-  userEmail?: string;
+  userEmail?: string | null;
 }
 
 export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) => {

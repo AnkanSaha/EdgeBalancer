@@ -198,7 +198,7 @@ export default function DashboardPage() {
                   { l: 'Active balancers', v: loadBalancers.filter(b => b.status === 'active').length, sub: `of ${loadBalancers.length} total` },
                   { l: 'Requests (24h)', v: '—', sub: 'metrics coming soon' },
                   { l: 'Global p50', v: '—', sub: 'metrics coming soon' },
-                  { l: 'Origins total', v: loadBalancers.reduce((a, b) => a + b.originCount, 0), sub: 'all checks passing', color: 'var(--green)' },
+                  { l: 'Origins total', v: loadBalancers.reduce((a, b) => a + (b.originCount || 0), 0), sub: 'all checks passing', color: 'var(--green)' },
                 ].map((s, i) => (
                   <div key={i} className="card" style={{ padding: 20 }}>
                     <div className="kicker">{s.l}</div>
