@@ -2,11 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { AuthLayout, GoogleG, Divider } from '@/components/auth/AuthLayout';
+import { Icons } from '@/components/shared/Icons';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import toast from 'react-hot-toast';
 
@@ -14,39 +12,23 @@ export default function LoginPage() {
   const router = useRouter();
   const { user, login, loginWithGoogle, loading: authLoading } = useAuth();
   const googleAuthEnabled = isFirebaseConfigured();
-  
-  const [loading, setLoading] = useState(false);
-  const [showEmailForm, setShowEmailForm] = useState(false);
-  
-  // Email form state
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Redirect if already logged in
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
+
   useEffect(() => {
     if (!authLoading && user) {
       router.push('/dashboard');
     }
   }, [user, authLoading, router]);
 
-  const validateEmailForm = () => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.email || !/^\S+@\S+\.\S+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
-    }
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateEmailForm()) return;
+    if (!formData.email || !formData.password) {
+      toast.error('Please fill in all fields');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -75,96 +57,94 @@ export default function LoginPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: 48, height: 48, margin: '0 auto 16px',
+            border: '2px solid var(--line)', borderTopColor: 'var(--accent)',
+            borderRadius: '50%', animation: 'spin 0.9s linear infinite',
+          }} />
+          <p style={{ color: 'var(--text-3)' }}>Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-white">Welcome back</h1>
-          <p className="text-slate-400 mt-2 font-medium">Sign in to your account</p>
-        </div>
+    <AuthLayout step="signin" onBack={() => router.push('/')}>
+      <form onSubmit={handleEmailSubmit}>
+        <div className="kicker" style={{ marginBottom: 8 }}>// Welcome back</div>
+        <h2 style={{ fontSize: 32, letterSpacing: '-0.03em', margin: 0, lineHeight: 1.1 }}>
+          Sign in
+        </h2>
+        <p style={{ color: 'var(--text-3)', fontSize: 14, marginTop: 8, marginBottom: 24 }}>
+          Sign in to your account.
+        </p>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl transition-all duration-500">
-          {/* Google Login */}
-          {googleAuthEnabled && (
-            <div className="space-y-4">
-              <GoogleAuthButton busy={loading} label="Continue with Google" onClick={handleGoogleSignIn} />
+        {googleAuthEnabled && (
+          <>
+            <button type="button" className="btn btn-dark btn-lg"
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              style={{ width: '100%', justifyContent: 'center', marginBottom: 18 }}>
+              <GoogleG /> Continue with Google
+            </button>
 
-              {!showEmailForm && (
-                <div className="pt-2 text-center">
-                  <button 
-                    onClick={() => setShowEmailForm(true)}
-                    className="text-[10px] font-black text-slate-500 hover:text-white transition-colors uppercase tracking-widest"
-                  >
-                    Or use email and password
-                  </button>
-                </div>
-              )}
+            <Divider label="Or use email and password" />
+          </>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="field">
+            <label className="field-label">Email</label>
+            <input className="input" type="email" placeholder="ada@example.com"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              required />
+          </div>
+          <div className="field">
+            <label className="field-label">Password</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                className="input input-mono"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••••••"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                required
+                style={{ paddingRight: 44 }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute', right: 12, top: '50%',
+                  transform: 'translateY(-50%)', color: 'var(--text-3)',
+                }}>
+                {showPassword ? <Icons.EyeOff size={16} /> : <Icons.Eye size={16} />}
+              </button>
             </div>
-          )}
+          </div>
 
-          {/* Email Method */}
-          {(!googleAuthEnabled || showEmailForm) && (
-            <div className={googleAuthEnabled ? 'mt-8 animate-in fade-in slide-in-from-top-2 duration-500' : ''}>
-              {googleAuthEnabled && (
-                <div className="relative mb-8">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-800" />
-                  </div>
-                  <div className="relative flex justify-center text-[10px] uppercase tracking-widest">
-                    <span className="bg-slate-900 px-3 text-slate-500 font-bold">Email login</span>
-                  </div>
-                </div>
-              )}
+          <button
+            className="btn btn-primary btn-lg"
+            type="submit"
+            disabled={loading}
+            style={{ marginTop: 8, justifyContent: 'center' }}>
+            {loading ? 'Signing in...' : 'Sign in'} <Icons.Arrow size={14} />
+          </button>
 
-              <form onSubmit={handleEmailSubmit} className="space-y-5">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Email</label>
-                  <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    error={errors.email}
-                    placeholder="you@example.com"
-                    className="h-12 bg-slate-950 border-white/10 text-white placeholder:text-slate-600 focus:border-white transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Password</label>
-                  <Input
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    error={errors.password}
-                    placeholder="••••••••"
-                    className="h-12 bg-slate-950 border-white/10 text-white placeholder:text-slate-600 focus:border-white transition-all"
-                  />
-                </div>
-
-                <Button type="submit" className="w-full h-12 font-black bg-white text-black hover:bg-slate-200 transition-all rounded-xl shadow-lg" disabled={loading}>
-                  {loading ? 'Processing...' : 'Sign In'}
-                </Button>
-              </form>
-            </div>
-          )}
-
-          <p className="mt-8 text-center text-sm text-slate-400 font-medium">
+          <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-3)', marginTop: 8 }}>
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-white font-bold hover:underline">
+            <button
+              type="button"
+              onClick={() => router.push('/register')}
+              style={{ color: 'var(--accent)', fontWeight: 500 }}>
               Create account
-            </Link>
-          </p>
+            </button>
+          </div>
         </div>
-      </div>
-    </div>
+      </form>
+    </AuthLayout>
   );
 }

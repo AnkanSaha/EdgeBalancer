@@ -1,16 +1,110 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
-import { LoadBalancerForm } from '@/components/loadbalancers/LoadBalancerForm';
-import { Button } from '@/components/ui/Button';
-import type { CreateLoadBalancerRequest } from '@/types/api';
+import { Sidebar, Topbar } from '@/components/dashboard/Sidebar';
+import { Icons } from '@/components/shared/Icons';
+import { DeploymentOverlay } from '@/components/loadbalancers/DeploymentExperience';
+import toast from 'react-hot-toast';
+
+const STRATEGIES = [
+  { id: 'round-robin', title: 'Round Robin', desc: 'Rotate requests across origins in edge-local sequence.', icon: 'Refresh' },
+  { id: 'weighted-rr', title: 'Weighted Round Robin', desc: 'Bias traffic toward stronger origins with per-server weights.', icon: 'Activity' },
+  { id: 'ip-hash', title: 'IP Hash', desc: 'Send the same client IP back to the same origin whenever possible.', icon: 'Key' },
+  { id: 'sticky', title: 'Sticky Session', desc: 'Set a cookie so repeat visitors stay on the same origin.', icon: 'Link' },
+  { id: 'weighted-sticky', title: 'Weighted Sticky', desc: 'Assign first visit by weight, then keep that visitor pinned with a cookie.', icon: 'Layers' },
+  { id: 'failover', title: 'Failover', desc: 'Try origins in order and move to the next one when an origin fails.', icon: 'Shield' },
+  { id: 'geo', title: 'Geo Steering', desc: 'Route by Cloudflare country, colo, or continent matches before falling back.', icon: 'Globe' },
+];
+
+const STEPS = [
+  { n: 1, label: 'Name' },
+  { n: 2, label: 'Domain' },
+  { n: 3, label: 'Subdomain' },
+  { n: 4, label: 'Origins' },
+  { n: 5, label: 'Strategy' },
+  { n: 6, label: 'Placement' },
+];
+
+interface StepIndicatorProps {
+  n: number;
+  active: boolean;
+  done: boolean;
+  label: string;
+  onJump: () => void;
+}
+
+const StepIndicator = ({ n, active, done, label, onJump }: StepIndicatorProps) => (
+  <button onClick={onJump} style={{
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '8px 12px', borderRadius: 'var(--radius)',
+    background: active ? 'var(--accent-dim)' : 'transparent',
+    border: `1px solid ${active ? 'var(--accent)' : 'transparent'}`,
+    color: active ? 'var(--text)' : (done ? 'var(--text-2)' : 'var(--text-3)'),
+    textAlign: 'left', fontSize: 13,
+  }}>
+    <div style={{
+      width: 22, height: 22, borderRadius: '50%',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: active ? 'var(--accent)' : (done ? 'oklch(0.78 0.14 150 / 0.15)' : 'var(--bg-2)'),
+      color: active ? 'oklch(0.18 0.02 60)' : (done ? 'var(--green)' : 'var(--text-3)'),
+      border: `1px solid ${done ? 'var(--green)' : (active ? 'var(--accent)' : 'var(--line)')}`,
+      fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600,
+      flexShrink: 0,
+    }}>
+      {done ? <Icons.Check size={12} strokeWidth={2.4} /> : n}
+    </div>
+    {label}
+  </button>
+);
+
+interface FieldBlockProps {
+  n: number;
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}
+
+const FieldBlock = ({ n, title, subtitle, children }: FieldBlockProps) => (
+  <div style={{
+    padding: 24, border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)',
+    background: 'var(--bg-1)',
+  }}>
+    <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+      <div style={{
+        minWidth: 28, height: 28, borderRadius: 6,
+        background: 'var(--accent-dim)', color: 'var(--accent)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600,
+        border: '1px solid var(--accent)',
+      }}>{n}</div>
+      <div>
+        <h3 style={{ margin: 0, fontSize: 16, letterSpacing: '-0.01em', fontWeight: 500 }}>{title}</h3>
+        <div style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 4 }}>{subtitle}</div>
+      </div>
+    </div>
+    <div>{children}</div>
+  </div>
+);
 
 export default function CreateLoadBalancerPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+
+  const [activeStep, setActiveStep] = useState(1);
+  const [deploying, setDeploying] = useState(false);
+  const [zones, setZones] = useState<any[]>([]);
+  const [form, setForm] = useState({
+    name: '',
+    zoneId: '',
+    subdomain: '',
+    origins: [{ id: 1, url: '', weight: 100 }],
+    strategy: 'round-robin',
+    smartPlacement: true,
+    placementHint: '',
+  });
 
   useEffect(() => {
     if (!user) {
@@ -21,53 +115,494 @@ export default function CreateLoadBalancerPage() {
       router.push('/onboarding');
       return;
     }
+    fetchZones();
   }, [user, router]);
 
-  const handleSubmit = async (payload: CreateLoadBalancerRequest, operationId: string) => {
-    const response = await api.createLoadBalancer(payload, {
-      headers: {
-        'x-operation-id': operationId,
-      },
-    });
-    if (!response.success || !response.data?.loadBalancer) {
-      throw new Error(response.message || 'Failed to create load balancer');
+  const fetchZones = async () => {
+    try {
+      const response = await api.getCloudflareZones();
+      if (response.success && response.data?.zones) {
+        setZones(response.data.zones);
+      }
+    } catch (error: any) {
+      toast.error('Failed to fetch Cloudflare zones');
     }
-
-    return {
-      name: response.data.loadBalancer.name,
-      fullDomain: response.data.loadBalancer.fullDomain,
-    };
   };
 
+  const update = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
+
+  const addOrigin = () => {
+    setForm(f => ({ ...f, origins: [...f.origins, { id: Date.now(), url: '', weight: 100 }] }));
+  };
+
+  const removeOrigin = (id: number) => {
+    setForm(f => ({ ...f, origins: f.origins.length > 1 ? f.origins.filter(s => s.id !== id) : f.origins }));
+  };
+
+  const updateOrigin = (id: number, patch: any) => {
+    setForm(f => ({ ...f, origins: f.origins.map(s => s.id === id ? { ...s, ...patch } : s) }));
+  };
+
+  const nameValid = /^[a-z0-9-]+$/.test(form.name) && form.name.length > 2;
+  const zoneValid = !!form.zoneId;
+  const originsValid = form.origins.every(s => s.url.trim().length > 0);
+  const allValid = nameValid && zoneValid && originsValid;
+
+  const selectedZone = zones.find(z => z.id === form.zoneId);
+  const fullHost = selectedZone
+    ? (form.subdomain ? `${form.subdomain}.${selectedZone.name}` : selectedZone.name)
+    : '—';
+
+  const deploy = async () => {
+    if (!allValid) return;
+
+    setDeploying(true);
+    try {
+      const payload = {
+        name: form.name,
+        zoneId: form.zoneId,
+        subdomain: form.subdomain,
+        origins: form.origins.map(o => ({ url: o.url, weight: o.weight })),
+        strategy: form.strategy,
+        smartPlacement: form.smartPlacement,
+        placementHint: form.placementHint,
+      };
+
+      const operationId = `create-${Date.now()}`;
+      const response = await api.createLoadBalancer(payload, {
+        headers: { 'x-operation-id': operationId },
+      });
+
+      if (response.success) {
+        toast.success('Load balancer deployed successfully!');
+        setTimeout(() => router.push('/dashboard'), 1500);
+      } else {
+        throw new Error(response.message || 'Deployment failed');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to deploy load balancer');
+      setDeploying(false);
+    }
+  };
+
+  const showWeights = form.strategy === 'weighted-rr' || form.strategy === 'weighted-sticky';
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b border-border bg-card">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="outline" 
-              onClick={() => router.push('/dashboard')}
-            >
-              ← Back
-            </Button>
-            <div>
-              <h1 className="text-xl font-bold">Create Load Balancer</h1>
-              <p className="text-sm text-muted-foreground">
-                Deploy a new Cloudflare Worker-based load balancer with live origin routing.
-              </p>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+      <aside style={{
+        width: 280, borderRight: '1px solid var(--line)',
+        padding: '32px 20px', position: 'sticky', top: 0, height: '100vh',
+        display: 'flex', flexDirection: 'column', gap: 24,
+      }} className="hide-md">
+        <button onClick={() => router.push('/dashboard')} style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)',
+          textTransform: 'uppercase', letterSpacing: '0.06em',
+        }}>
+          <Icons.Arrow size={12} style={{ transform: 'rotate(180deg)' }} /> Back to dashboard
+        </button>
+
+        <div>
+          <div className="kicker" style={{ marginBottom: 8 }}>// create new</div>
+          <h2 style={{ margin: 0, fontSize: 20, letterSpacing: '-0.02em', fontWeight: 500 }}>
+            Load Balancer
+          </h2>
+          <div style={{ color: 'var(--text-3)', fontSize: 12, marginTop: 6, lineHeight: 1.5 }}>
+            Deploy a new Cloudflare Worker-based load balancer with live origin routing.
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {STEPS.map(s => (
+            <StepIndicator
+              key={s.n} n={s.n} label={s.label}
+              active={activeStep === s.n}
+              done={activeStep > s.n}
+              onJump={() => setActiveStep(s.n)}
+            />
+          ))}
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        <div style={{
+          padding: 14, border: '1px solid var(--line)', borderRadius: 'var(--radius)',
+          background: 'var(--bg-1)',
+        }}>
+          <div className="kicker" style={{ marginBottom: 10 }}>// preview</div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-2)', lineHeight: 1.7 }}>
+            <div>name: <span style={{ color: form.name ? 'var(--accent)' : 'var(--text-3)' }}>{form.name || '—'}</span></div>
+            <div>host: <span style={{ color: selectedZone ? 'var(--accent)' : 'var(--text-3)' }}>{fullHost}</span></div>
+            <div>origins: <span style={{ color: 'var(--accent)' }}>{form.origins.filter(s => s.url).length}</span></div>
+            <div>strategy: <span style={{ color: 'var(--accent)' }}>{form.strategy}</span></div>
+          </div>
+        </div>
+      </aside>
+
+      <main style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+        <Topbar
+          crumbs={['Dashboard', 'Load Balancers', 'New']}
+          title="Create Load Balancer"
+          subtitle="Deploy a new Cloudflare Worker-based load balancer with live origin routing."
+          actions={
+            <>
+              <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard')}>Cancel</button>
+              <button
+                className="btn btn-primary btn-sm"
+                disabled={!allValid || deploying}
+                onClick={deploy}
+                style={{ opacity: (!allValid || deploying) ? 0.5 : 1 }}>
+                {deploying ? (
+                  <>
+                    <span style={{
+                      width: 12, height: 12, border: '2px solid currentColor',
+                      borderRightColor: 'transparent', borderRadius: '50%',
+                      animation: 'spin 0.7s linear infinite',
+                    }} />
+                    Deploying…
+                  </>
+                ) : (
+                  <>
+                    <Icons.Zap size={14} /> Deploy worker
+                  </>
+                )}
+              </button>
+            </>
+          }
+        />
+
+        <div style={{ padding: '32px', maxWidth: 820, display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <FieldBlock n={1} title="Load Balancer Name"
+            subtitle="Choose the exact Cloudflare Worker name used for this deployment">
+            <div className="field">
+              <label className="field-label">Name <span className="req">*</span></label>
+              <input
+                className="input input-mono"
+                placeholder="e.g., production-api"
+                value={form.name}
+                onChange={e => {
+                  const v = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                  update('name', v);
+                  setActiveStep(1);
+                }}
+                onFocus={() => setActiveStep(1)}
+              />
+              <div className="hint">
+                Lowercase letters, numbers, and hyphens only. This is deployed as the exact Worker script name.
+              </div>
+              {form.name && !nameValid && (
+                <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>
+                  Name must be at least 3 characters.
+                </div>
+              )}
+            </div>
+          </FieldBlock>
+
+          <FieldBlock n={2} title="Domain Selection"
+            subtitle="Pick the Cloudflare zone that should point at this load balancer">
+            <div className="field">
+              <label className="field-label">Domain</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
+                {zones.map(z => {
+                  const active = form.zoneId === z.id;
+                  return (
+                    <button
+                      key={z.id}
+                      onClick={() => { update('zoneId', z.id); setActiveStep(2); }}
+                      disabled={z.status !== 'active'}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: 12, borderRadius: 'var(--radius)',
+                        border: `1px solid ${active ? 'var(--accent)' : 'var(--line)'}`,
+                        background: active ? 'var(--accent-dim)' : 'var(--bg-2)',
+                        textAlign: 'left', opacity: z.status === 'active' ? 1 : 0.4,
+                      }}>
+                      <Icons.Globe size={14} stroke={active ? 'var(--accent)' : 'var(--text-3)'} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="mono" style={{ fontSize: 13, fontWeight: 500, color: active ? 'var(--text)' : 'var(--text-2)' }}>
+                          {z.name}
+                        </div>
+                        <div className="mono" style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase' }}>
+                          {z.status}
+                        </div>
+                      </div>
+                      {active && <Icons.Check size={14} stroke="var(--accent)" />}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="hint">Zones are fetched from your connected Cloudflare account.</div>
+            </div>
+          </FieldBlock>
+
+          <FieldBlock n={3} title="Subdomain"
+            subtitle="Optional hostname prefix for the active edge route">
+            <div className="field">
+              <label className="field-label">Subdomain</label>
+              <div style={{
+                display: 'flex', alignItems: 'stretch',
+                border: '1px solid var(--line)', borderRadius: 'var(--radius)',
+                background: 'var(--bg-1)', overflow: 'hidden',
+              }}>
+                <input
+                  className="input input-mono"
+                  placeholder="api"
+                  value={form.subdomain}
+                  onChange={e => update('subdomain', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  onFocus={() => setActiveStep(3)}
+                  style={{ border: 'none', background: 'transparent', flex: 1 }}
+                />
+                <div style={{
+                  display: 'flex', alignItems: 'center', padding: '0 16px',
+                  fontFamily: 'var(--mono)', fontSize: 13,
+                  color: 'var(--text-3)', borderLeft: '1px solid var(--line)',
+                  background: 'var(--bg-2)',
+                }}>
+                  .{selectedZone?.name || 'select-domain.com'}
+                </div>
+              </div>
+              <div className="hint">
+                Your balancer will serve at{' '}
+                <span className="mono" style={{ color: 'var(--accent)' }}>https://{fullHost}</span>
+              </div>
+            </div>
+          </FieldBlock>
+
+          <FieldBlock n={4} title="Origin Servers"
+            subtitle="Add, remove, or rebalance the backends that receive traffic">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {form.origins.map((s, i) => (
+                <div key={s.id} style={{
+                  display: 'grid',
+                  gridTemplateColumns: showWeights ? '56px 1fr 110px 40px' : '56px 1fr 40px',
+                  gap: 8, alignItems: 'center',
+                }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    height: 44, border: '1px solid var(--line)',
+                    borderRadius: 'var(--radius)', background: 'var(--bg-2)',
+                    fontFamily: 'var(--mono)', fontSize: 11,
+                    color: 'var(--text-3)', textTransform: 'uppercase',
+                  }}>#{i + 1}</div>
+                  <input
+                    className="input input-mono"
+                    placeholder="http://192.168.1.100 or https://origin.example.com"
+                    value={s.url}
+                    onChange={e => updateOrigin(s.id, { url: e.target.value })}
+                    onFocus={() => setActiveStep(4)}
+                  />
+                  {showWeights && (
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        className="input input-mono"
+                        type="number" min={0} max={1000}
+                        value={s.weight}
+                        onChange={e => updateOrigin(s.id, { weight: +e.target.value || 0 })}
+                        style={{ paddingRight: 32 }}
+                      />
+                      <span style={{
+                        position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                        fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)',
+                      }}>wt</span>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => removeOrigin(s.id)}
+                    disabled={form.origins.length === 1}
+                    style={{
+                      height: 44, borderRadius: 'var(--radius)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--text-3)',
+                      opacity: form.origins.length === 1 ? 0.3 : 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                    <Icons.Trash size={14} />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={addOrigin}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  gap: 8, padding: '12px', borderRadius: 'var(--radius)',
+                  border: '1px dashed var(--line-2)', color: 'var(--text-2)',
+                  fontSize: 13,
+                }}>
+                <Icons.Plus size={14} /> Add Server
+              </button>
+            </div>
+          </FieldBlock>
+
+          <FieldBlock n={5} title="Traffic Strategy"
+            subtitle="Switch how requests are distributed across your origin fleet">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
+              {STRATEGIES.map(s => {
+                const Ico = Icons[s.icon as keyof typeof Icons];
+                const active = form.strategy === s.id;
+                return (
+                  <button key={s.id}
+                    onClick={() => { update('strategy', s.id); setActiveStep(5); }}
+                    style={{
+                      textAlign: 'left', padding: 14,
+                      borderRadius: 'var(--radius)',
+                      border: `1px solid ${active ? 'var(--accent)' : 'var(--line)'}`,
+                      background: active ? 'var(--accent-dim)' : 'var(--bg-2)',
+                      display: 'flex', gap: 12, alignItems: 'flex-start',
+                    }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: 6,
+                      border: `1px solid ${active ? 'var(--accent)' : 'var(--line-2)'}`,
+                      background: active ? 'oklch(0.80 0.17 70 / 0.25)' : 'var(--bg)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0,
+                    }}>
+                      <Ico size={14} stroke={active ? 'var(--accent)' : 'var(--text-2)'} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4, color: active ? 'var(--text)' : 'var(--text-2)' }}>
+                        {s.title}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.45 }}>{s.desc}</div>
+                    </div>
+                    <div style={{
+                      width: 14, height: 14, borderRadius: '50%',
+                      border: `1.5px solid ${active ? 'var(--accent)' : 'var(--line-2)'}`,
+                      background: active ? 'var(--accent)' : 'transparent',
+                      flexShrink: 0, marginTop: 2,
+                      position: 'relative',
+                    }}>
+                      {active && (
+                        <div style={{
+                          position: 'absolute', inset: 3,
+                          borderRadius: '50%', background: 'oklch(0.18 0.02 60)',
+                        }} />
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </FieldBlock>
+
+          <FieldBlock n={6} title="Worker Placement"
+            subtitle="Tune where the Worker executes relative to your origin infrastructure">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <label style={{
+                display: 'flex', gap: 14, padding: 16,
+                border: `1px solid ${form.smartPlacement ? 'var(--accent)' : 'var(--line)'}`,
+                background: form.smartPlacement ? 'var(--accent-dim)' : 'var(--bg-2)',
+                borderRadius: 'var(--radius)', cursor: 'pointer',
+              }} onClick={() => setActiveStep(6)}>
+                <div style={{
+                  width: 36, height: 20, flexShrink: 0,
+                  borderRadius: 999,
+                  background: form.smartPlacement ? 'var(--accent)' : 'var(--bg-3)',
+                  position: 'relative', transition: 'background 160ms',
+                }}>
+                  <div style={{
+                    position: 'absolute', top: 2, left: form.smartPlacement ? 18 : 2,
+                    width: 16, height: 16, borderRadius: '50%',
+                    background: 'var(--bg)', transition: 'left 160ms',
+                  }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>Smart Placement</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
+                    Run the Worker closer to your origins to reduce backend latency.
+                  </div>
+                </div>
+                <input
+                  type="checkbox" checked={form.smartPlacement}
+                  onChange={e => update('smartPlacement', e.target.checked)}
+                  style={{ display: 'none' }}
+                />
+              </label>
+
+              <div className="field">
+                <label className="field-label">Placement Hint</label>
+                <input
+                  className="input input-mono"
+                  placeholder="e.g., aws:us-east-1, gcp:europe-west1, azure:eastus2"
+                  value={form.placementHint}
+                  onChange={e => update('placementHint', e.target.value)}
+                  onFocus={() => setActiveStep(6)}
+                />
+                <div className="hint">
+                  Optional provider region hint for deployments that need to stay close to a specific origin geography.
+                </div>
+              </div>
+            </div>
+          </FieldBlock>
+
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '16px 20px', border: '1px solid var(--line)',
+            borderRadius: 'var(--radius-lg)', background: 'var(--bg-1)',
+          }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-3)' }}>
+              {allValid ? (
+                <><span style={{ color: 'var(--green)' }}>✓</span> Ready to deploy • ~90s</>
+              ) : (
+                <>Complete required fields to deploy</>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-ghost" onClick={() => router.push('/dashboard')}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                disabled={!allValid || deploying}
+                onClick={deploy}
+                style={{ opacity: (!allValid || deploying) ? 0.5 : 1 }}>
+                {deploying ? (
+                  <>
+                    <span style={{
+                      width: 14, height: 14, border: '2px solid currentColor',
+                      borderRightColor: 'transparent', borderRadius: '50%',
+                      animation: 'spin 0.7s linear infinite',
+                    }} />
+                    Deploying worker…
+                  </>
+                ) : (
+                  <>
+                    <Icons.Zap size={14} /> Deploy load balancer
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
-      </div>
 
-      <main className="max-w-4xl mx-auto px-6 py-12">
-        <LoadBalancerForm
-          mode="create"
-          onCancel={() => router.push('/dashboard')}
-          onSuccess={() => router.push('/dashboard')}
-          onSubmit={handleSubmit}
-        />
+        {deploying && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'oklch(0.17 0.008 60 / 0.85)',
+            backdropFilter: 'blur(8px)', zIndex: 100,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <div style={{
+              background: 'var(--bg-1)', border: '1px solid var(--line-2)',
+              borderRadius: 'var(--radius-lg)', padding: 40, maxWidth: 440, width: '90%',
+              textAlign: 'center',
+            }}>
+              <div style={{
+                width: 48, height: 48, margin: '0 auto 24px',
+                border: '2px solid var(--line)', borderTopColor: 'var(--accent)',
+                borderRadius: '50%', animation: 'spin 0.9s linear infinite',
+              }} />
+              <div className="kicker" style={{ color: 'var(--accent)', marginBottom: 8 }}>// deploying</div>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>{form.name}</h3>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>
+                {fullHost}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
+
+      <style jsx>{`
+        @media (max-width: 900px) {
+          .hide-md { display: none; }
+        }
+      `}</style>
     </div>
   );
 }

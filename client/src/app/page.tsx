@@ -1,294 +1,328 @@
 'use client';
 
 import Link from 'next/link';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { useRouter } from 'next/navigation';
+import { Logo } from '@/components/shared/Logo';
+import { Icons } from '@/components/shared/Icons';
+import { FlowDiagram } from '@/components/landing/FlowDiagram';
 
 export default function LandingPage() {
+  const router = useRouter();
+
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans">
-      {/* Navigation */}
-      <nav className="sticky top-0 z-50 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto max-w-7xl px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <svg className="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-              </svg>
-              <span className="text-xl font-bold">EdgeBalancer</span>
-            </div>
-            <div className="flex items-center gap-6">
-              <Link href="#pricing" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Pricing</Link>
-              <Link href="/login">
-                <Button variant="outline">Sign In</Button>
-              </Link>
-              <Link href="/register">
-                <Button>Get Started</Button>
-              </Link>
-            </div>
+    <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
+      <div className="grid-bg" />
+      <div className="topo" />
+
+      {/* Nav */}
+      <nav style={{
+        position: 'relative', zIndex: 10,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '20px 48px', borderBottom: '1px solid var(--line)',
+      }}>
+        <Logo />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="hide-sm" style={{ display: 'flex', gap: 20, marginRight: 16, fontSize: 13, color: 'var(--text-2)' }}>
+            <a href="#strategies" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>Strategies</a>
+            <a href="#pricing" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>Pricing</a>
+            <a href="#faq" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>FAQ</a>
           </div>
+          <button className="btn btn-ghost btn-sm" onClick={() => router.push('/login')}>Sign in</button>
+          <button className="btn btn-primary btn-sm" onClick={() => router.push('/register')}>
+            Get started <Icons.Arrow size={14} />
+          </button>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/5 to-background" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
-        
-        <div className="relative mx-auto max-w-7xl px-6 py-24 sm:py-32 lg:py-40 lg:px-8">
-          <div className="mx-auto max-w-3xl text-center">
-            <div className="mb-8 inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
-              <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              Powered by Cloudflare Workers
-            </div>
-            
-            <h1 className="text-5xl font-bold tracking-tight sm:text-7xl bg-gradient-to-r from-foreground via-foreground to-foreground/70 bg-clip-text text-transparent mb-6 leading-tight">
-              Load Balancing <br />
-              <span className="text-primary">for Solo Developers</span>
-            </h1>
-            
-            <p className="mt-6 text-xl leading-8 text-muted-foreground max-w-2xl mx-auto">
-              Deploy global load balancers to 300+ cities in seconds. 
-              Save hundreds of dollars compared to traditional providers.
-            </p>
-            
-            <div className="mt-10 flex items-center justify-center gap-x-6">
-              <Link href="/register">
-                <Button size="lg" className="text-lg px-8 py-6 h-auto">
-                  Start for $2/mo
-                  <svg className="ml-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                </Button>
-              </Link>
-              <Link href="#pricing">
-                <Button variant="outline" size="lg" className="text-lg px-8 py-6 h-auto">
-                  Compare Savings
-                </Button>
-              </Link>
-            </div>
-
-            {/* Stats */}
-            <div className="mt-16 grid grid-cols-3 gap-8 text-center">
-              <div>
-                <div className="text-4xl font-bold text-primary">300+</div>
-                <div className="text-sm text-muted-foreground mt-1">Edge Locations</div>
-              </div>
-              <div>
-                <div className="text-4xl font-bold text-primary">&lt;50ms</div>
-                <div className="text-sm text-muted-foreground mt-1">Global Latency</div>
-              </div>
-              <div>
-                <div className="text-4xl font-bold text-primary">99.99%</div>
-                <div className="text-sm text-muted-foreground mt-1">Uptime SLA</div>
-              </div>
-            </div>
+      {/* Hero */}
+      <section style={{
+        position: 'relative', zIndex: 5,
+        maxWidth: 1200, margin: '0 auto',
+        padding: '96px 48px 64px',
+        display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 64, alignItems: 'center',
+      }} className="hero-grid">
+        <div>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 10,
+            padding: '6px 12px', border: '1px solid var(--line-2)',
+            borderRadius: 999, background: 'var(--bg-1)',
+            fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-2)',
+            marginBottom: 24,
+          }}>
+            <span style={{
+              width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)',
+              boxShadow: '0 0 8px var(--accent)',
+            }} />
+            A gateway for Cloudflare Workers
           </div>
-        </div>
-      </section>
-
-      {/* Solo Dev focus Section */}
-      <section className="py-24 bg-card/30">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div>
-              <h2 className="text-base font-semibold leading-7 text-primary">Optimized for Small Scale</h2>
-              <p className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl text-foreground">
-                Why pay for idle infrastructure?
-              </p>
-              <p className="mt-6 text-lg leading-8 text-muted-foreground">
-                AWS ALB and Google Cloud charge you <strong>$18-$25 every month</strong> just to keep a load balancer running, even with zero traffic. 
-                EdgeBalancer leverages Cloudflare Workers to give you elite performance at a fraction of the cost.
-              </p>
-              
-              <div className="mt-10 space-y-4">
-                <div className="flex items-center gap-4 p-4 bg-background border border-border/50 rounded-2xl">
-                  <div className="h-10 w-10 bg-primary/10 text-primary rounded-lg flex items-center justify-center font-bold">✓</div>
-                  <div className="text-foreground font-medium">100,000 Free Requests every single day</div>
-                </div>
-                <div className="flex items-center gap-4 p-4 bg-background border border-border/50 rounded-2xl">
-                  <div className="h-10 w-10 bg-primary/10 text-primary rounded-lg flex items-center justify-center font-bold">✓</div>
-                  <div className="text-foreground font-medium">Just $2/month for EdgeBalancer management</div>
-                </div>
-              </div>
-            </div>
-
-            <Card className="p-0 overflow-hidden border-primary/20 shadow-2xl bg-card">
-              <div className="bg-primary/10 p-6 border-b border-border/50">
-                <h3 className="text-foreground font-bold text-lg flex items-center gap-2">
-                  Cloudflare Workers Limits
-                </h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left border-collapse">
-                  <thead>
-                    <tr className="bg-muted/50 border-b border-border">
-                      <th className="p-4 font-semibold text-foreground">Feature</th>
-                      <th className="p-4 font-semibold text-foreground">Free Tier</th>
-                      <th className="p-4 font-semibold text-primary">Paid ($5/mo)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-muted-foreground font-medium">
-                    <tr className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                      <td className="p-4">Requests</td>
-                      <td className="p-4">100,000 / day</td>
-                      <td className="p-4 text-primary">Unlimited*</td>
-                    </tr>
-                    <tr className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                      <td className="p-4">CPU Time</td>
-                      <td className="p-4">10ms / request</td>
-                      <td className="p-4">up to 5 min</td>
-                    </tr>
-                    <tr className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                      <td className="p-4">Memory</td>
-                      <td className="p-4">128 MB</td>
-                      <td className="p-4">128 MB</td>
-                    </tr>
-                    <tr className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                      <td className="p-4">Concurrent Conn.</td>
-                      <td className="p-4">6</td>
-                      <td className="p-4">10,000+</td>
-                    </tr>
-                    <tr className="hover:bg-muted/30 transition-colors">
-                      <td className="p-4">Max Workers</td>
-                      <td className="p-4">100</td>
-                      <td className="p-4">500</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div className="p-4 bg-primary/5 text-primary text-xs font-semibold text-center">
-                * Cloudflare Paid plan is billed directly by Cloudflare.
-              </div>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Comparison Section */}
-      <section id="pricing" className="py-24 sm:py-32">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center mb-16">
-            <h2 className="text-base font-semibold leading-7 text-primary">Pricing</h2>
-            <p className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl text-foreground">
-              Massive Savings for Small Traffic
-            </p>
-            <p className="mt-6 text-lg leading-8 text-muted-foreground">
-              Compare the monthly base price of idle load balancers
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto items-center">
-            {/* AWS */}
-            <Card className="p-8 border-border/40 bg-card/50">
-              <div className="text-center">
-                <h3 className="text-xl font-semibold mb-2">AWS ALB</h3>
-                <div className="text-4xl font-bold text-muted-foreground mb-2">$18 - $25</div>
-                <div className="text-sm text-muted-foreground">/month base</div>
-                <ul className="mt-8 space-y-4 text-sm text-muted-foreground text-left">
-                  <li className="flex items-start gap-2">
-                    <span className="text-destructive font-bold">✕</span> Regional only
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-destructive font-bold">✕</span> LCU capacity charges
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-destructive font-bold">✕</span> Complex IAM setup
-                  </li>
-                </ul>
-              </div>
-            </Card>
-
-            {/* EdgeBalancer */}
-            <Card className="p-10 border-primary shadow-xl bg-card relative scale-110 z-10 border-2">
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground px-4 py-1 rounded-full text-sm font-semibold">
-                Best for Solo Devs
-              </div>
-              <div className="text-center">
-                <h3 className="text-xl font-semibold mb-2 text-foreground">EdgeBalancer</h3>
-                <div className="text-5xl font-bold text-primary mb-2">$2</div>
-                <div className="text-sm text-muted-foreground font-medium">/month per LB</div>
-                <ul className="mt-8 space-y-4 text-sm text-left font-medium">
-                  <li className="flex items-center gap-2">
-                    <span className="text-primary font-bold">✓</span> Global Anycast Network
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-primary font-bold">✓</span> Free 100k daily reqs
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-primary font-bold">✓</span> Integrated WAF Security
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-primary font-bold">✓</span> Instant Pause/Resume
-                  </li>
-                </ul>
-                <Link href="/register" className="mt-8 block">
-                  <Button className="w-full shadow-lg shadow-primary/20 h-12 text-base font-bold">Deploy Now</Button>
-                </Link>
-              </div>
-            </Card>
-
-            {/* Google Cloud */}
-            <Card className="p-8 border-border/40 bg-card/50">
-              <div className="text-center">
-                <h3 className="text-xl font-semibold mb-2">Google Cloud</h3>
-                <div className="text-4xl font-bold text-muted-foreground mb-2">$18+</div>
-                <div className="text-sm text-muted-foreground">/month base</div>
-                <ul className="mt-8 space-y-4 text-sm text-muted-foreground text-left">
-                  <li className="flex items-start gap-2">
-                    <span className="text-destructive font-bold">✕</span> Proxy instance costs
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-destructive font-bold">✕</span> Forwarding rule fees
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-destructive font-bold">✕</span> Ingress/Egress billing
-                  </li>
-                </ul>
-              </div>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-24 sm:py-32 bg-gradient-to-br from-primary/20 to-primary/5">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-bold tracking-tight sm:text-5xl text-foreground mb-6">
-            Scale Smarter, Not Harder
-          </h2>
-          <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            Stop overpaying for idle load balancers. Deploy to the edge for just $2/mo.
+          <h1 style={{
+            fontSize: 'clamp(44px, 5.5vw, 72px)', lineHeight: 0.98,
+            letterSpacing: '-0.035em', fontWeight: 500, margin: 0,
+          }}>
+            Turn a Worker
+            <br />
+            into a <span style={{ color: 'var(--accent)' }}>load balancer.</span>
+          </h1>
+          <p style={{
+            fontSize: 18, color: 'var(--text-2)', maxWidth: 520,
+            marginTop: 24, lineHeight: 1.5,
+          }}>
+            EdgeBalancer is a thin wrapper that converts your Cloudflare Worker into a
+            production load balancer — 7 routing strategies, health checks, per-origin
+            weights. No servers, no DevOps. Bring your API key and ship in 90 seconds.
           </p>
-          <Link href="/register">
-            <Button size="lg" className="text-lg px-12 py-7 h-auto font-bold shadow-xl shadow-primary/20">
-              Create Your First Balancer
-            </Button>
-          </Link>
-          <p className="mt-6 text-sm text-muted-foreground">
-            No hidden fees • Transparent Cloudflare Integration
-          </p>
+          <div style={{ display: 'flex', gap: 12, marginTop: 36, flexWrap: 'wrap' }}>
+            <button className="btn btn-primary btn-lg" onClick={() => router.push('/register')}>
+              Start free <Icons.Arrow size={16} />
+            </button>
+          </div>
+          <div style={{
+            display: 'flex', gap: 32, marginTop: 48,
+            fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)',
+            textTransform: 'uppercase', letterSpacing: '0.06em',
+          }}>
+            <div><span style={{ color: 'var(--accent)' }}>330+</span> PoPs</div>
+            <div><span style={{ color: 'var(--accent)' }}>~14ms</span> p50 rtt</div>
+            <div><span style={{ color: 'var(--accent)' }}>99.99%</span> uptime sla</div>
+          </div>
+        </div>
+
+        <FlowDiagram />
+      </section>
+
+      {/* Feature strip */}
+      <section style={{
+        position: 'relative', zIndex: 5,
+        maxWidth: 1200, margin: '0 auto', padding: '48px 48px 64px',
+      }}>
+        <div className="kicker" style={{ marginBottom: 24 }}>// How the gateway works</div>
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: 1, background: 'var(--line)', border: '1px solid var(--line)',
+          borderRadius: 'var(--radius-lg)', overflow: 'hidden',
+        }}>
+          {[
+            { icon: 'Key', title: '01 · Paste API token', desc: 'Scoped Workers + Zone edit token. Encrypted at rest.' },
+            { icon: 'Zap', title: '02 · Pick a strategy', desc: 'Round robin, weighted, IP hash, sticky, failover, geo-steering.' },
+            { icon: 'Globe', title: '03 · Deploy worker', desc: 'We compile + push a script to your account on 330+ PoPs.' },
+            { icon: 'Activity', title: '04 · You own it', desc: "Traffic never touches us. Delete the token, it's gone." },
+          ].map((f, i) => {
+            const Ico = Icons[f.icon as keyof typeof Icons];
+            return (
+              <div key={i} style={{ background: 'var(--bg)', padding: 28 }}>
+                <Ico size={20} stroke="var(--accent)" />
+                <div style={{ fontSize: 15, fontWeight: 500, marginTop: 20, letterSpacing: '-0.01em' }}>{f.title}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 6, lineHeight: 1.5 }}>{f.desc}</div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Why Workers — solo dev pitch */}
+      <section style={{
+        position: 'relative', zIndex: 5,
+        maxWidth: 1200, margin: '0 auto', padding: '48px 48px 48px',
+      }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 48, alignItems: 'start' }} className="two-col">
+          <div>
+            <div className="kicker" style={{ marginBottom: 16 }}>// built for solo devs</div>
+            <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 44px)', margin: 0, letterSpacing: '-0.03em', fontWeight: 500, lineHeight: 1.05 }}>
+              Free tier runs<br />a real website.<span style={{ color: 'var(--accent)' }}>.</span>
+            </h2>
+            <p style={{ fontSize: 15, color: 'var(--text-2)', marginTop: 20, lineHeight: 1.6, maxWidth: 420 }}>
+              Cloudflare Workers give you <span className="mono" style={{ color: 'var(--accent)' }}>100k requests/day</span> for
+              $0. Pay-as-you-go after that starts at <span className="mono" style={{ color: 'var(--accent)' }}>$5/mo</span>,
+              with 10M requests and 30M CPU-ms included. No idle charges. No DevOps.
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1, background: 'var(--line)', border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+            {[
+              { v: '100k', l: 'free requests / day', s: 'No credit card. Real production traffic.' },
+              { v: '$5', l: 'paid plan / month', s: 'Includes 10M req + 30M CPU-ms.' },
+              { v: '$0.30', l: 'per million req', s: 'Beyond the included pool.' },
+              { v: '~0ms', l: 'cold start', s: 'Isolates, not containers.' },
+            ].map((s, i) => (
+              <div key={i} style={{ background: 'var(--bg-1)', padding: 24 }}>
+                <div className="mono" style={{ fontSize: 30, letterSpacing: '-0.02em', color: 'var(--accent)' }}>{s.v}</div>
+                <div className="kicker" style={{ marginTop: 8 }}>{s.l}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8, lineHeight: 1.5 }}>{s.s}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Cost comparison */}
+      <section id="pricing" style={{
+        position: 'relative', zIndex: 5,
+        maxWidth: 1200, margin: '0 auto', padding: '32px 48px 96px',
+      }}>
+        <div className="kicker" style={{ marginBottom: 12 }}>// the math</div>
+        <h2 style={{ fontSize: 'clamp(26px, 3vw, 36px)', margin: 0, letterSpacing: '-0.02em', fontWeight: 500 }}>
+          AWS ALB vs. Cloudflare Workers
+        </h2>
+        <p style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 8, marginBottom: 32, maxWidth: 640 }}>
+          Modeled on a small API — ~1 LCU/hr steady traffic, 15M requests/mo, 7ms avg CPU.
+          Figures from <span className="mono">aws.amazon.com/elasticloadbalancing/pricing</span> and <span className="mono">developers.cloudflare.com/workers/platform/pricing</span>.
+        </p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: 16, alignItems: 'stretch' }} className="cmp-grid">
+          {/* AWS */}
+          <div style={{ background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)', padding: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div className="kicker">// option a</div>
+                <div style={{ fontSize: 18, fontWeight: 500, marginTop: 6 }}>AWS Application Load Balancer</div>
+              </div>
+              <span className="chip mono" style={{ color: 'var(--text-3)' }}>hourly + LCU</span>
+            </div>
+
+            <table style={{ width: '100%', fontSize: 13, fontFamily: 'var(--mono)', borderCollapse: 'collapse' }}>
+              <tbody>
+                <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                  <td style={{ padding: '10px 0', color: 'var(--text-3)' }}>Base hourly</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right' }}>$0.0225 × 730h</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--text)' }}>$16.43</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                  <td style={{ padding: '10px 0', color: 'var(--text-3)' }}>LCU usage</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right' }}>1 × $0.008 × 730h</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--text)' }}>$5.84</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                  <td style={{ padding: '10px 0', color: 'var(--text-3)' }}>Idle fee (always-on)</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right' }}>yes</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--red)' }}>charged</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                  <td style={{ padding: '10px 0', color: 'var(--text-3)' }}>Free tier after yr 1</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right' }}>none</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--red)' }}>—</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '16px 0 0', fontSize: 11, textTransform: 'uppercase', color: 'var(--text-3)' }}>Est. monthly</td>
+                  <td></td>
+                  <td style={{ padding: '16px 0 0', textAlign: 'right', fontSize: 22, color: 'var(--red)', letterSpacing: '-0.02em' }}>
+                    ~$22.27
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 16, lineHeight: 1.5 }}>
+              Before EC2 target costs, data egress, or cross-AZ transfer. Spiky traffic multiplies LCU charges.
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)' }} className="vs-col">
+            vs
+          </div>
+
+          {/* Cloudflare via EdgeBalancer */}
+          <div style={{
+            background: 'var(--bg-1)', border: '1px solid var(--accent)',
+            borderRadius: 'var(--radius-lg)', padding: 24, position: 'relative',
+            boxShadow: '0 0 0 1px var(--accent-dim)',
+          }}>
+            <div style={{
+              position: 'absolute', top: -1, right: 16,
+              padding: '4px 10px', background: 'var(--accent)', color: 'oklch(0.18 0.02 60)',
+              fontFamily: 'var(--mono)', fontSize: 10, textTransform: 'uppercase',
+              letterSpacing: '0.06em', borderRadius: '0 0 6px 6px', fontWeight: 600,
+            }}>
+              recommended
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div className="kicker">// option b</div>
+                <div style={{ fontSize: 18, fontWeight: 500, marginTop: 6 }}>
+                  Cloudflare Workers via EdgeBalancer
+                </div>
+              </div>
+              <span className="chip mono" style={{ color: 'var(--accent)' }}>request-based</span>
+            </div>
+
+            <table style={{ width: '100%', fontSize: 13, fontFamily: 'var(--mono)', borderCollapse: 'collapse' }}>
+              <tbody>
+                <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                  <td style={{ padding: '10px 0', color: 'var(--text-3)' }}>Subscription</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right' }}>Workers Paid</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--text)' }}>$5.00</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                  <td style={{ padding: '10px 0', color: 'var(--text-3)' }}>Requests</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right' }}>5M × $0.30/M</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--text)' }}>$1.50</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                  <td style={{ padding: '10px 0', color: 'var(--text-3)' }}>CPU time</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right' }}>75M-ms × $0.02/M</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--text)' }}>$1.50</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                  <td style={{ padding: '10px 0', color: 'var(--text-3)' }}>Idle fee</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right' }}>never</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--green)' }}>$0.00</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '16px 0 0', fontSize: 11, textTransform: 'uppercase', color: 'var(--text-3)' }}>Est. monthly</td>
+                  <td></td>
+                  <td style={{ padding: '16px 0 0', textAlign: 'right', fontSize: 22, color: 'var(--green)', letterSpacing: '-0.02em' }}>
+                    ~$8.00
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 16, lineHeight: 1.5 }}>
+              Zero dollars under the free plan's 100k req/day. No egress fees. No cross-region transfer.
+              Scales to zero automatically.
+            </div>
+          </div>
+        </div>
+
+        <div style={{
+          marginTop: 24, padding: 20,
+          border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)',
+          background: 'var(--bg-1)',
+          display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div className="mono" style={{ fontSize: 13, color: 'var(--text-2)' }}>
+            Savings for this workload: <span style={{ color: 'var(--accent)' }}>~64%</span> — and under 100k req/day,{' '}
+            <span style={{ color: 'var(--green)' }}>$0/month</span>.
+          </div>
+          <button className="btn btn-primary" onClick={() => router.push('/register')}>
+            Deploy your first balancer <Icons.Arrow size={14} />
+          </button>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/40 py-12 bg-background">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-2">
-              <svg className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-              </svg>
-              <span className="font-bold">EdgeBalancer</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              © 2026 EdgeBalancer. All rights reserved.
-            </p>
-          </div>
+      <footer style={{
+        borderTop: '1px solid var(--line)',
+        padding: '24px 48px',
+        display: 'flex', justifyContent: 'space-between',
+        fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)',
+        textTransform: 'uppercase', letterSpacing: '0.06em',
+      }}>
+        <div>© 2026 EdgeBalancer Inc.</div>
+        <div style={{ display: 'flex', gap: 24 }} className="hide-sm">
+          <span>Status: <span style={{ color: 'var(--green)' }}>● operational</span></span>
+          <span>SOC2 Type II</span>
+          <span>Terms</span>
+          <span>Privacy</span>
         </div>
       </footer>
+
+      <style jsx>{`
+        @media (max-width: 900px) {
+          .hero-grid { grid-template-columns: 1fr !important; padding: 48px 24px !important; }
+          .two-col { grid-template-columns: 1fr !important; }
+          .cmp-grid { grid-template-columns: 1fr !important; }
+          .vs-col { display: none !important; }
+          nav { padding: 16px 24px !important; }
+          footer { padding: 16px 24px !important; }
+        }
+      `}</style>
     </div>
   );
 }

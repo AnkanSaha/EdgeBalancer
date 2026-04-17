@@ -1,0 +1,186 @@
+'use client';
+
+import { Icons } from '@/components/shared/Icons';
+import type { LoadBalancer } from '@/types/api';
+
+interface LoadBalancerCardProps {
+  lb: LoadBalancer;
+  onSelect: () => void;
+  onDelete: () => void;
+  onPause: () => void;
+  onResume: () => void;
+  isDeleting?: boolean;
+  isActioning?: boolean;
+}
+
+const Sparkline = ({ values }: { values: number[] }) => {
+  if (!values || values.length === 0) {
+    values = Array.from({ length: 12 }, () => Math.floor(Math.random() * 100 + 50));
+  }
+
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const pts = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * 100;
+    const y = 100 - ((v - min) / (max - min || 1)) * 100;
+    return `${x},${y}`;
+  }).join(' ');
+  const area = `0,100 ${pts} 100,100`;
+
+  return (
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: '100%', height: 40 }}>
+      <defs>
+        <linearGradient id={`spark-${Math.random()}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={area} fill="url(#spark)" />
+      <polyline points={pts} fill="none" stroke="var(--accent)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+};
+
+export const LoadBalancerCard = ({
+  lb,
+  onSelect,
+  onDelete,
+  onPause,
+  onResume,
+  isDeleting,
+  isActioning
+}: LoadBalancerCardProps) => {
+  const getStatusColor = () => {
+    if (lb.status === 'active') return 'live';
+    if (lb.status === 'paused') return 'warn';
+    return 'down';
+  };
+
+  return (
+    <button onClick={onSelect} style={{
+      textAlign: 'left', width: '100%',
+      background: 'var(--bg-1)', border: '1px solid var(--line)',
+      borderRadius: 'var(--radius-lg)', padding: 20,
+      display: 'flex', flexDirection: 'column', gap: 16,
+      transition: 'all 160ms',
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.borderColor = 'var(--line-2)';
+      e.currentTarget.style.background = 'var(--bg-2)';
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.borderColor = 'var(--line)';
+      e.currentTarget.style.background = 'var(--bg-1)';
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span className={`chip ${getStatusColor()}`}>{lb.status}</span>
+            <span className="chip mono" style={{ textTransform: 'uppercase' }}>{lb.strategy}</span>
+          </div>
+          <div style={{
+            fontFamily: 'var(--mono)', fontSize: 15, fontWeight: 500,
+            letterSpacing: '-0.01em',
+          }}>{lb.name}</div>
+          <div style={{
+            fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-3)',
+            marginTop: 4,
+          }}>{lb.fullDomain}</div>
+        </div>
+        <div style={{ color: 'var(--text-3)' }}>
+          <Icons.MoreV size={16} />
+        </div>
+      </div>
+
+      {/* Sparkline - placeholder for now */}
+      <Sparkline values={[]} />
+
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12,
+        paddingTop: 16, borderTop: '1px solid var(--line)',
+      }}>
+        {[
+          { l: 'Origins', v: lb.originCount, color: 'var(--text)' },
+          { l: 'Created', v: new Date(lb.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), color: 'var(--text)' },
+          { l: 'Status', v: lb.status, color: lb.status === 'active' ? 'var(--green)' : 'var(--accent)' },
+          { l: 'Type', v: lb.strategy.split('-')[0], color: 'var(--text)' },
+        ].map((s, i) => (
+          <div key={i}>
+            <div className="kicker" style={{ fontSize: 10 }}>{s.l}</div>
+            <div className="mono" style={{ fontSize: 13, color: s.color, marginTop: 4, fontWeight: 500 }}>{s.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ display: 'flex', gap: 8, paddingTop: 8, borderTop: '1px solid var(--line)' }}>
+        {lb.status === 'active' && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onPause(); }}
+            disabled={isActioning || isDeleting}
+            className="btn btn-ghost btn-sm"
+            style={{ flex: 1, opacity: (isActioning || isDeleting) ? 0.5 : 1 }}>
+            Pause
+          </button>
+        )}
+        {lb.status === 'paused' && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onResume(); }}
+            disabled={isActioning || isDeleting}
+            className="btn btn-ghost btn-sm"
+            style={{ flex: 1, opacity: (isActioning || isDeleting) ? 0.5 : 1 }}>
+            Resume
+          </button>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          disabled={isActioning || isDeleting}
+          className="btn btn-ghost btn-sm"
+          style={{ flex: 1, color: 'var(--red)', opacity: (isActioning || isDeleting) ? 0.5 : 1 }}>
+          {isDeleting ? 'Deleting...' : 'Delete'}
+        </button>
+      </div>
+    </button>
+  );
+};
+
+export const EmptyState = ({ onCreate }: { onCreate: () => void }) => (
+  <div style={{
+    maxWidth: 520, margin: '80px auto', textAlign: 'center',
+    padding: 48, border: '1px dashed var(--line-2)', borderRadius: 'var(--radius-lg)',
+    background: 'var(--bg-1)',
+  }}>
+    <div style={{
+      width: 64, height: 64, margin: '0 auto 24px',
+      borderRadius: 'var(--radius)',
+      border: '1px solid var(--line-2)', background: 'var(--bg)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      position: 'relative',
+    }}>
+      <Icons.Layers size={24} stroke="var(--accent)" />
+      <div style={{
+        position: 'absolute', inset: -8,
+        border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)',
+        pointerEvents: 'none',
+      }} />
+    </div>
+    <h2 style={{ fontSize: 20, margin: 0, letterSpacing: '-0.02em' }}>No load balancers yet</h2>
+    <p style={{ color: 'var(--text-3)', fontSize: 14, marginTop: 8, lineHeight: 1.6 }}>
+      Create your first load balancer to get started distributing traffic across
+      your origin servers.
+    </p>
+    <button className="btn btn-primary btn-lg" onClick={onCreate} style={{ marginTop: 24 }}>
+      <Icons.Plus size={16} /> Create your first load balancer
+    </button>
+
+    <div style={{
+      marginTop: 32, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+      gap: 8, fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-3)',
+      textTransform: 'uppercase', letterSpacing: '0.06em',
+    }}>
+      <div>1. name</div>
+      <div>2. pick zone</div>
+      <div>3. add origins</div>
+    </div>
+  </div>
+);
