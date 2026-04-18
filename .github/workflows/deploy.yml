@@ -53,12 +53,12 @@ jobs:
           npm ci
           npm run build
 
+          # Remove dev dependencies to reduce deployment size
+          rm -rf node_modules
+
           # Install production dependencies
           echo "Installing production dependencies..."
           npm ci --only=production
-
-          # Remove dev dependencies cache
-          rm -rf node_modules/.cache
 
       - name: Create deployment archive with node_modules
         run: |
