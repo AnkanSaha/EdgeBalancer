@@ -89,10 +89,10 @@ export default function RegisterPage() {
     <AuthLayout step="register" onBack={() => router.push('/')}>
       <form onSubmit={handleEmailSubmit}>
         <div className="kicker" style={{ marginBottom: 8 }}>// Step 01 of 03</div>
-        <h2 style={{ fontSize: 32, letterSpacing: '-0.03em', margin: 0, lineHeight: 1.1 }}>
+        <h2 style={{ fontSize: 'clamp(28px, 5vw, 32px)', letterSpacing: '-0.03em', margin: 0, lineHeight: 1.1 }}>
           Create your account
         </h2>
-        <p style={{ color: 'var(--text-3)', fontSize: 14, marginTop: 8, marginBottom: 24 }}>
+        <p style={{ color: 'var(--text-3)', fontSize: 'clamp(13px, 2vw, 14px)', marginTop: 8, marginBottom: 24 }}>
           Get started with EdgeBalancer — 14-day free trial.
         </p>
 
@@ -146,14 +146,14 @@ export default function RegisterPage() {
 
           <button className="btn btn-primary btn-lg" type="submit"
             disabled={!!formData.confirm && formData.password !== formData.confirm || loading}
-            style={{ marginTop: 8, justifyContent: 'center' }}>
+            style={{ marginTop: 8, justifyContent: 'center', width: '100%' }}>
             {loading ? 'Creating account...' : 'Create Account'} <Icons.Arrow size={14} />
           </button>
 
-          <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-3)', marginTop: 8 }}>
+          <div style={{ textAlign: 'center', fontSize: 'clamp(12px, 2vw, 13px)', color: 'var(--text-3)', marginTop: 8 }}>
             Already have an account?{' '}
             <button type="button" onClick={() => router.push('/login')}
-              style={{ color: 'var(--accent)', fontWeight: 500 }}>Sign in</button>
+              style={{ color: 'var(--accent)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>Sign in</button>
           </div>
         </div>
       </form>

@@ -17,17 +17,18 @@ export default function LandingPage() {
       <nav style={{
         position: 'relative', zIndex: 10,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '20px 48px', borderBottom: '1px solid var(--line)',
+        padding: 'clamp(12px, 3vw, 20px) clamp(16px, 4vw, 48px)', borderBottom: '1px solid var(--line)',
+        flexWrap: 'wrap', gap: 'clamp(8px, 2vw, 12px)',
       }}>
         <Logo />
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div className="hide-sm" style={{ display: 'flex', gap: 20, marginRight: 16, fontSize: 13, color: 'var(--text-2)' }}>
+        <div style={{ display: 'flex', gap: 'clamp(6px, 2vw, 8px)', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="hide-sm" style={{ display: 'flex', gap: 'clamp(12px, 2vw, 20px)', marginRight: 'clamp(8px, 2vw, 16px)', fontSize: 'clamp(12px, 2vw, 13px)', color: 'var(--text-2)' }}>
             <a href="#strategies" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>Strategies</a>
             <a href="#pricing" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>Pricing</a>
             <a href="#faq" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>FAQ</a>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => router.push('/login')}>Sign in</button>
-          <button className="btn btn-primary btn-sm" onClick={() => router.push('/register')}>
+          <button className="btn btn-ghost btn-sm" onClick={() => router.push('/login')} style={{ fontSize: 'clamp(12px, 2vw, 13px)' }}>Sign in</button>
+          <button className="btn btn-primary btn-sm" onClick={() => router.push('/register')} style={{ fontSize: 'clamp(12px, 2vw, 13px)' }}>
             Get started <Icons.Arrow size={14} />
           </button>
         </div>
@@ -37,16 +38,16 @@ export default function LandingPage() {
       <section style={{
         position: 'relative', zIndex: 5,
         maxWidth: 1200, margin: '0 auto',
-        padding: '96px 48px 64px',
-        display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 64, alignItems: 'center',
+        padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px) clamp(40px, 5vw, 64px)',
+        display: 'grid', gridTemplateColumns: '1fr', gap: 'clamp(32px, 5vw, 64px)', alignItems: 'center',
       }} className="hero-grid">
         <div>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 10,
             padding: '6px 12px', border: '1px solid var(--line-2)',
             borderRadius: 999, background: 'var(--bg-1)',
-            fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-2)',
-            marginBottom: 24,
+            fontFamily: 'var(--mono)', fontSize: 'clamp(10px, 2vw, 11px)', color: 'var(--text-2)',
+            marginBottom: 'clamp(16px, 3vw, 24px)',
           }}>
             <span style={{
               width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)',
@@ -55,7 +56,7 @@ export default function LandingPage() {
             A gateway for Cloudflare Workers
           </div>
           <h1 style={{
-            fontSize: 'clamp(44px, 5.5vw, 72px)', lineHeight: 0.98,
+            fontSize: 'clamp(32px, 6vw, 72px)', lineHeight: 0.98,
             letterSpacing: '-0.035em', fontWeight: 500, margin: 0,
           }}>
             Turn a Worker
@@ -63,21 +64,21 @@ export default function LandingPage() {
             into a <span style={{ color: 'var(--accent)' }}>load balancer.</span>
           </h1>
           <p style={{
-            fontSize: 18, color: 'var(--text-2)', maxWidth: 520,
-            marginTop: 24, lineHeight: 1.5,
+            fontSize: 'clamp(14px, 2.5vw, 18px)', color: 'var(--text-2)', maxWidth: 520,
+            marginTop: 'clamp(16px, 3vw, 24px)', lineHeight: 1.5,
           }}>
             EdgeBalancer is a thin wrapper that converts your Cloudflare Worker into a
             production load balancer — 7 routing strategies, health checks, per-origin
             weights. No servers, no DevOps. Bring your API key and ship in 90 seconds.
           </p>
-          <div style={{ display: 'flex', gap: 12, marginTop: 36, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 12, marginTop: 'clamp(24px, 4vw, 36px)', flexWrap: 'wrap' }}>
             <button className="btn btn-primary btn-lg" onClick={() => router.push('/register')}>
               Start free <Icons.Arrow size={16} />
             </button>
           </div>
           <div style={{
-            display: 'flex', gap: 32, marginTop: 48,
-            fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)',
+            display: 'flex', gap: 'clamp(16px, 3vw, 32px)', marginTop: 'clamp(32px, 4vw, 48px)', flexWrap: 'wrap',
+            fontFamily: 'var(--mono)', fontSize: 'clamp(9px, 2vw, 11px)', color: 'var(--text-3)',
             textTransform: 'uppercase', letterSpacing: '0.06em',
           }}>
             <div><span style={{ color: 'var(--accent)' }}>330+</span> PoPs</div>
@@ -92,11 +93,11 @@ export default function LandingPage() {
       {/* Feature strip */}
       <section style={{
         position: 'relative', zIndex: 5,
-        maxWidth: 1200, margin: '0 auto', padding: '48px 48px 64px',
+        maxWidth: 1200, margin: '0 auto', padding: 'clamp(32px, 5vw, 48px) clamp(16px, 4vw, 48px) clamp(40px, 5vw, 64px)',
       }}>
-        <div className="kicker" style={{ marginBottom: 24 }}>// How the gateway works</div>
+        <div className="kicker" style={{ marginBottom: 'clamp(16px, 3vw, 24px)', fontSize: 'clamp(9px, 2vw, 11px)' }}>// How the gateway works</div>
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(160px, 50vw, 240px), 1fr))',
           gap: 1, background: 'var(--line)', border: '1px solid var(--line)',
           borderRadius: 'var(--radius-lg)', overflow: 'hidden',
         }}>

@@ -29,20 +29,21 @@ interface FieldBlockProps {
 
 const FieldBlock = ({ n, title, subtitle, children }: FieldBlockProps) => (
   <div style={{
-    padding: 24, border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)',
+    padding: 'clamp(16px, 3vw, 24px)', border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)',
     background: 'var(--bg-1)',
   }}>
-    <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+    <div style={{ display: 'flex', gap: 'clamp(12px, 2vw, 16px)', marginBottom: 16, flexWrap: 'wrap' }}>
       <div style={{
         minWidth: 28, height: 28, borderRadius: 6,
         background: 'var(--accent-dim)', color: 'var(--accent)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600,
+        fontFamily: 'var(--mono)', fontSize: 'clamp(11px, 2vw, 12px)', fontWeight: 600,
         border: '1px solid var(--accent)',
+        flexShrink: 0,
       }}>{n}</div>
-      <div>
-        <h3 style={{ margin: 0, fontSize: 16, letterSpacing: '-0.01em', fontWeight: 500 }}>{title}</h3>
-        <div style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 4 }}>{subtitle}</div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <h3 style={{ margin: 0, fontSize: 'clamp(14px, 3vw, 16px)', letterSpacing: '-0.01em', fontWeight: 500 }}>{title}</h3>
+        <div style={{ color: 'var(--text-3)', fontSize: 'clamp(12px, 2vw, 13px)', marginTop: 4 }}>{subtitle}</div>
       </div>
     </div>
     <div>{children}</div>
@@ -88,7 +89,7 @@ export default function EditLoadBalancerPage() {
         setLoadBalancer(lb);
         setForm({
           subdomain: lb.subdomain || '',
-          origins: lb.origins.map((o, i) => ({ id: i + 1, url: o.url, weight: o.weight || 100 })),
+          origins: lb.origins.map((o: any, i: number) => ({ id: i + 1, url: o.url, weight: o.weight || 100 })),
           strategy: lb.strategyValue,
           smartPlacement: lb.placement?.smartPlacement !== false,
           placementHint: lb.placement?.region || '',
@@ -188,26 +189,29 @@ export default function EditLoadBalancerPage() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', flexDirection: 'row' }}>
       <aside style={{
         width: 280, borderRight: '1px solid var(--line)',
-        padding: '32px 20px', position: 'sticky', top: 0, height: '100vh',
-        display: 'flex', flexDirection: 'column', gap: 24,
+        padding: 'clamp(20px, 3vw, 32px)', position: 'sticky', top: 0, height: '100vh',
+        display: 'flex', flexDirection: 'column', gap: 'clamp(16px, 3vw, 24px)',
+        fontSize: 'clamp(12px, 2vw, 13px)',
+        overflow: 'auto',
       }} className="hide-md">
         <button onClick={() => router.push('/dashboard')} style={{
           display: 'flex', alignItems: 'center', gap: 8,
-          fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)',
+          fontFamily: 'var(--mono)', fontSize: 'clamp(9px, 2vw, 11px)', color: 'var(--text-3)',
           textTransform: 'uppercase', letterSpacing: '0.06em',
+          background: 'none', border: 'none', cursor: 'pointer',
         }}>
           <Icons.Arrow size={12} style={{ transform: 'rotate(180deg)' }} /> Back to dashboard
         </button>
 
         <div>
-          <div className="kicker" style={{ marginBottom: 8 }}>// editing</div>
-          <h2 style={{ margin: 0, fontSize: 20, letterSpacing: '-0.02em', fontWeight: 500 }}>
+          <div className="kicker" style={{ marginBottom: 8, fontSize: 'clamp(9px, 2vw, 11px)' }}>// editing</div>
+          <h2 style={{ margin: 0, fontSize: 'clamp(18px, 3vw, 20px)', letterSpacing: '-0.02em', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {loadBalancer.name}
           </h2>
-          <div style={{ color: 'var(--text-3)', fontSize: 12, marginTop: 6, lineHeight: 1.5 }}>
+          <div style={{ color: 'var(--text-3)', fontSize: 'clamp(11px, 2vw, 12px)', marginTop: 6, lineHeight: 1.5 }}>
             Update routing strategy, origins, or domain configuration.
           </div>
         </div>
@@ -215,9 +219,10 @@ export default function EditLoadBalancerPage() {
         <div style={{
           padding: 14, border: '1px solid var(--line)', borderRadius: 'var(--radius)',
           background: 'var(--bg-1)',
+          fontSize: 'clamp(11px, 2vw, 12px)',
         }}>
-          <div className="kicker" style={{ marginBottom: 10 }}>// preview</div>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-2)', lineHeight: 1.7 }}>
+          <div className="kicker" style={{ marginBottom: 10, fontSize: 'clamp(9px, 2vw, 11px)' }}>// preview</div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 'clamp(10px, 2vw, 11px)', color: 'var(--text-2)', lineHeight: 1.7 }}>
             <div>name: <span style={{ color: 'var(--accent)' }}>{loadBalancer.name}</span></div>
             <div>host: <span style={{ color: 'var(--accent)' }}>{fullHost}</span></div>
             <div>origins: <span style={{ color: 'var(--accent)' }}>{form.origins.filter(s => s.url).length}</span></div>
@@ -238,7 +243,7 @@ export default function EditLoadBalancerPage() {
         </div>
       </aside>
 
-      <main style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+      <main style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <Topbar
           crumbs={['Dashboard', 'Load Balancers', loadBalancer.name]}
           title="Edit Load Balancer"
@@ -262,7 +267,7 @@ export default function EditLoadBalancerPage() {
                   </>
                 ) : (
                   <>
-                    <Icons.Check size={14} /> Save Changes
+                    <Icons.Check size={14} /> <span className="hide-sm">Save Changes</span><span className="hide-md">Save</span>
                   </>
                 )}
               </button>
@@ -270,7 +275,7 @@ export default function EditLoadBalancerPage() {
           }
         />
 
-        <div style={{ padding: '32px', maxWidth: 820, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ padding: 'clamp(16px, 4vw, 32px)', maxWidth: 820, display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 2vw, 20px)', overflow: 'auto', flex: 1 }}>
           <FieldBlock n={1} title="Subdomain"
             subtitle="Optional hostname prefix for the active edge route">
             <div className="field">

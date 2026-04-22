@@ -45,7 +45,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', flexDirection: 'row' }}>
       <Sidebar
         current="settings"
         onNav={(id) => {
@@ -55,18 +55,18 @@ export default function SettingsPage() {
         onLogout={handleLogout}
         userEmail={user?.email}
       />
-      <main style={{ flex: 1, minWidth: 0 }}>
+      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <Topbar
           crumbs={['Dashboard', 'Settings']}
           title="Settings"
           subtitle="Manage your account security and integrations"
         />
-        <div style={{ padding: 32, maxWidth: 1000 }}>
+        <div style={{ padding: 'clamp(16px, 4vw, 32px)', maxWidth: 1000, overflow: 'auto', flex: 1 }}>
           {/* Tab Navigation */}
           <div style={{
-            display: 'inline-flex', gap: 2, marginBottom: 32,
+            display: 'inline-flex', gap: 2, marginBottom: 'clamp(20px, 3vw, 32px)',
             background: 'var(--bg-1)', border: '1px solid var(--line)',
-            borderRadius: 'var(--radius)', padding: 4,
+            borderRadius: 'var(--radius)', padding: 4, flexWrap: 'wrap',
           }}>
             <button
               onClick={() => setActiveTab('security')}
@@ -75,6 +75,7 @@ export default function SettingsPage() {
                 background: activeTab === 'security' ? 'var(--accent)' : 'transparent',
                 color: activeTab === 'security' ? 'oklch(0.18 0.02 60)' : 'var(--text-2)',
                 border: 'none',
+                fontSize: 'clamp(12px, 2vw, 13px)',
               }}
             >
               <Icons.Lock size={14} /> Security

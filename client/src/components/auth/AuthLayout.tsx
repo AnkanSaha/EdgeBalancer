@@ -27,11 +27,11 @@ export const AuthLayout = ({ children, step, onBack }: AuthLayoutProps) => {
       <div style={{
         position: 'relative', background: 'var(--bg-1)',
         borderRight: '1px solid var(--line)', overflow: 'hidden',
-        display: 'flex', flexDirection: 'column', padding: 48,
+        display: 'flex', flexDirection: 'column', padding: 'clamp(24px, 5vw, 48px)',
       }} className="hide-md">
         <div className="grid-bg" style={{ opacity: 0.2 }} />
         <div style={{ position: 'relative', zIndex: 2 }}>
-          <button onClick={onBack} style={{ color: 'var(--text-3)', fontFamily: 'var(--mono)', fontSize: 12 }}>
+          <button onClick={onBack} style={{ color: 'var(--text-3)', fontFamily: 'var(--mono)', fontSize: 'clamp(11px, 2vw, 12px)' }}>
             ← edge/balancer
           </button>
         </div>
@@ -58,7 +58,7 @@ export const AuthLayout = ({ children, step, onBack }: AuthLayoutProps) => {
                   </div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 500 }}>{s.t}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>{s.d}</div>
+                    <div style={{ fontSize: 'clamp(11px, 2vw, 12px)', color: 'var(--text-3)', marginTop: 4 }}>{s.d}</div>
                   </div>
                 </div>
               );
@@ -78,12 +78,17 @@ export const AuthLayout = ({ children, step, onBack }: AuthLayoutProps) => {
       {/* Right — forms */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 48, position: 'relative',
+        padding: 'clamp(20px, 5vw, 48px)', position: 'relative',
+        minHeight: '100vh',
       }}>
         <button onClick={onBack} className="hide-md-inverse" style={{
-          position: 'absolute', top: 24, left: 24,
+          position: 'absolute', top: 'clamp(16px, 4vw, 24px)', left: 'clamp(16px, 4vw, 24px)',
           color: 'var(--text-3)', fontFamily: 'var(--mono)', fontSize: 12,
           display: 'none',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          zIndex: 10,
         }}>
           ← back
         </button>
@@ -96,6 +101,9 @@ export const AuthLayout = ({ children, step, onBack }: AuthLayoutProps) => {
       <style jsx>{`
         @media (max-width: 900px) {
           .auth-grid { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 640px) {
+          .auth-grid { min-height: 100vh; }
         }
       `}</style>
     </div>

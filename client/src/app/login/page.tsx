@@ -74,10 +74,10 @@ export default function LoginPage() {
     <AuthLayout step="signin" onBack={() => router.push('/')}>
       <form onSubmit={handleEmailSubmit}>
         <div className="kicker" style={{ marginBottom: 8 }}>// Welcome back</div>
-        <h2 style={{ fontSize: 32, letterSpacing: '-0.03em', margin: 0, lineHeight: 1.1 }}>
+        <h2 style={{ fontSize: 'clamp(28px, 5vw, 32px)', letterSpacing: '-0.03em', margin: 0, lineHeight: 1.1 }}>
           Sign in
         </h2>
-        <p style={{ color: 'var(--text-3)', fontSize: 14, marginTop: 8, marginBottom: 24 }}>
+        <p style={{ color: 'var(--text-3)', fontSize: 'clamp(13px, 2vw, 14px)', marginTop: 8, marginBottom: 24 }}>
           Sign in to your account.
         </p>
 
@@ -120,6 +120,7 @@ export default function LoginPage() {
                 style={{
                   position: 'absolute', right: 12, top: '50%',
                   transform: 'translateY(-50%)', color: 'var(--text-3)',
+                  background: 'none', border: 'none', cursor: 'pointer',
                 }}>
                 {showPassword ? <Icons.EyeOff size={16} /> : <Icons.Eye size={16} />}
               </button>
@@ -130,16 +131,16 @@ export default function LoginPage() {
             className="btn btn-primary btn-lg"
             type="submit"
             disabled={loading}
-            style={{ marginTop: 8, justifyContent: 'center' }}>
+            style={{ marginTop: 8, justifyContent: 'center', width: '100%' }}>
             {loading ? 'Signing in...' : 'Sign in'} <Icons.Arrow size={14} />
           </button>
 
-          <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-3)', marginTop: 8 }}>
+          <div style={{ textAlign: 'center', fontSize: 'clamp(12px, 2vw, 13px)', color: 'var(--text-3)', marginTop: 8 }}>
             Don&apos;t have an account?{' '}
             <button
               type="button"
               onClick={() => router.push('/register')}
-              style={{ color: 'var(--accent)', fontWeight: 500 }}>
+              style={{ color: 'var(--accent)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>
               Create account
             </button>
           </div>
