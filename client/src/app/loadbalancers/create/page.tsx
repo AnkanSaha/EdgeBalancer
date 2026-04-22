@@ -69,20 +69,21 @@ interface FieldBlockProps {
 
 const FieldBlock = ({ n, title, subtitle, children }: FieldBlockProps) => (
   <div style={{
-    padding: 24, border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)',
+    padding: 'clamp(16px, 3vw, 24px)', border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)',
     background: 'var(--bg-1)',
   }}>
-    <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+    <div style={{ display: 'flex', gap: 'clamp(12px, 2vw, 16px)', marginBottom: 16, flexWrap: 'wrap' }}>
       <div style={{
         minWidth: 28, height: 28, borderRadius: 6,
         background: 'var(--accent-dim)', color: 'var(--accent)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600,
+        fontFamily: 'var(--mono)', fontSize: 'clamp(11px, 2vw, 12px)', fontWeight: 600,
         border: '1px solid var(--accent)',
+        flexShrink: 0,
       }}>{n}</div>
-      <div>
-        <h3 style={{ margin: 0, fontSize: 16, letterSpacing: '-0.01em', fontWeight: 500 }}>{title}</h3>
-        <div style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 4 }}>{subtitle}</div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <h3 style={{ margin: 0, fontSize: 'clamp(14px, 3vw, 16px)', letterSpacing: '-0.01em', fontWeight: 500 }}>{title}</h3>
+        <div style={{ color: 'var(--text-3)', fontSize: 'clamp(12px, 2vw, 13px)', marginTop: 4 }}>{subtitle}</div>
       </div>
     </div>
     <div>{children}</div>
@@ -209,26 +210,29 @@ export default function CreateLoadBalancerPage() {
   const showWeights = form.strategy === 'weighted-round-robin' || form.strategy === 'weighted-cookie-sticky';
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', flexDirection: 'row' }}>
       <aside style={{
         width: 280, borderRight: '1px solid var(--line)',
-        padding: '32px 20px', position: 'sticky', top: 0, height: '100vh',
-        display: 'flex', flexDirection: 'column', gap: 24,
+        padding: 'clamp(20px, 3vw, 32px)', position: 'sticky', top: 0, height: '100vh',
+        display: 'flex', flexDirection: 'column', gap: 'clamp(16px, 3vw, 24px)',
+        fontSize: 'clamp(12px, 2vw, 13px)',
+        overflow: 'auto',
       }} className="hide-md">
         <button onClick={() => router.push('/dashboard')} style={{
           display: 'flex', alignItems: 'center', gap: 8,
-          fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)',
+          fontFamily: 'var(--mono)', fontSize: 'clamp(9px, 2vw, 11px)', color: 'var(--text-3)',
           textTransform: 'uppercase', letterSpacing: '0.06em',
+          background: 'none', border: 'none', cursor: 'pointer',
         }}>
           <Icons.Arrow size={12} style={{ transform: 'rotate(180deg)' }} /> Back to dashboard
         </button>
 
         <div>
-          <div className="kicker" style={{ marginBottom: 8 }}>// create new</div>
-          <h2 style={{ margin: 0, fontSize: 20, letterSpacing: '-0.02em', fontWeight: 500 }}>
+          <div className="kicker" style={{ marginBottom: 8, fontSize: 'clamp(9px, 2vw, 11px)' }}>// create new</div>
+          <h2 style={{ margin: 0, fontSize: 'clamp(18px, 3vw, 20px)', letterSpacing: '-0.02em', fontWeight: 500 }}>
             Load Balancer
           </h2>
-          <div style={{ color: 'var(--text-3)', fontSize: 12, marginTop: 6, lineHeight: 1.5 }}>
+          <div style={{ color: 'var(--text-3)', fontSize: 'clamp(11px, 2vw, 12px)', marginTop: 6, lineHeight: 1.5 }}>
             Deploy a new Cloudflare Worker-based load balancer with live origin routing.
           </div>
         </div>
@@ -248,10 +252,10 @@ export default function CreateLoadBalancerPage() {
 
         <div style={{
           padding: 14, border: '1px solid var(--line)', borderRadius: 'var(--radius)',
-          background: 'var(--bg-1)',
+          background: 'var(--bg-1)', fontSize: 'clamp(11px, 2vw, 12px)',
         }}>
-          <div className="kicker" style={{ marginBottom: 10 }}>// preview</div>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-2)', lineHeight: 1.7 }}>
+          <div className="kicker" style={{ marginBottom: 10, fontSize: 'clamp(9px, 2vw, 11px)' }}>// preview</div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 'clamp(10px, 2vw, 11px)', color: 'var(--text-2)', lineHeight: 1.7 }}>
             <div>name: <span style={{ color: form.name ? 'var(--accent)' : 'var(--text-3)' }}>{form.name || '—'}</span></div>
             <div>host: <span style={{ color: selectedZone ? 'var(--accent)' : 'var(--text-3)' }}>{fullHost}</span></div>
             <div>origins: <span style={{ color: 'var(--accent)' }}>{form.origins.filter(s => s.url).length}</span></div>
@@ -260,7 +264,7 @@ export default function CreateLoadBalancerPage() {
         </div>
       </aside>
 
-      <main style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+      <main style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <Topbar
           crumbs={['Dashboard', 'Load Balancers', 'New']}
           title="Create Load Balancer"
@@ -284,7 +288,7 @@ export default function CreateLoadBalancerPage() {
                   </>
                 ) : (
                   <>
-                    <Icons.Zap size={14} /> Deploy worker
+                    <Icons.Zap size={14} /> <span className="hide-sm">Deploy worker</span><span className="hide-md">Deploy</span>
                   </>
                 )}
               </button>
@@ -292,7 +296,7 @@ export default function CreateLoadBalancerPage() {
           }
         />
 
-        <div className="create-form-shell" style={{ padding: '32px', maxWidth: 820, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="create-form-shell" style={{ padding: 'clamp(16px, 4vw, 32px)', maxWidth: 820, display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 2vw, 20px)', overflow: 'auto', flex: 1 }}>
           <FieldBlock n={1} title="Load Balancer Name"
             subtitle="Choose the exact Cloudflare Worker name used for this deployment">
             <div className="field">
@@ -323,7 +327,7 @@ export default function CreateLoadBalancerPage() {
             subtitle="Pick the Cloudflare zone that should point at this load balancer">
             <div className="field">
               <label className="field-label">Domain</label>
-              <div className="domain-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
+              <div className="domain-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(clamp(140px, 50vw, 220px), 1fr))', gap: 'clamp(6px, 2vw, 8px)' }}>
                 {zones.map(z => {
                   const active = form.zoneId === z.id;
                   return (
@@ -459,7 +463,7 @@ export default function CreateLoadBalancerPage() {
 
           <FieldBlock n={5} title="Traffic Strategy"
             subtitle="Switch how requests are distributed across your origin fleet">
-            <div className="strategy-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
+            <div className="strategy-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(clamp(160px, 50vw, 260px), 1fr))', gap: 'clamp(8px, 2vw, 10px)' }}>
               {STRATEGIES.map(s => {
                 const Ico = Icons[s.icon as keyof typeof Icons];
                 const active = form.strategy === s.id;

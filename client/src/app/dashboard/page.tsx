@@ -166,94 +166,109 @@ export default function DashboardPage() {
   const hasBalancers = loadBalancers.length > 0;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
-      <Sidebar
-        current={currentNav}
-        onNav={handleNav}
-        onLogout={handleLogout}
-        userEmail={user?.email}
-      />
-      <main style={{ flex: 1, minWidth: 0 }}>
-        <Topbar
-          crumbs={['Dashboard', currentNav]}
-          title="Load Balancers"
-          subtitle="Manage your Cloudflare Worker-based load balancers"
-          actions={
-            <>
-              <button className="btn btn-ghost btn-sm"><Icons.Refresh size={14} /> Refresh</button>
-              <button className="btn btn-primary btn-sm" onClick={() => router.push('/loadbalancers/create')}>
-                <Icons.Plus size={14} /> Create Load Balancer
-              </button>
-            </>
-          }
-        />
-        <div style={{ padding: 32 }}>
-          {!hasBalancers ? (
-            <EmptyState onCreate={() => router.push('/loadbalancers/create')} />
-          ) : (
-            <>
-              {/* Summary */}
-              <div style={{
-                display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                gap: 16, marginBottom: 32,
-              }}>
-                {[
-                  { l: 'Active balancers', v: loadBalancers.filter(b => b.status === 'active').length, sub: `of ${loadBalancers.length} total` },
-                  { l: 'Origins total', v: loadBalancers.reduce((a, b) => a + (b.originCount || 0), 0), sub: 'all checks passing', color: 'var(--green)' },
-                ].map((s, i) => (
-                  <div key={i} className="card" style={{ padding: 20 }}>
-                    <div className="kicker">{s.l}</div>
-                    <div className="mono" style={{ fontSize: 24, marginTop: 8, letterSpacing: '-0.02em', color: s.color || 'var(--text)' }}>
-                      {s.v}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>{s.sub}</div>
-                  </div>
-                ))}
-              </div>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', flexDirection: 'column' }}>
+      {/* Mobile Header */}
+      <div className="sidebar-mobile-header" style={{
+        display: 'none', alignItems: 'center', justifyContent: 'space-between',
+        padding: 'clamp(12px, 2vw, 16px)', borderBottom: '1px solid var(--line)',
+        gap: 12, zIndex: 35,
+      }}>
+        <h2 style={{ fontSize: 'clamp(16px, 3vw, 18px)', fontWeight: 500, margin: 0 }}>Dashboard</h2>
+        {/* Menu button will be added via CSS */}
+      </div>
 
-              {/* Filter row */}
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', flex: 1, maxWidth: 320 }}>
-                  <Icons.Search size={14} style={{
-                    position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-                    color: 'var(--text-3)',
-                  }} />
-                  <input className="input" placeholder="Search balancers…"
-                    style={{ paddingLeft: 36, height: 38, padding: '8px 12px 8px 36px' }} />
-                </div>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {['All', 'Live', 'Paused'].map((f, i) => (
-                    <button key={f} className="btn btn-sm" style={{
-                      background: i === 0 ? 'var(--bg-2)' : 'transparent',
-                      color: i === 0 ? 'var(--text)' : 'var(--text-3)',
-                      border: '1px solid var(--line)',
-                    }}>{f}</button>
+      {/* Main Content */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'row' }}>
+        <Sidebar
+          current={currentNav}
+          onNav={handleNav}
+          onLogout={handleLogout}
+          userEmail={user?.email}
+        />
+        <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Topbar
+            crumbs={['Dashboard', currentNav]}
+            title="Load Balancers"
+            subtitle="Manage your Cloudflare Worker-based load balancers"
+            actions={
+              <>
+                <button className="btn btn-ghost btn-sm"><Icons.Refresh size={14} /> <span className="hide-sm">Refresh</span></button>
+                <button className="btn btn-primary btn-sm" onClick={() => router.push('/loadbalancers/create')}>
+                  <Icons.Plus size={14} /> <span className="hide-sm">Create Load Balancer</span><span className="hide-md">New</span>
+                </button>
+              </>
+            }
+          />
+          <div style={{ padding: 'clamp(16px, 4vw, 32px)', overflow: 'auto', flex: 1 }}>
+            {!hasBalancers ? (
+              <EmptyState onCreate={() => router.push('/loadbalancers/create')} />
+            ) : (
+              <>
+                {/* Summary */}
+                <div style={{
+                  display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                  gap: 'clamp(12px, 2vw, 16px)', marginBottom: 'clamp(20px, 4vw, 32px)',
+                }}>
+                  {[
+                    { l: 'Active balancers', v: loadBalancers.filter(b => b.status === 'active').length, sub: `of ${loadBalancers.length} total` },
+                    { l: 'Origins total', v: loadBalancers.reduce((a, b) => a + (b.originCount || 0), 0), sub: 'all checks passing', color: 'var(--green)' },
+                  ].map((s, i) => (
+                    <div key={i} className="card" style={{ padding: 'clamp(16px, 2vw, 20px)' }}>
+                      <div className="kicker" style={{ fontSize: 'clamp(9px, 2vw, 11px)' }}>{s.l}</div>
+                      <div className="mono" style={{ fontSize: 'clamp(20px, 3vw, 24px)', marginTop: 8, letterSpacing: '-0.02em', color: s.color || 'var(--text)' }}>
+                        {s.v}
+                      </div>
+                      <div style={{ fontSize: 'clamp(11px, 1vw, 12px)', color: 'var(--text-3)', marginTop: 4 }}>{s.sub}</div>
+                    </div>
                   ))}
                 </div>
-                <div style={{ flex: 1 }} />
-                <div className="kicker">{loadBalancers.length} results</div>
-              </div>
 
-              <div style={{
-                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16,
-              }}>
-                {loadBalancers.map(lb => (
-                  <LoadBalancerCard
-                    key={lb.id}
-                    lb={lb}
-                    onSelect={() => router.push(`/loadbalancers/${lb.id}/edit`)}
-                    onDelete={() => openDeleteModal(lb)}
-                    onPause={() => openPauseModal(lb)}
-                    onResume={() => handleResume(lb)}
-                    isDeleting={deletingId === lb.id}
-                    isActioning={actioningId === lb.id}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </main>
+                {/* Filter row */}
+                <div style={{ display: 'flex', gap: 'clamp(8px, 2vw, 12px)', alignItems: 'center', marginBottom: 'clamp(16px, 3vw, 20px)', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', flex: 1, minWidth: 200, maxWidth: 320 }}>
+                    <Icons.Search size={14} style={{
+                      position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                      color: 'var(--text-3)',
+                    }} />
+                    <input className="input" placeholder="Search balancers…"
+                      style={{ paddingLeft: 36, height: 38, padding: '8px 12px 8px 36px' }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {['All', 'Live', 'Paused'].map((f, i) => (
+                      <button key={f} className="btn btn-sm" style={{
+                        background: i === 0 ? 'var(--bg-2)' : 'transparent',
+                        color: i === 0 ? 'var(--text)' : 'var(--text-3)',
+                        border: '1px solid var(--line)',
+                        fontSize: 'clamp(12px, 2vw, 13px)',
+                        padding: 'clamp(6px, 1vw, 8px) clamp(10px, 2vw, 12px)',
+                      }}>{f}</button>
+                    ))}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }} />
+                  <div className="kicker hide-sm" style={{ fontSize: 'clamp(9px, 2vw, 11px)' }}>{loadBalancers.length} results</div>
+                </div>
+
+                <div style={{
+                  display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(clamp(280px, 50vw, 340px), 1fr))', gap: 'clamp(12px, 2vw, 16px)',
+                }}>
+                  {loadBalancers.map(lb => (
+                    <LoadBalancerCard
+                      key={lb.id}
+                      lb={lb}
+                      onSelect={() => router.push(`/loadbalancers/${lb.id}/edit`)}
+                      onDelete={() => openDeleteModal(lb)}
+                      onPause={() => openPauseModal(lb)}
+                      onResume={() => handleResume(lb)}
+                      isDeleting={deletingId === lb.id}
+                      isActioning={actioningId === lb.id}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </main>
+      </div>
 
       {/* Modals */}
       <PauseModal
@@ -295,7 +310,9 @@ export default function DashboardPage() {
 
       <style jsx>{`
         @media (max-width: 900px) {
-          .sidebar { display: none; }
+          .sidebar-mobile-header {
+            display: flex !important;
+          }
         }
       `}</style>
     </div>

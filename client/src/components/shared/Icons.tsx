@@ -28,6 +28,7 @@ export const Icons = {
   Check: (p: IconProps) => <Icon {...p}><path d="M20 6 9 17l-5-5" /></Icon>,
   Plus: (p: IconProps) => <Icon {...p}><path d="M12 5v14M5 12h14" /></Icon>,
   X: (p: IconProps) => <Icon {...p}><path d="M18 6 6 18M6 6l12 12" /></Icon>,
+  Menu: (p: IconProps) => <Icon {...p}><path d="M3 7h18M3 12h18M3 17h18" /></Icon>,
   Key: (p: IconProps) => <Icon {...p}><circle cx="8" cy="15" r="4" /><path d="m10.85 12.15 7.15-7.15M16 8l2 2M13 11l2 2" /></Icon>,
   Link: (p: IconProps) => <Icon {...p}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></Icon>,
   Server: (p: IconProps) => <Icon {...p}><rect x="2" y="3" width="20" height="8" rx="1" /><rect x="2" y="13" width="20" height="8" rx="1" /><path d="M6 7h.01M6 17h.01" /></Icon>,
