@@ -13,7 +13,6 @@ interface SidebarProps {
 export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) => {
   const items = [
     { id: 'balancers', icon: 'Layers', label: 'Load Balancers' },
-    { id: 'origins', icon: 'Server', label: 'Origins' },
   ];
 
   const bottom = [
