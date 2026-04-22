@@ -4,106 +4,100 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Card } from '@/components/ui/Card';
+import { Sidebar, Topbar } from '@/components/dashboard/Sidebar';
+import { Icons } from '@/components/shared/Icons';
 import toast from 'react-hot-toast';
 
-type Tab = 'profile' | 'cloudflare';
+type Tab = 'security' | 'cloudflare';
 
 export default function SettingsPage() {
   const router = useRouter();
   const { user, refreshUser, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>('profile');
+  const [activeTab, setActiveTab] = useState<Tab>('security');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
       router.push('/login');
+    } else {
+      setLoading(false);
     }
   }, [user, router]);
 
-  if (!user) {
-    return null;
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+  };
+
+  if (loading || !user) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: 48, height: 48, margin: '0 auto 16px',
+            border: '2px solid var(--line)', borderTopColor: 'var(--accent)',
+            borderRadius: '50%', animation: 'spin 0.9s linear infinite',
+          }} />
+          <p style={{ color: 'var(--text-3)' }}>Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 flex">
-      {/* Sidebar - Reused from Dashboard */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden lg:flex">
-        <div className="p-8">
-          <div className="flex items-center gap-3">
-            <div className="bg-indigo-600 p-1 rounded-lg">
-              <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-              </svg>
-            </div>
-            <span className="text-lg font-black tracking-tight text-slate-900 uppercase">EdgeBalancer</span>
-          </div>
-        </div>
-
-        <nav className="flex-1 px-4 space-y-1">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-all"
-          >
-            <span className="text-lg">📊</span> Dashboard
-          </button>
-          <button
-            onClick={() => setActiveTab(activeTab)}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold bg-indigo-50 text-indigo-600 shadow-sm shadow-indigo-100/50 rounded-xl transition-all"
-          >
-            <span className="text-lg">⚙️</span> Settings
-          </button>
-        </nav>
-
-        <div className="p-4 border-t border-slate-100">
-          <button 
-            onClick={logout}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-          >
-            <span>🚪</span> Sign Out
-          </button>
-        </div>
-      </aside>
-
-      <main className="flex-1 p-8 overflow-y-auto">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="mb-10">
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Settings</h1>
-            <p className="text-slate-500 font-medium">Manage your account and integrations</p>
-          </div>
-
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+      <Sidebar
+        current="settings"
+        onNav={(id) => {
+          if (id === 'balancers') router.push('/dashboard');
+          else if (id === 'settings') router.push('/settings');
+        }}
+        onLogout={handleLogout}
+        userEmail={user?.email}
+      />
+      <main style={{ flex: 1, minWidth: 0 }}>
+        <Topbar
+          crumbs={['Dashboard', 'Settings']}
+          title="Settings"
+          subtitle="Manage your account security and integrations"
+        />
+        <div style={{ padding: 32, maxWidth: 1000 }}>
           {/* Tab Navigation */}
-          <div className="flex gap-4 mb-8 bg-white p-1.5 rounded-2xl border border-slate-200 w-fit">
+          <div style={{
+            display: 'inline-flex', gap: 2, marginBottom: 32,
+            background: 'var(--bg-1)', border: '1px solid var(--line)',
+            borderRadius: 'var(--radius)', padding: 4,
+          }}>
             <button
-              onClick={() => setActiveTab('profile')}
-              className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                activeTab === 'profile'
-                  ? 'bg-slate-900 text-white shadow-lg'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
+              onClick={() => setActiveTab('security')}
+              className="btn btn-sm"
+              style={{
+                background: activeTab === 'security' ? 'var(--accent)' : 'transparent',
+                color: activeTab === 'security' ? 'oklch(0.18 0.02 60)' : 'var(--text-2)',
+                border: 'none',
+              }}
             >
-              Security
+              <Icons.Lock size={14} /> Security
             </button>
             <button
               onClick={() => setActiveTab('cloudflare')}
-              className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                activeTab === 'cloudflare'
-                  ? 'bg-slate-900 text-white shadow-lg'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
+              className="btn btn-sm"
+              style={{
+                background: activeTab === 'cloudflare' ? 'var(--accent)' : 'transparent',
+                color: activeTab === 'cloudflare' ? 'oklch(0.18 0.02 60)' : 'var(--text-2)',
+                border: 'none',
+              }}
             >
-              Cloudflare
+              <Icons.Cloud size={14} /> Cloudflare
             </button>
           </div>
 
           {/* Tab Content */}
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {activeTab === 'profile' ? (
-              <ProfileSettings />
+          <div className="slide-in">
+            {activeTab === 'security' ? (
+              <SecurityTab />
             ) : (
-              <CloudflareSettings user={user} refreshUser={refreshUser} />
+              <CloudflareTab user={user} refreshUser={refreshUser} />
             )}
           </div>
         </div>
@@ -112,7 +106,7 @@ export default function SettingsPage() {
   );
 }
 
-function ProfileSettings() {
+function SecurityTab() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     currentPassword: '',
@@ -123,10 +117,12 @@ function ProfileSettings() {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.currentPassword) newErrors.currentPassword = 'Required';
-    if (!formData.newPassword) newErrors.newPassword = 'Required';
-    else if (formData.newPassword.length < 8) newErrors.newPassword = 'Min 8 characters';
-    if (formData.newPassword !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords mismatch';
+    if (!formData.currentPassword) newErrors.currentPassword = 'Current password is required';
+    if (!formData.newPassword) newErrors.newPassword = 'New password is required';
+    else if (formData.newPassword.length < 8) newErrors.newPassword = 'Minimum 8 characters required';
+    if (formData.newPassword !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -140,78 +136,131 @@ function ProfileSettings() {
         currentPassword: formData.currentPassword,
         newPassword: formData.newPassword,
       });
-      toast.success('Password updated');
+      toast.success('Password updated successfully');
       setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setErrors({});
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to update password');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card className="p-10 border-slate-200 bg-white shadow-sm overflow-hidden relative">
-      <div className="absolute top-0 right-0 p-8 text-4xl opacity-10 pointer-events-none">🔒</div>
-      <div className="max-w-xl">
-        <h2 className="text-xl font-black text-slate-900 mb-2">Update Password</h2>
-        <p className="text-slate-500 font-medium text-sm mb-10">
-          We recommend using a unique password for EdgeBalancer to keep your Cloudflare tokens safe.
+    <div className="card" style={{ padding: 28, maxWidth: 640, position: 'relative', overflow: 'hidden' }}>
+      {/* Decorative icon */}
+      <div style={{
+        position: 'absolute', top: 20, right: 20,
+        opacity: 0.06, pointerEvents: 'none',
+      }}>
+        <Icons.Lock size={80} />
+      </div>
+
+      <div style={{ position: 'relative' }}>
+        <div className="kicker" style={{ marginBottom: 8 }}>// account security</div>
+        <h2 style={{ fontSize: 22, margin: 0, letterSpacing: '-0.02em', fontWeight: 500 }}>
+          Update Password
+        </h2>
+        <p style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 8, marginBottom: 32, lineHeight: 1.6 }}>
+          Use a unique password to keep your Cloudflare credentials secure.
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid gap-6">
-            <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Current Password</label>
-              <Input
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Current Password */}
+          <div className="field">
+            <label className="field-label">
+              Current Password <span className="req">*</span>
+            </label>
+            <input
+              type="password"
+              className="input"
+              value={formData.currentPassword}
+              onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
+              disabled={loading}
+              autoComplete="current-password"
+            />
+            {errors.currentPassword && (
+              <div className="hint" style={{ color: 'var(--red)' }}>{errors.currentPassword}</div>
+            )}
+          </div>
+
+          {/* New Password */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+            <div className="field">
+              <label className="field-label">
+                New Password <span className="req">*</span>
+              </label>
+              <input
                 type="password"
-                value={formData.currentPassword}
-                onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-                className="bg-slate-50 border-slate-200 h-12 font-medium"
+                className="input"
+                value={formData.newPassword}
+                onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
                 disabled={loading}
+                autoComplete="new-password"
               />
-              {errors.currentPassword && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider">{errors.currentPassword}</p>}
+              {errors.newPassword && (
+                <div className="hint" style={{ color: 'var(--red)' }}>{errors.newPassword}</div>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">New Password</label>
-                <Input
-                  type="password"
-                  value={formData.newPassword}
-                  onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                  className="bg-slate-50 border-slate-200 h-12 font-medium"
-                  disabled={loading}
-                />
-                {errors.newPassword && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider">{errors.newPassword}</p>}
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Confirm New</label>
-                <Input
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="bg-slate-50 border-slate-200 h-12 font-medium"
-                  disabled={loading}
-                />
-                {errors.confirmPassword && <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider">{errors.confirmPassword}</p>}
-              </div>
+            <div className="field">
+              <label className="field-label">
+                Confirm New <span className="req">*</span>
+              </label>
+              <input
+                type="password"
+                className="input"
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                disabled={loading}
+                autoComplete="new-password"
+              />
+              {errors.confirmPassword && (
+                <div className="hint" style={{ color: 'var(--red)' }}>{errors.confirmPassword}</div>
+              )}
             </div>
           </div>
 
-          <Button 
-            type="submit" 
-            disabled={loading}
-            className="bg-slate-900 hover:bg-slate-800 text-white font-bold h-12 px-8 rounded-xl"
-          >
-            {loading ? 'Processing...' : 'Update Security'}
-          </Button>
+          <div style={{ display: 'flex', gap: 12, paddingTop: 8 }}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <div style={{
+                    width: 14, height: 14,
+                    border: '2px solid currentColor', borderTopColor: 'transparent',
+                    borderRadius: '50%', animation: 'spin 0.6s linear infinite',
+                  }} />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <Icons.Check size={14} /> Update Password
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => {
+                setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                setErrors({});
+              }}
+              disabled={loading}
+            >
+              Clear
+            </button>
+          </div>
         </form>
       </div>
-    </Card>
+    </div>
   );
 }
 
-function CloudflareSettings({ user, refreshUser }: any) {
+function CloudflareTab({ user, refreshUser }: any) {
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [credentials, setCredentials] = useState<{ accountId: string | null; apiToken: string | null }>({
@@ -219,7 +268,6 @@ function CloudflareSettings({ user, refreshUser }: any) {
     apiToken: null,
   });
   const [formData, setFormData] = useState({ accountId: '', apiToken: '' });
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (user?.hasCloudflareCredentials) fetchCredentials();
@@ -234,104 +282,183 @@ function CloudflareSettings({ user, refreshUser }: any) {
           apiToken: response.data.apiToken,
         });
       }
-    } catch (error) {}
+    } catch (error) {
+      // Silent fail - credentials might not exist yet
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.accountId.trim()) return toast.error('Account ID missing');
+    if (!formData.accountId.trim()) {
+      toast.error('Account ID is required');
+      return;
+    }
+    if (!formData.apiToken.trim()) {
+      toast.error('API Token is required');
+      return;
+    }
+
     setLoading(true);
     try {
       await api.updateCloudflareCredentials({
         accountId: formData.accountId,
         apiToken: formData.apiToken,
       });
-      toast.success('Credentials Updated');
+      toast.success('Cloudflare credentials updated successfully');
       await refreshUser();
       await fetchCredentials();
       setEditing(false);
+      setFormData({ accountId: '', apiToken: '' });
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to update credentials');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card className="p-10 border-slate-200 bg-white shadow-sm overflow-hidden relative">
-      <div className="absolute top-0 right-0 p-8 text-4xl opacity-10 pointer-events-none">🌩️</div>
-      <div className="max-w-xl">
-        <h2 className="text-xl font-black text-slate-900 mb-2">Cloudflare Integration</h2>
-        <p className="text-slate-500 font-medium text-sm mb-10">
-          Your credentials are encrypted with AES-256 and never leave our backend environment.
+    <div className="card" style={{ padding: 28, maxWidth: 640, position: 'relative', overflow: 'hidden' }}>
+      {/* Decorative icon */}
+      <div style={{
+        position: 'absolute', top: 20, right: 20,
+        opacity: 0.06, pointerEvents: 'none',
+      }}>
+        <Icons.Cloud size={80} />
+      </div>
+
+      <div style={{ position: 'relative' }}>
+        <div className="kicker" style={{ marginBottom: 8 }}>// cloudflare integration</div>
+        <h2 style={{ fontSize: 22, margin: 0, letterSpacing: '-0.02em', fontWeight: 500 }}>
+          API Credentials
+        </h2>
+        <p style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 8, marginBottom: 32, lineHeight: 1.6 }}>
+          Your credentials are encrypted with AES-256-CBC and stored securely.
         </p>
 
         {!editing ? (
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Account ID</div>
-                <div className="font-mono text-sm font-bold text-slate-700">
-                  {credentials.accountId || 'Not Connected'}
-                </div>
-              </div>
-              <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">API Token</div>
-                <div className="font-mono text-sm font-bold text-slate-700">
-                  {credentials.apiToken ? '••••••••••••••••' : 'Not Connected'}
-                </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Account ID */}
+            <div style={{
+              padding: 16, background: 'var(--bg-2)',
+              border: '1px solid var(--line)', borderRadius: 'var(--radius)',
+            }}>
+              <div className="kicker" style={{ marginBottom: 8 }}>Account ID</div>
+              <div className="mono" style={{ fontSize: 13, color: 'var(--text)' }}>
+                {credentials.accountId || 'Not configured'}
               </div>
             </div>
-            <Button 
-              onClick={() => setEditing(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12 px-8 rounded-xl shadow-lg shadow-indigo-100"
-            >
-              Rotate Credentials
-            </Button>
+
+            {/* API Token */}
+            <div style={{
+              padding: 16, background: 'var(--bg-2)',
+              border: '1px solid var(--line)', borderRadius: 'var(--radius)',
+            }}>
+              <div className="kicker" style={{ marginBottom: 8 }}>API Token</div>
+              <div className="mono" style={{ fontSize: 13, color: 'var(--text)' }}>
+                {credentials.apiToken ? '••••••••••••••••••••••••' : 'Not configured'}
+              </div>
+            </div>
+
+            {/* Status indicator */}
+            {credentials.accountId && (
+              <div style={{
+                padding: 16, background: 'var(--bg)',
+                border: '1px solid var(--line)', borderRadius: 'var(--radius)',
+                display: 'flex', gap: 12, alignItems: 'center',
+              }}>
+                <div style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: 'var(--green)', boxShadow: '0 0 8px var(--green)',
+                }} />
+                <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                  Credentials active and encrypted
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 12, paddingTop: 8 }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => setEditing(true)}
+              >
+                <Icons.Edit size={14} /> {credentials.accountId ? 'Rotate Credentials' : 'Configure Credentials'}
+              </button>
+            </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">New Account ID</label>
-                <Input
-                  placeholder="32-character ID"
-                  value={formData.accountId}
-                  onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
-                  className="bg-slate-50 border-slate-200 h-12 font-medium"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">New API Token</label>
-                <Input
-                  type="password"
-                  placeholder="Paste new token"
-                  value={formData.apiToken}
-                  onChange={(e) => setFormData({ ...formData, apiToken: e.target.value })}
-                  className="bg-slate-50 border-slate-200 h-12 font-medium"
-                />
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Account ID */}
+            <div className="field">
+              <label className="field-label">
+                Cloudflare Account ID <span className="req">*</span>
+              </label>
+              <input
+                type="text"
+                className="input input-mono"
+                placeholder="32-character hexadecimal account ID"
+                value={formData.accountId}
+                onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
+                disabled={loading}
+              />
+              <div className="hint">
+                Find this in your Cloudflare dashboard under Account → Workers & Pages
               </div>
             </div>
-            <div className="flex gap-4">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setEditing(false)}
-                className="h-12 px-8 rounded-xl font-bold border-slate-200"
+
+            {/* API Token */}
+            <div className="field">
+              <label className="field-label">
+                Cloudflare API Token <span className="req">*</span>
+              </label>
+              <input
+                type="password"
+                className="input input-mono"
+                placeholder="Paste your API token here"
+                value={formData.apiToken}
+                onChange={(e) => setFormData({ ...formData, apiToken: e.target.value })}
+                disabled={loading}
+              />
+              <div className="hint">
+                Token must have <span className="mono" style={{ color: 'var(--accent)' }}>Workers Scripts: Edit</span> and <span className="mono" style={{ color: 'var(--accent)' }}>Zone: Read</span> permissions
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, paddingTop: 8 }}>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <div style={{
+                      width: 14, height: 14,
+                      border: '2px solid currentColor', borderTopColor: 'transparent',
+                      borderRadius: '50%', animation: 'spin 0.6s linear infinite',
+                    }} />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <Icons.Check size={14} /> Save Credentials
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  setEditing(false);
+                  setFormData({ accountId: '', apiToken: '' });
+                }}
+                disabled={loading}
               >
                 Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={loading}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12 px-8 rounded-xl"
-              >
-                {loading ? 'Verifying...' : 'Save Changes'}
-              </Button>
+              </button>
             </div>
           </form>
         )}
       </div>
-    </Card>
+    </div>
   );
 }

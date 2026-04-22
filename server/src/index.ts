@@ -35,23 +35,25 @@ if (process.env.ENCRYPTION_KEY && process.env.ENCRYPTION_KEY.length !== 64) {
 
 const PORT = process.env.PORT || 8000;
 
-// Connect to database
-connectDatabase();
+// Bootstrap server with proper async initialization
+async function bootstrap() {
+  try {
+    // Connect to database first
+    await connectDatabase();
 
-buildServer().then((app) => {
-  app.listen({ port: Number(PORT), host: '0.0.0.0' })
-    .then(() => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📚 API Docs: http://localhost:${PORT}/api-docs`);
-      console.log(`🔄 Idempotency: Enabled (in-memory)`);
-    })
-    .catch((error) => {
-      console.error('❌ Failed to start server');
-      console.error(error);
-      process.exit(1);
-    });
-}).catch((error) => {
-  console.error('❌ Failed to build server');
-  console.error(error);
-  process.exit(1);
-});
+    // Then build and start server
+    const app = await buildServer();
+
+    await app.listen({ port: Number(PORT), host: '0.0.0.0' });
+
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📚 API Docs: http://localhost:${PORT}/api-docs`);
+    console.log(`🔄 Idempotency: Enabled (in-memory)`);
+  } catch (error) {
+    console.error('❌ Failed to start server');
+    console.error(error);
+    process.exit(1);
+  }
+}
+
+bootstrap();
