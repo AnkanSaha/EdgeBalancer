@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Button } from './Button';
+import { Icons } from '@/components/shared/Icons';
 
 interface ModalProps {
   isOpen: boolean;
@@ -35,54 +35,80 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'md' }:
 
   if (!isOpen) return null;
 
-  const sizeClasses = {
-    sm: 'max-w-md',
-    md: 'max-w-lg',
-    lg: 'max-w-2xl',
+  const sizeMap = {
+    sm: '480px',
+    md: '600px',
+    lg: '800px',
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 16,
+    }}>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(4px)',
+        }}
         onClick={onClose}
       />
 
       {/* Modal */}
       <div
         ref={modalRef}
-        className={`relative w-full ${sizeClasses[size]} bg-card border border-border rounded-lg shadow-2xl transform transition-all`}
+        className="slide-in"
+        style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: sizeMap[size],
+          background: 'var(--bg-1)',
+          border: '1px solid var(--line)',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+        }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: 24, borderBottom: '1px solid var(--line)',
+        }}>
+          <h2 style={{ fontSize: 20, margin: 0, letterSpacing: '-0.02em', fontWeight: 500 }}>
+            {title}
+          </h2>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            style={{
+              width: 32, height: 32,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: 'var(--radius)', color: 'var(--text-3)',
+              transition: 'all 120ms',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--bg-2)';
+              e.currentTarget.style.color = 'var(--text)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'var(--text-3)';
+            }}
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            <Icons.X size={16} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6">{children}</div>
+        <div style={{ padding: 24 }}>{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+            gap: 12, padding: 24, borderTop: '1px solid var(--line)',
+          }}>
             {footer}
           </div>
         )}
@@ -117,29 +143,47 @@ export function ConfirmModal({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={loading ? () => {} : onClose}
       title={title}
       size="sm"
       footer={
         <>
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+          <button
+            className="btn btn-ghost"
+            onClick={onClose}
+            disabled={loading}
+          >
             {cancelText}
-          </Button>
-          <Button
+          </button>
+          <button
+            className="btn"
             onClick={onConfirm}
             disabled={loading}
-            className={
-              confirmVariant === 'danger'
-                ? 'bg-red-600 hover:bg-red-700 text-white'
-                : ''
-            }
+            style={confirmVariant === 'danger' ? {
+              background: 'var(--red)',
+              color: 'var(--text)',
+            } : {
+              background: 'var(--accent)',
+              color: 'oklch(0.18 0.02 60)',
+            }}
           >
-            {loading ? 'Processing...' : confirmText}
-          </Button>
+            {loading ? (
+              <>
+                <div style={{
+                  width: 14, height: 14,
+                  border: '2px solid currentColor',
+                  borderTopColor: 'transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 0.6s linear infinite',
+                }} />
+                Processing...
+              </>
+            ) : confirmText}
+          </button>
         </>
       }
     >
-      <p className="text-foreground">{message}</p>
+      <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6 }}>{message}</p>
     </Modal>
   );
 }

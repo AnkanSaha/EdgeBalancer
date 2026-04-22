@@ -187,8 +187,16 @@ export function LoadBalancerForm({
     formData.origins.forEach((origin, index) => {
       if (!origin.url.trim()) {
         nextErrors[`origin-${index}-url`] = 'Origin URL is required';
-      } else if (!origin.url.match(/^https?:\/\/.+/)) {
-        nextErrors[`origin-${index}-url`] = 'Must start with http:// or https://';
+      }
+      // Validate URL format - accept http://, https://, or plain domain/IP
+      const url = origin.url.trim();
+      const hasProtocol = /^https?:\/\//i.test(url);
+      const plainUrl = hasProtocol ? url : `http://${url}`;
+
+      try {
+        new URL(plainUrl);
+      } catch {
+        nextErrors[`origin-${index}-url`] = 'Invalid URL format';
       }
 
       if (isWeightedStrategy(formData.strategy) && (origin.weight < 1 || origin.weight > 100)) {
@@ -253,13 +261,19 @@ export function LoadBalancerForm({
       domain: formData.domain,
       subdomain: formData.subdomain.trim() || undefined,
       zoneId: formData.zoneId,
-      origins: formData.origins.map((origin) => ({
-        url: origin.url.trim(),
-        weight: isWeightedStrategy(formData.strategy) ? origin.weight : 1,
-        geoCountries: parseGeoList(joinGeoList(origin.geoCountries)),
-        geoColos: parseGeoList(joinGeoList(origin.geoColos)),
-        geoContinents: parseGeoList(joinGeoList(origin.geoContinents)),
-      })),
+      origins: formData.origins.map((origin) => {
+        // Auto-prefix with http:// if no protocol is specified
+        const url = origin.url.trim();
+        const finalUrl = /^https?:\/\//i.test(url) ? url : `http://${url}`;
+
+        return {
+          url: finalUrl,
+          weight: isWeightedStrategy(formData.strategy) ? origin.weight : 1,
+          geoCountries: parseGeoList(joinGeoList(origin.geoCountries)),
+          geoColos: parseGeoList(joinGeoList(origin.geoColos)),
+          geoContinents: parseGeoList(joinGeoList(origin.geoContinents)),
+        };
+      }),
       strategy: formData.strategy,
       weightedEnabled: isWeightedStrategy(formData.strategy),
       placement: {
@@ -423,7 +437,7 @@ export function LoadBalancerForm({
         <FormSection
           number={4}
           title="Origin Servers"
-          description="Add, remove, or rebalance the backends that receive traffic"
+          description="Add, remove, or rebalance the backends that receive traffic here"
         >
           <div className="space-y-4">
             {formData.origins.map((origin, index) => (
@@ -435,7 +449,7 @@ export function LoadBalancerForm({
                   <Input
                     id={`origin-${index}`}
                     type="text"
-                    placeholder="http://192.168.1.100 or https://origin.example.com"
+                    placeholder="https://domain.com, http://127.0.0.1, or 192.168.1.100"
                     value={origin.url}
                     onChange={(event) => updateOrigin(index, 'url', event.target.value)}
                     disabled={submitting}
@@ -443,6 +457,11 @@ export function LoadBalancerForm({
                   />
                   {errors[`origin-${index}-url`] && (
                     <p className="text-sm text-red-500 mt-1">{errors[`origin-${index}-url`]}</p>
+                  )}
+                  {!errors[`origin-${index}-url`] && origin.url.trim() && !/^https?:\/\//i.test(origin.url.trim()) && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Will use: <span className="font-mono">http://{origin.url.trim()}</span>
+                    </p>
                   )}
 
                   {formData.strategy === 'geo-steering' && (
