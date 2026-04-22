@@ -127,12 +127,15 @@ export default function DashboardPage() {
 
     const id = deleteModal.lb.id;
     const deletedLoadBalancer = deleteModal.lb;
+
+    // Close modal immediately before starting deletion
+    closeDeleteModal();
     setDeletingId(id);
+
     try {
       const response = await api.deleteLoadBalancer(id);
       if (response.success) {
         setLoadBalancers(loadBalancers.filter(lb => lb.id !== id));
-        closeDeleteModal();
         setDeleteSuccess({
           name: deletedLoadBalancer.name,
           fullDomain: deletedLoadBalancer.fullDomain,
@@ -196,8 +199,6 @@ export default function DashboardPage() {
               }}>
                 {[
                   { l: 'Active balancers', v: loadBalancers.filter(b => b.status === 'active').length, sub: `of ${loadBalancers.length} total` },
-                  { l: 'Requests (24h)', v: '—', sub: 'metrics coming soon' },
-                  { l: 'Global p50', v: '—', sub: 'metrics coming soon' },
                   { l: 'Origins total', v: loadBalancers.reduce((a, b) => a + (b.originCount || 0), 0), sub: 'all checks passing', color: 'var(--green)' },
                 ].map((s, i) => (
                   <div key={i} className="card" style={{ padding: 20 }}>

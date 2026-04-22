@@ -13,34 +13,6 @@ interface LoadBalancerCardProps {
   isActioning?: boolean;
 }
 
-const Sparkline = ({ values }: { values: number[] }) => {
-  if (!values || values.length === 0) {
-    values = Array.from({ length: 12 }, () => Math.floor(Math.random() * 100 + 50));
-  }
-
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const pts = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * 100;
-    const y = 100 - ((v - min) / (max - min || 1)) * 100;
-    return `${x},${y}`;
-  }).join(' ');
-  const area = `0,100 ${pts} 100,100`;
-
-  return (
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: '100%', height: 40 }}>
-      <defs>
-        <linearGradient id={`spark-${Math.random()}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.3" />
-          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polygon points={area} fill="url(#spark)" />
-      <polyline points={pts} fill="none" stroke="var(--accent)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
-};
-
 export const LoadBalancerCard = ({
   lb,
   onSelect,
@@ -57,12 +29,12 @@ export const LoadBalancerCard = ({
   };
 
   return (
-    <button onClick={onSelect} style={{
+    <div onClick={onSelect} style={{
       textAlign: 'left', width: '100%',
       background: 'var(--bg-1)', border: '1px solid var(--line)',
       borderRadius: 'var(--radius-lg)', padding: 20,
       display: 'flex', flexDirection: 'column', gap: 16,
-      transition: 'all 160ms',
+      transition: 'all 160ms', cursor: 'pointer',
     }}
     onMouseEnter={(e) => {
       e.currentTarget.style.borderColor = 'var(--line-2)';
@@ -91,9 +63,6 @@ export const LoadBalancerCard = ({
           <Icons.MoreV size={16} />
         </div>
       </div>
-
-      {/* Sparkline - placeholder for now */}
-      <Sparkline values={[]} />
 
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12,
@@ -140,7 +109,7 @@ export const LoadBalancerCard = ({
           {isDeleting ? 'Deleting...' : 'Delete'}
         </button>
       </div>
-    </button>
+    </div>
   );
 };
 

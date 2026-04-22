@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { Sidebar, Topbar } from '@/components/dashboard/Sidebar';
 import { Icons } from '@/components/shared/Icons';
-import { DeploymentOverlay } from '@/components/loadbalancers/DeploymentExperience';
+import { DeploymentOverlay, DeploymentSuccessModal } from '@/components/loadbalancers/DeploymentExperience';
 import toast from 'react-hot-toast';
 
 const STRATEGIES = [
@@ -96,6 +96,7 @@ export default function CreateLoadBalancerPage() {
   const [activeStep, setActiveStep] = useState(1);
   const [deploying, setDeploying] = useState(false);
   const [zones, setZones] = useState<any[]>([]);
+  const [deploySuccess, setDeploySuccess] = useState<{ name: string; fullDomain: string } | null>(null);
   const [form, setForm] = useState({
     name: '',
     zoneId: '',
@@ -171,7 +172,12 @@ export default function CreateLoadBalancerPage() {
         zoneId: form.zoneId,
         domain: selectedZone.name,
         subdomain: trimmedSubdomain || undefined,
-        origins: form.origins.map((o) => ({ url: o.url, weight: o.weight })),
+        origins: form.origins.map((o) => {
+          // Auto-prefix with http:// if no protocol is specified
+          const url = o.url.trim();
+          const finalUrl = /^https?:\/\//i.test(url) ? url : `http://${url}`;
+          return { url: finalUrl, weight: o.weight };
+        }),
         strategy: form.strategy,
         weightedEnabled,
         placement: {
@@ -185,14 +191,17 @@ export default function CreateLoadBalancerPage() {
         headers: { 'x-operation-id': operationId },
       });
 
-      if (response.success) {
-        toast.success('Load balancer deployed successfully!');
-        setTimeout(() => router.push('/dashboard'), 1500);
+      if (response.success && response.data?.loadBalancer) {
+        setDeploySuccess({
+          name: response.data.loadBalancer.name,
+          fullDomain: response.data.loadBalancer.fullDomain,
+        });
       } else {
         throw new Error(response.message || 'Deployment failed');
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to deploy load balancer');
+    } finally {
       setDeploying(false);
     }
   };
@@ -381,7 +390,7 @@ export default function CreateLoadBalancerPage() {
           </FieldBlock>
 
           <FieldBlock n={4} title="Origin Servers"
-            subtitle="Add, remove, or rebalance the backends that receive traffic">
+            subtitle="Add, remove, or rebalance the backends that receive traffic here">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {form.origins.map((s, i) => (
                 <div key={s.id} className={`origin-row ${showWeights ? 'with-weights' : 'no-weights'}`} style={{
@@ -397,7 +406,7 @@ export default function CreateLoadBalancerPage() {
                   }}>#{i + 1}</div>
                   <input
                     className="input input-mono"
-                    placeholder="http://192.168.1.100 or https://origin.example.com"
+                    placeholder="https://domain.com, http://127.0.0.1, or 192.168.1.100"
                     value={s.url}
                     onChange={e => updateOrigin(s.id, { url: e.target.value })}
                     onFocus={() => setActiveStep(4)}
@@ -587,30 +596,22 @@ export default function CreateLoadBalancerPage() {
           </div>
         </div>
 
-        {deploying && (
-          <div style={{
-            position: 'fixed', inset: 0, background: 'oklch(0.17 0.008 60 / 0.85)',
-            backdropFilter: 'blur(8px)', zIndex: 100,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <div style={{
-              background: 'var(--bg-1)', border: '1px solid var(--line-2)',
-              borderRadius: 'var(--radius-lg)', padding: 40, maxWidth: 440, width: '90%',
-              textAlign: 'center',
-            }}>
-              <div style={{
-                width: 48, height: 48, margin: '0 auto 24px',
-                border: '2px solid var(--line)', borderTopColor: 'var(--accent)',
-                borderRadius: '50%', animation: 'spin 0.9s linear infinite',
-              }} />
-              <div className="kicker" style={{ color: 'var(--accent)', marginBottom: 8 }}>// deploying</div>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>{form.name}</h3>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>
-                {fullHost}
-              </div>
-            </div>
-          </div>
-        )}
+        <DeploymentOverlay
+          isOpen={deploying}
+          mode="create"
+          targetName={form.name}
+          onCancel={() => {}}
+          cancelRequested={false}
+          cancellable={false}
+        />
+
+        <DeploymentSuccessModal
+          isOpen={!!deploySuccess}
+          mode="create"
+          name={deploySuccess?.name || form.name}
+          fullDomain={deploySuccess?.fullDomain || fullHost}
+          onContinue={() => router.push('/dashboard')}
+        />
       </main>
 
       <style jsx>{`
