@@ -133,7 +133,7 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
       {/* Desktop Sidebar */}
       <aside className="sidebar-desktop" style={{
         width: 240, borderRight: '1px solid var(--line)',
-        background: 'var(--bg)', display: 'none', flexDirection: 'column',
+        background: 'var(--bg)', display: 'flex', flexDirection: 'column',
         padding: '20px 12px', position: 'sticky', top: 0, height: '100vh',
         overflowY: 'auto',
       }} suppressHydrationWarning>
@@ -147,13 +147,13 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
         gap: 12, zIndex: 35,
       }}>
         <Logo />
-        <button 
+        <button
           className="mobile-menu-trigger"
           onClick={() => setMobileOpen(!mobileOpen)}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 40, height: 40, borderRadius: 'var(--radius)',
-            background: 'var(--accent)', color: 'oklch(0.18 0.02 60)',
+            background: 'var(--accent)', color: 'var(--bg)',
             border: 'none', cursor: 'pointer',
           }}
         >
@@ -162,30 +162,33 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
       </div>
 
       {/* Mobile Sidebar Overlay & Drawer */}
-      {mobileOpen && (
-        <>
-          <div
-            className="sidebar-overlay"
-            onClick={() => setMobileOpen(false)}
-            style={{
-              position: 'fixed', inset: 0, zIndex: 40,
-              background: 'rgba(0,0,0,0.5)',
-            }}
-          />
-          <aside className="sidebar-mobile" style={{
-            position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 41,
-            width: 'min(280px, 85vw)',
-            borderRight: '1px solid var(--line)',
-            background: 'var(--bg)', display: 'flex', flexDirection: 'column',
-            padding: '20px 12px', overflow: 'auto',
-          }}>
-            <SidebarContent />
-          </aside>
-        </>
-      )}
+      <>
+        <div
+          className="sidebar-overlay"
+          onClick={() => setMobileOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 40,
+            background: 'rgba(0,0,0,0.5)',
+            opacity: mobileOpen ? 1 : 0,
+            pointerEvents: mobileOpen ? 'auto' : 'none',
+            transition: 'opacity 280ms cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        />
+        <aside className="sidebar-mobile" style={{
+          position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 41,
+          width: 'min(280px, 85vw)',
+          borderRight: '1px solid var(--line)',
+          background: 'var(--bg)', display: 'flex', flexDirection: 'column',
+          padding: '20px 12px', overflow: 'auto',
+          transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 280ms cubic-bezier(0.4, 0, 0.2, 1)',
+        }}>
+          <SidebarContent />
+        </aside>
+      </>
 
       <style jsx>{`
-        @media (min-width: 901px) {
+        @media (min-width: 769px) {
           .sidebar-desktop {
             display: flex !important;
           }
@@ -196,7 +199,7 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
             display: none !important;
           }
         }
-        @media (max-width: 900px) {
+        @media (max-width: 768px) {
           .sidebar-desktop {
             display: none !important;
           }

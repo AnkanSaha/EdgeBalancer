@@ -167,16 +167,6 @@ export default function DashboardPage() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', flexDirection: 'column' }}>
-      {/* Mobile Header */}
-      <div className="sidebar-mobile-header" style={{
-        display: 'none', alignItems: 'center', justifyContent: 'space-between',
-        padding: 'clamp(12px, 2vw, 16px)', borderBottom: '1px solid var(--line)',
-        gap: 12, zIndex: 35,
-      }}>
-        <h2 style={{ fontSize: 'clamp(16px, 3vw, 18px)', fontWeight: 500, margin: 0 }}>Dashboard</h2>
-        {/* Menu button will be added via CSS */}
-      </div>
-
       {/* Main Content */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'row' }}>
         <Sidebar
@@ -249,7 +239,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div style={{
-                  display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(clamp(280px, 50vw, 340px), 1fr))', gap: 'clamp(12px, 2vw, 16px)',
+                  display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: 'clamp(12px, 2vw, 16px)',
                 }}>
                   {loadBalancers.map(lb => (
                     <LoadBalancerCard
@@ -307,14 +297,6 @@ export default function DashboardPage() {
         fullDomain={deleteSuccess?.fullDomain || ''}
         onContinue={() => setDeleteSuccess(null)}
       />
-
-      <style jsx>{`
-        @media (max-width: 900px) {
-          .sidebar-mobile-header {
-            display: flex !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }

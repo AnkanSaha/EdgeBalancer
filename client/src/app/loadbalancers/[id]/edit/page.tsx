@@ -533,8 +533,23 @@ export default function EditLoadBalancerPage() {
       </main>
 
       <style jsx>{`
-        @media (max-width: 900px) {
+        @media (max-width: 768px) {
           .hide-md { display: none; }
+          main {
+            padding: 16px !important;
+          }
+          div[style*="gridTemplateColumns"] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .deploy-actions {
+            flex-direction: column;
+            width: 100%;
+          }
+          .deploy-actions button {
+            width: 100%;
+          }
         }
       `}</style>
     </div>
