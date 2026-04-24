@@ -99,7 +99,7 @@ export const AuthLayout = ({ children, step, onBack }: AuthLayoutProps) => {
       </div>
 
       <style jsx>{`
-        @media (max-width: 900px) {
+        @media (max-width: 768px) {
           .auth-grid { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 640px) {

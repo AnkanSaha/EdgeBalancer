@@ -627,7 +627,7 @@ export default function CreateLoadBalancerPage() {
           grid-template-columns: 56px minmax(0, 1fr) 110px 40px;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 768px) {
           .hide-md { display: none; }
           .create-form-shell {
             padding: 16px !important;

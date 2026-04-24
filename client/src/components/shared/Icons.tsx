@@ -52,4 +52,7 @@ export const Icons = {
   Lock: (p: IconProps) => <Icon {...p}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></Icon>,
   Cloud: (p: IconProps) => <Icon {...p}><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" /></Icon>,
   Edit: (p: IconProps) => <Icon {...p}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></Icon>,
+  ChevronDown: (p: IconProps) => <Icon {...p}><path d="m6 9 6 6 6-6" /></Icon>,
+  Book: (p: IconProps) => <Icon {...p}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13M20 17V6a2 2 0 0 0-2-2H6.5A2.5 2.5 0 0 0 4 6v11.5" /></Icon>,
+  Mail: (p: IconProps) => <Icon {...p}><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 6L2 7" /></Icon>,
 };

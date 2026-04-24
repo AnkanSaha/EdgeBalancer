@@ -460,6 +460,19 @@ function CloudflareTab({ user, refreshUser }: any) {
           </form>
         )}
       </div>
+
+      <style jsx>{`
+        @media (max-width: 768px) {
+          div[style*="padding"] {
+            padding: 16px !important;
+          }
+        }
+        @media (max-width: 640px) {
+          div[style*="gridTemplateColumns"] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

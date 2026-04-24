@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/shared/Logo';
 import { Icons } from '@/components/shared/Icons';
@@ -7,6 +8,29 @@ import { FlowDiagram } from '@/components/landing/FlowDiagram';
 
 export default function LandingPage() {
   const router = useRouter();
+
+  // Scroll animation observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '0px 0px -100px 0px',
+      }
+    );
+
+    document.querySelectorAll('.animate-on-scroll').forEach((el) => {
+      observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
@@ -39,7 +63,7 @@ export default function LandingPage() {
         position: 'relative', zIndex: 5,
         maxWidth: 1200, margin: '0 auto',
         padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px) clamp(40px, 5vw, 64px)',
-        display: 'grid', gridTemplateColumns: '1fr', gap: 'clamp(32px, 5vw, 64px)', alignItems: 'center',
+        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'clamp(32px, 5vw, 64px)', alignItems: 'center',
       }} className="hero-grid">
         <div>
           <div style={{
@@ -113,6 +137,136 @@ export default function LandingPage() {
                 <Ico size={20} stroke="var(--accent)" />
                 <div style={{ fontSize: 15, fontWeight: 500, marginTop: 20, letterSpacing: '-0.01em' }}>{f.title}</div>
                 <div style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 6, lineHeight: 1.5 }}>{f.desc}</div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Use Cases */}
+      <section style={{
+        position: 'relative', zIndex: 5,
+        maxWidth: 1200, margin: '0 auto',
+        padding: 'clamp(48px, 6vw, 80px) clamp(16px, 4vw, 48px)',
+      }}>
+        <div className="kicker" style={{ marginBottom: 12 }}>// use cases</div>
+        <h2 style={{
+          fontSize: 'clamp(28px, 4vw, 44px)',
+          margin: 0,
+          letterSpacing: '-0.03em',
+          fontWeight: 500,
+          marginBottom: 48,
+        }}>
+          Built for modern architectures
+        </h2>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(260px, 45vw, 340px), 1fr))',
+          gap: 'clamp(16px, 3vw, 24px)',
+        }}>
+          {[
+            {
+              icon: 'Zap',
+              title: 'API Gateway',
+              desc: 'Route REST/GraphQL traffic across multiple backend services with weighted distribution and automatic failover.',
+              features: ['Request-level routing', 'Health checks', 'Zero-downtime deploys'],
+            },
+            {
+              icon: 'Globe',
+              title: 'Multi-Region Apps',
+              desc: 'Geo-steer users to the closest origin based on Cloudflare PoP location for optimal latency.',
+              features: ['Continental routing', 'GDPR compliance', 'Edge-level decisions'],
+            },
+            {
+              icon: 'Shield',
+              title: 'High Availability',
+              desc: 'Failover strategy ensures requests automatically retry healthy origins if primary fails or returns 5xx errors.',
+              features: ['Ordered retry logic', 'Health monitoring', 'Zero config needed'],
+            },
+            {
+              icon: 'Activity',
+              title: 'Blue/Green Deployments',
+              desc: 'Use weighted strategies to gradually shift traffic from old to new infrastructure with fine-grained control.',
+              features: ['Gradual rollouts', 'Instant rollback', 'A/B testing'],
+            },
+            {
+              icon: 'Link',
+              title: 'Stateful Workloads',
+              desc: 'Cookie-sticky routing keeps users pinned to the same backend server for sessions, WebSockets, or shopping carts.',
+              features: ['Session affinity', 'Persistent connections', 'No Redis needed'],
+            },
+            {
+              icon: 'Layers',
+              title: 'Microservices Mesh',
+              desc: 'Deploy multiple load balancers for different services, each with its own routing strategy and origin set.',
+              features: ['Service isolation', 'Independent scaling', 'Per-service metrics'],
+            },
+          ].map((useCase, i) => {
+            const Ico = Icons[useCase.icon as keyof typeof Icons];
+            return (
+              <div
+                key={i}
+                className="card animate-on-scroll scale-in"
+                style={{
+                  padding: 'clamp(20px, 3vw, 24px)',
+                  animationDelay: `${i * 0.1}s`,
+                }}
+              >
+                <div style={{
+                  width: 40, height: 40, borderRadius: 'var(--radius)',
+                  background: 'var(--bg-2)', border: '1px solid var(--line-2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 16,
+                }}>
+                  <Ico size={20} stroke="var(--accent)" />
+                </div>
+                <h3 style={{
+                  fontSize: 'clamp(15px, 3vw, 17px)',
+                  margin: 0,
+                  fontWeight: 500,
+                  marginBottom: 8,
+                }}>
+                  {useCase.title}
+                </h3>
+                <p style={{
+                  fontSize: 'clamp(13px, 2vw, 14px)',
+                  color: 'var(--text-2)',
+                  lineHeight: 1.6,
+                  marginBottom: 16,
+                }}>
+                  {useCase.desc}
+                </p>
+                <ul style={{
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}>
+                  {useCase.features.map((feature, j) => (
+                    <li
+                      key={j}
+                      style={{
+                        fontSize: 'clamp(12px, 2vw, 13px)',
+                        color: 'var(--text-3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      <div style={{
+                        width: 4,
+                        height: 4,
+                        borderRadius: '50%',
+                        background: 'var(--accent)',
+                        flexShrink: 0,
+                      }} />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
               </div>
             );
           })}
@@ -296,6 +450,254 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Strategies Section */}
+      <section id="strategies" style={{
+        position: 'relative', zIndex: 5,
+        maxWidth: 1200, margin: '0 auto', padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px)',
+      }}>
+        <div className="kicker" style={{ marginBottom: 12 }}>// routing strategies</div>
+        <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', margin: 0, letterSpacing: '-0.03em', fontWeight: 500, marginBottom: 16 }}>
+          Seven ways to route traffic
+        </h2>
+        <p style={{ fontSize: 'clamp(14px, 2.5vw, 16px)', color: 'var(--text-2)', maxWidth: 680, marginBottom: 48 }}>
+          Each strategy is optimized for different use cases. Pick the one that fits your architecture,
+          or switch strategies anytime without downtime.
+        </p>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(280px, 45vw, 360px), 1fr))',
+          gap: 'clamp(16px, 3vw, 24px)',
+        }}>
+          {[
+            {
+              id: 'round-robin',
+              icon: 'Refresh',
+              title: 'Round Robin',
+              desc: 'Edge-local rotating cursor',
+              detail: 'Distributes requests evenly across all origins using a rotating counter maintained at each edge location. Simple, fair, and predictable.',
+              useCase: 'Ideal for: Stateless APIs, microservices, equal capacity backends',
+            },
+            {
+              id: 'weighted-round-robin',
+              icon: 'Activity',
+              title: 'Weighted Round Robin',
+              desc: 'Weighted random selection',
+              detail: 'Assigns requests based on origin weights. A server with weight 40 receives roughly 40% of traffic. Uses weighted random selection for best distribution.',
+              useCase: 'Ideal for: Mixed server capacities, gradual rollouts, A/B testing',
+            },
+            {
+              id: 'ip-hash',
+              icon: 'Key',
+              title: 'IP Hash',
+              desc: 'Stable origin selection from cf-connecting-ip',
+              detail: 'Routes clients to the same origin based on their IP address hash. Ensures consistent routing for the same client without cookies.',
+              useCase: 'Ideal for: CDN origin selection, cache warming, consistent routing',
+            },
+            {
+              id: 'cookie-sticky',
+              icon: 'Link',
+              title: 'Cookie Sticky',
+              desc: 'First assignment, then affinity by cookie',
+              detail: 'First request is routed randomly, then a cookie pins the client to that origin. Subsequent requests from the same client always hit the same backend.',
+              useCase: 'Ideal for: Session-based apps, shopping carts, WebSocket connections',
+            },
+            {
+              id: 'weighted-cookie-sticky',
+              icon: 'Layers',
+              title: 'Weighted Sticky',
+              desc: 'Weighted first assignment, then affinity',
+              detail: 'Combines weights and sticky sessions. First request uses weighted random selection, then cookie affinity maintains the assignment.',
+              useCase: 'Ideal for: Stateful apps with mixed capacity servers, gradual migrations',
+            },
+            {
+              id: 'failover',
+              icon: 'Shield',
+              title: 'Failover',
+              desc: 'Ordered upstream retry on failure or 5xx',
+              detail: 'Tries origins in order. If an origin fails or returns a 5xx error, automatically retries the next origin in the list until success.',
+              useCase: 'Ideal for: Primary/backup setups, disaster recovery, high availability',
+            },
+            {
+              id: 'geo-steering',
+              icon: 'Globe',
+              title: 'Geo Steering',
+              desc: 'Match by colo, country, continent, then fallback',
+              detail: 'Routes based on Cloudflare edge location metadata. Matches by specific colo first, then country, then continent, with fallback rotation.',
+              useCase: 'Ideal for: GDPR compliance, latency optimization, regional isolation',
+            },
+          ].map((strategy, i) => {
+            const Ico = Icons[strategy.icon as keyof typeof Icons];
+            return (
+              <div
+                key={strategy.id}
+                className="card animate-on-scroll fade-in-up"
+                style={{
+                  padding: 'clamp(20px, 3vw, 28px)',
+                  animationDelay: `${i * 0.1}s`,
+                }}
+              >
+                <div style={{
+                  width: 48, height: 48, borderRadius: 'var(--radius)',
+                  background: 'var(--accent-dim)', border: '1px solid var(--accent)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 20,
+                }}>
+                  <Ico size={22} stroke="var(--accent)" />
+                </div>
+                <h3 style={{
+                  fontSize: 'clamp(16px, 3vw, 18px)',
+                  margin: 0,
+                  letterSpacing: '-0.01em',
+                  fontWeight: 500,
+                  marginBottom: 8,
+                }}>
+                  {strategy.title}
+                </h3>
+                <div className="kicker" style={{ marginBottom: 12 }}>
+                  {strategy.desc}
+                </div>
+                <p style={{
+                  fontSize: 'clamp(13px, 2vw, 14px)',
+                  color: 'var(--text-2)',
+                  lineHeight: 1.6,
+                  marginBottom: 16,
+                }}>
+                  {strategy.detail}
+                </p>
+                <div style={{
+                  padding: 12,
+                  background: 'var(--bg)',
+                  border: '1px solid var(--line)',
+                  borderRadius: 'var(--radius)',
+                  fontSize: 'clamp(11px, 2vw, 12px)',
+                  fontFamily: 'var(--mono)',
+                  color: 'var(--text-3)',
+                }}>
+                  {strategy.useCase}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section id="faq" style={{
+        position: 'relative', zIndex: 5,
+        maxWidth: 900, margin: '0 auto',
+        padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px) clamp(64px, 8vw, 128px)',
+      }}>
+        <div className="kicker" style={{ marginBottom: 12 }}>// frequently asked</div>
+        <h2 style={{
+          fontSize: 'clamp(28px, 4vw, 44px)',
+          margin: 0,
+          letterSpacing: '-0.03em',
+          fontWeight: 500,
+          marginBottom: 48,
+        }}>
+          Questions &amp; Answers
+        </h2>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {[
+            {
+              q: 'How is this different from Cloudflare Load Balancing?',
+              a: 'Cloudflare Load Balancing is a DNS-based solution ($5/balancer + per-query fees). EdgeBalancer deploys as a Worker script, giving you request-level control with no per-query costs. You pay only for Worker requests (100k/day free, then $0.30/M).',
+            },
+            {
+              q: 'Can I bring my own domains?',
+              a: 'Yes. You connect your Cloudflare account, and we deploy Workers to zones you already own. You maintain full control — delete the API token and the Workers stay deployed under your account.',
+            },
+            {
+              q: 'What happens if EdgeBalancer goes down?',
+              a: "Your load balancers keep running. Once deployed, the Worker script lives in your Cloudflare account. EdgeBalancer is only the control plane for creating and updating configs — the data plane runs independently on Cloudflare's edge.",
+            },
+            {
+              q: 'How do updates work?',
+              a: 'Updates use Cloudflare Worker Versions and Deployments. When you change a config, we create a new version, deploy it, and keep the previous version as a rollback target. Old inactive versions are pruned automatically.',
+            },
+            {
+              q: 'Can I see the generated Worker code?',
+              a: "Yes. All Worker scripts are visible in your Cloudflare dashboard under Workers & Pages. The code is generated from strategy-specific templates in EdgeBalancer's open-source repository.",
+            },
+            {
+              q: 'What are the performance implications?',
+              a: 'Workers add ~1-3ms median overhead. The benefit is intelligent routing, health checks, and failover at the edge — much faster than round-tripping to a centralized load balancer. For most use cases, latency decreases overall.',
+            },
+            {
+              q: 'Do you store or proxy my traffic?',
+              a: 'No. EdgeBalancer never sees your production traffic. We store only metadata (origin URLs, weights, strategy choice) encrypted in MongoDB. All requests flow directly from Cloudflare edge → your origins.',
+            },
+            {
+              q: 'How do I delete everything?',
+              a: "Delete load balancers from the dashboard, then rotate your API token. You can also manually delete the Worker scripts from Cloudflare's dashboard. EdgeBalancer has no lock-in — everything runs in your account.",
+            },
+          ].map((faq, i) => (
+            <details
+              key={i}
+              className="animate-on-scroll fade-in"
+              style={{
+                padding: 'clamp(16px, 3vw, 20px)',
+                border: '1px solid var(--line)',
+                borderRadius: 'var(--radius)',
+                background: 'var(--bg-1)',
+                cursor: 'pointer',
+                transition: 'all 200ms',
+                animationDelay: `${i * 0.05}s`,
+              }}
+            >
+              <summary style={{
+                fontSize: 'clamp(14px, 2.5vw, 16px)',
+                fontWeight: 500,
+                listStyle: 'none',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 16,
+              }}>
+                <span>{faq.q}</span>
+                <Icons.ChevronDown size={16} style={{ flexShrink: 0, transition: 'transform 200ms' }} />
+              </summary>
+              <div style={{
+                fontSize: 'clamp(13px, 2vw, 14px)',
+                color: 'var(--text-2)',
+                marginTop: 12,
+                paddingTop: 12,
+                borderTop: '1px solid var(--line)',
+                lineHeight: 1.6,
+              }}>
+                {faq.a}
+              </div>
+            </details>
+          ))}
+        </div>
+
+        <div style={{
+          marginTop: 48,
+          padding: 'clamp(24px, 4vw, 32px)',
+          background: 'var(--bg-1)',
+          border: '1px solid var(--line)',
+          borderRadius: 'var(--radius-lg)',
+          textAlign: 'center',
+        }}>
+          <h3 style={{ fontSize: 'clamp(18px, 3vw, 20px)', margin: 0, marginBottom: 12 }}>
+            Still have questions?
+          </h3>
+          <p style={{ color: 'var(--text-3)', fontSize: 'clamp(13px, 2vw, 14px)', marginBottom: 20 }}>
+            Check the documentation or reach out to the team.
+          </p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="btn btn-ghost">
+              <Icons.Book size={14} /> Documentation
+            </button>
+            <button className="btn btn-dark">
+              <Icons.Mail size={14} /> Contact Support
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer style={{
         borderTop: '1px solid var(--line)',
@@ -312,17 +714,6 @@ export default function LandingPage() {
           <span>Privacy</span>
         </div>
       </footer>
-
-      <style jsx>{`
-        @media (max-width: 900px) {
-          .hero-grid { grid-template-columns: 1fr !important; padding: 48px 24px !important; }
-          .two-col { grid-template-columns: 1fr !important; }
-          .cmp-grid { grid-template-columns: 1fr !important; }
-          .vs-col { display: none !important; }
-          nav { padding: 16px 24px !important; }
-          footer { padding: 16px 24px !important; }
-        }
-      `}</style>
     </div>
   );
 }
