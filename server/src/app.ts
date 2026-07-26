@@ -59,8 +59,9 @@ export const buildServer = async () => {
     }
   });
 
-  // Health check — used by rolling deploy to verify instance is ready
-  app.get('/health', async (_, reply) => {
+  // Health check — used by rolling deploy to verify instance is ready.
+  // logLevel: 'silent' keeps kubelet probe traffic out of the logs.
+  app.get('/health', { logLevel: 'silent' }, async (_, reply) => {
     const dbReady = mongoose.connection.readyState === 1;
     if (!dbReady) {
       return reply.code(503).send({ status: 'degraded', db: 'disconnected' });
