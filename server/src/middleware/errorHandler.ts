@@ -7,11 +7,9 @@ export const registerErrorHandler = (app: FastifyInstance) => {
     const statusCode = appError.statusCode || (reply.statusCode !== 200 ? reply.statusCode : 500);
     const message = appError.message || 'Internal server error';
 
-    // Only log unexpected errors (not 401 auth checks)
-    const isExpectedAuthError = statusCode === 401 && request.url.includes('/auth/me');
-    
-    if (!isExpectedAuthError) {
-      console.error('Error:', appError);
+    // 4xx are client mistakes — logging them lets any client flood the log.
+    if (statusCode >= 500) {
+      request.log.error({ err: appError }, 'Request failed');
     }
 
     reply.code(statusCode).send({

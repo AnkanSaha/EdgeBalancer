@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node src/index.ts",
-    "build": "tsc && cp -r src/services/workerTemplates dist/services/",
+    "build": "tsc -p tsconfig.build.json && cp -r src/services/workerTemplates dist/services/",
     "start": "node dist/index.js",
     "test": "jest --runInBand --forceExit --silent",
     "test:watch": "jest --watch",

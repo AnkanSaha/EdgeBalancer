@@ -6,8 +6,7 @@ metadata:
   labels:
     app: edgebalancer-server
 spec:
-  # replicas omitted on purpose: owned by hpa.yaml (1-3, 25% CPU).
-  # Setting it here would reset the scale on every `kubectl apply`.
+  # replicas omitted: owned by hpa.yaml, setting it here resets scale on apply
   selector:
     matchLabels:
       app: edgebalancer-server
@@ -41,8 +40,6 @@ spec:
               cpu: 200m
               memory: 128Mi
             limits:
-              # 256Mi on a 1.8Gi single node: 5x the ~45Mi steady state,
-              # small enough that two replicas can't OOM the control plane.
               cpu: 500m
               memory: 256Mi
           readinessProbe:
@@ -54,7 +51,7 @@ spec:
             failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /health
+              path: /live
               port: 8000
             initialDelaySeconds: 15
             periodSeconds: 10

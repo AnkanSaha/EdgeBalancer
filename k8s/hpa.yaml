@@ -16,5 +16,4 @@ spec:
         name: cpu
         target:
           type: Utilization
-          # 70% of the 200m request = 140m sustained before scaling out.
-          averageUtilization: 70
+          averageUtilization: 70 # of the 200m request = 140m sustained
