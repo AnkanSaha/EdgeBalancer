@@ -38,11 +38,13 @@ spec:
               value: "redis://redis-service:6379"
           resources:
             requests:
-              cpu: 100m
-              memory: 100Mi
+              cpu: 200m
+              memory: 128Mi
             limits:
-              cpu: 400m
-              memory: 400Mi
+              # 256Mi on a 1.8Gi single node: 5x the ~45Mi steady state,
+              # small enough that two replicas can't OOM the control plane.
+              cpu: 500m
+              memory: 256Mi
           readinessProbe:
             httpGet:
               path: /health
