@@ -250,7 +250,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Detail   | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Manifests | Deployment, Service, Ingress |" >> $GITHUB_STEP_SUMMARY
+          echo "| Manifests | Deployment, HPA, Service, Ingress, Redis |" >> $GITHUB_STEP_SUMMARY
           echo "| Host     | \`${{ vars.SERVER_HOST }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Status   | applied |" >> $GITHUB_STEP_SUMMARY
 
@@ -350,5 +350,6 @@ jobs:
           echo "| Image     | \`$IMAGE\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Host      | \`${{ vars.SERVER_HOST }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Strategy  | Rolling Update (maxSurge=1, maxUnavailable=0) |" >> $GITHUB_STEP_SUMMARY
-          echo "| Replicas  | 2 fixed (500m CPU / 512Mi RAM each) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Replicas  | HPA 1–2 @ 70% CPU |" >> $GITHUB_STEP_SUMMARY
+          echo "| Resources | requests 200m/128Mi · limits 500m/256Mi |" >> $GITHUB_STEP_SUMMARY
           echo "| Status    | deployed |" >> $GITHUB_STEP_SUMMARY

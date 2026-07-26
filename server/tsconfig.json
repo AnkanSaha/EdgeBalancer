@@ -13,6 +13,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    "types": ["node", "jest"],
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -24,7 +25,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "src/services/workerTemplates/**/*.js",
-    "src/__tests__"
+    "src/services/workerTemplates/**/*.js"
   ]
 }
