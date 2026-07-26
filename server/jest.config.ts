@@ -6,6 +6,7 @@ export default {
   globalSetup: '<rootDir>/src/__tests__/setup/globalSetup.ts',
   globalTeardown: '<rootDir>/src/__tests__/setup/globalTeardown.ts',
   setupFiles: ['<rootDir>/src/__tests__/setup/env.ts'],
+  setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup/redisMock.ts'],
   transform: {
     '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.test.json' }],
   },
