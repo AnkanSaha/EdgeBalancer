@@ -106,7 +106,7 @@ describe('quota handling', () => {
       .mockImplementation(answers);
 
     expect((await run()).model).toBe('paid-best');
-    expect(markProviderExhausted).toHaveBeenCalledWith('openrouter');
+    expect(markProviderExhausted).toHaveBeenCalledWith('openrouter', undefined);
   });
 
   it('reads the daily quota message out of a nested error body', async () => {
@@ -118,6 +118,43 @@ describe('quota handling', () => {
       .mockImplementation(answers);
 
     expect((await run()).model).toBe('paid-best');
+  });
+
+  it('passes a Retry-After header through as the cooldown', async () => {
+    mockedProviderExhausted.mockImplementation(async (p: string) => p === 'openrouter');
+    mockedCreate
+      .mockImplementationOnce(() => throws(Object.assign(rateLimited('slow down'), {
+        headers: { 'retry-after': '12' },
+      })))
+      .mockImplementation(answers);
+
+    await run();
+
+    expect(markModelExhausted).toHaveBeenCalledWith('paid-best', 12);
+  });
+
+  it('reads Retry-After from a Headers-style object too', async () => {
+    mockedProviderExhausted.mockImplementation(async (p: string) => p === 'openrouter');
+    mockedCreate
+      .mockImplementationOnce(() => throws(Object.assign(rateLimited('slow down'), {
+        response: { headers: { get: (name: string) => (name === 'retry-after' ? '30' : null) } },
+      })))
+      .mockImplementation(answers);
+
+    await run();
+
+    expect(markModelExhausted).toHaveBeenCalledWith('paid-best', 30);
+  });
+
+  it('leaves the cooldown to the default when no Retry-After is sent', async () => {
+    mockedProviderExhausted.mockImplementation(async (p: string) => p === 'openrouter');
+    mockedCreate
+      .mockImplementationOnce(() => throws(rateLimited('slow down')))
+      .mockImplementation(answers);
+
+    await run();
+
+    expect(markModelExhausted).toHaveBeenCalledWith('paid-best', undefined);
   });
 
   it('keeps a burst 429 local — one user must not cost everyone the free tier', async () => {
@@ -145,7 +182,7 @@ describe('quota handling', () => {
       .mockImplementation(answers);
 
     expect((await run()).model).toBe('paid-small');
-    expect(markModelExhausted).toHaveBeenCalledWith('paid-best');
+    expect(markModelExhausted).toHaveBeenCalledWith('paid-best', undefined);
   });
 
   it('skips every model of a provider already in cooldown', async () => {

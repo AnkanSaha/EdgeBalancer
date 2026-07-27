@@ -40,6 +40,21 @@ const messageOf = (error: any): string =>
 // standing the provider down.
 const DAILY_QUOTA_PATTERN = /free-models-per-day|per[-\s]?day|daily limit|daily quota|add (more )?credits/i;
 
+/**
+ * Both providers answer a 429 with `Retry-After` (seconds). It is more accurate than any fixed
+ * guess — Mistral's per-second request cap clears almost immediately, while its per-minute token
+ * budget takes up to a minute — so when it is present it decides the cooldown.
+ */
+const retryAfterSeconds = (error: any): number | undefined => {
+  const headers = error?.headers ?? error?.response?.headers;
+  if (!headers) return undefined;
+
+  const raw = typeof headers.get === 'function' ? headers.get('retry-after') : headers['retry-after'];
+  const seconds = Number(raw);
+
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
+};
+
 const isAuthFailure = (error: any): boolean => {
   const status = statusOf(error);
   return status === 401 || status === 403 ||
@@ -117,14 +132,17 @@ export async function invokeWithFallback(params: {
       const disposition = classify(error, provider);
       log.warn(`${model} failed after ${Date.now() - startedAt}ms (${disposition}): ${error?.message}`);
 
+      const retryAfter = retryAfterSeconds(error);
+
       if (disposition === 'provider-dead') {
         deadProviders.add(provider);
       } else if (disposition === 'provider-exhausted') {
         exhaustedProviders.add(provider);
-        await markProviderExhausted(provider);
-        log.warn(`${provider} daily quota exhausted — standing it down for 24h`);
+        await markProviderExhausted(provider, retryAfter);
+        log.warn(`${provider} quota exhausted — standing it down for ${retryAfter ?? 'the default 24h'}`);
       } else if (disposition === 'model-exhausted') {
-        await markModelExhausted(model);
+        await markModelExhausted(model, retryAfter);
+        log.warn(`${model} rate limited — cooling down for ${retryAfter ?? 60}s`);
       } else {
         skippedThisRun.add(model);
       }

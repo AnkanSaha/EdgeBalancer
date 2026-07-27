@@ -317,6 +317,8 @@ jobs:
               --from-literal=FIREBASE_PROJECT_ID="${{ secrets.FIREBASE_PROJECT_ID }}" \
               --from-literal=FIREBASE_CLIENT_EMAIL="${{ secrets.FIREBASE_CLIENT_EMAIL }}" \
               --from-literal=FIREBASE_PRIVATE_KEY="$FIREBASE_KEY" \
+              --from-literal=MISTRAL_API_KEY="${{ secrets.MISTRAL_API_KEY }}" \
+              --from-literal=OPENROUTER_API_KEY="${{ secrets.OPENROUTER_API_KEY }}" \
               --dry-run=client -o yaml | sudo k3s kubectl apply -f -
 
             echo "Rolling update to: $IMAGE"

@@ -60,6 +60,30 @@ describe('quota cooldowns', () => {
     expect(await providerCooldownRemaining('mistral')).toBe(0);
   });
 
+  it('honours a Retry-After over the default', async () => {
+    await markModelExhausted('mistral-large-2512', 7);
+
+    expect(store.get('ai:quota:model:mistral-large-2512')).toBe(7);
+  });
+
+  it('rounds a fractional Retry-After up to a whole second', async () => {
+    await markModelExhausted('mistral-large-2512', 2.4);
+
+    expect(store.get('ai:quota:model:mistral-large-2512')).toBe(3);
+  });
+
+  it('falls back to the default for a zero or negative Retry-After', async () => {
+    await markModelExhausted('mistral-large-2512', 0);
+
+    expect(store.get('ai:quota:model:mistral-large-2512')).toBe(MODEL_COOLDOWN_SECONDS);
+  });
+
+  it('never parks anything longer than a day on an upstream header', async () => {
+    await markModelExhausted('mistral-large-2512', 60 * 60 * 24 * 30);
+
+    expect(store.get('ai:quota:model:mistral-large-2512')).toBe(24 * 60 * 60);
+  });
+
   it('reads as usable when Redis is down rather than disabling every model', async () => {
     await markProviderExhausted('openrouter');
     redisUp = false;

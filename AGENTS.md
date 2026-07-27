@@ -12,8 +12,8 @@ EdgeBalancer/
 ├── client/          # Next.js 16 frontend (App Router)
 ├── server/          # Fastify API backend
 ├── config/          # Nginx config (edgebalancer.conf)
-├── AGENTS.md        # ← canonical context (this file)
-└── CLAUDE.md        # points here
+├── AGENTS.md        # canonical context
+└── CLAUDE.md        # identical copy — keep both in sync when editing either
 ```
 
 ---
@@ -263,7 +263,7 @@ types/
 |---|---|---|
 | userId | ObjectId | ref User |
 | name | String | 3–50 chars, lowercase + hyphens only, locked after creation |
-| scriptName | String | unique, derived from name at creation |
+| scriptName | String | derived from name at creation; unique per user (compound index with `userId`) |
 | domain | String | CF zone domain |
 | subdomain | String | optional prefix |
 | origins | Array\<IOriginServer\> | min 1, each has url, weight, geo fields, isFallback |
@@ -365,6 +365,11 @@ Failures are classified, and only quota exhaustion is shared with other users:
 | `provider-dead` | 401/403 | provider skipped for **this run only** |
 | `transient` | anything else, incl. burst 429 | model skipped for **this run only** |
 
+Cooldown durations are defaults: a `Retry-After` header on the 429 overrides them, clamped to 24h.
+Mistral publishes limits **per model** (requests-per-second, which clears in a second, and
+tokens-per-minute, which clears within the minute) and also enforces them per workspace, shared
+across every API key in it — which is why one key means one shared budget for all users here.
+
 Mistral entries carry their published `rps`; `tryConsume` paces them in Redis and the router moves
 down the ladder rather than waiting. Both providers are reached through `ChatOpenAI` with a
 different `baseURL`.
@@ -446,10 +451,14 @@ Client → POST /api/loadbalancers
 ```
 
 Step 2 first claims `lb:create:{accountId}:{scriptName}` via `acquireLock`, released in a
-`finally`. Cloudflare's script PUT is an upsert and `scriptName` is globally unique in Mongo, so
+`finally`. Cloudflare's script PUT is an upsert and `{userId, scriptName}` is uniquely indexed, so
 without the lock two concurrent creates of the same name overwrite each other's Worker and the
 loser's rollback deletes the winner's. The rollback is gated on holding that lock for the same
 reason. Redis being unreachable fails open — the create proceeds unlocked.
+
+The index is compound rather than global: Worker names only have to be unique within a Cloudflare
+account. **Migration** — Mongo does not drop the old global index automatically, so run
+`db.loadbalancers.dropIndex('scriptName_1')` once per environment.
 
 On any failure after Worker deploy: full rollback (delete Worker + DB record).
 
@@ -488,9 +497,18 @@ CORS_ORIGIN=http://localhost:3000
 FIREBASE_PROJECT_ID=
 FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
+REDIS_URL=redis://localhost:6379
 MISTRAL_API_KEY=             # AI provisioning — at least one of these two
 OPENROUTER_API_KEY=          # enables POST /api/ai/generate, else it returns 503
 ```
+
+### Kubernetes
+`k8s/deployment.yaml` pulls the whole server env from one secret via `envFrom.secretRef:
+edgebalancer-env`. That secret is rebuilt on every deploy from GitHub Actions secrets in
+`.github/workflows/deploy.yml`, so **a new variable is added there, not in the manifest**.
+`PORT` and `REDIS_URL` are the exceptions — they are literals in the deployment.
+
+Repository secrets required for the AI feature: `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`.
 
 ---
 
@@ -560,5 +578,6 @@ Every successful create/edit saves a `Session` record with the full generated Wo
 ## Test Notes
 
 - Client tests: `--runInBand` required; Cloudflare and Firebase are mocked
-- Server tests: integration only (real MongoDB); `firebaseUid` uses sparse index — tests must not collide on null values
+- Server tests: integration only (real MongoDB); `firebaseUid` uses a unique index — two users in one test must be given distinct values, since nulls collide
+- AI tests need **no API keys** and make no network calls: `model-provider.service` and `model-router.service` are mocked, and no test exercises `/api/ai/generate`
 - Worker generator tests: unit-level, verify template output per strategy
