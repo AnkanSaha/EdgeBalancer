@@ -1100,3 +1100,57 @@ describe('scriptName uniqueness — scoped per account', () => {
     await expect(LoadBalancer.create(base)).rejects.toThrow();
   });
 });
+
+describe('update rollback — obsolete DNS record ordering', () => {
+  it('leaves removed IP origins\' DNS records intact when a later step fails', async () => {
+    const { getActiveWorkerDeployment, pruneWorkerHistory } = require('../../services/workerDeployment');
+    const { provisionIpDnsChanges, deleteIpDnsRecord } = require('../../services/workerDns');
+
+    const { user, cookie } = await createTestUser();
+    const lb = await LoadBalancer.create({
+      userId: user._id,
+      name: 'dns-order-test',
+      scriptName: 'dns-order-test',
+      domain: 'example.com',
+      origins: [{ url: 'https://lb-o1.example.com', weight: 100 }],
+      strategy: 'round-robin',
+      weightedEnabled: false,
+      ipOriginRecords: [
+        { originalUrl: 'http://1.2.3.4', hostname: 'lb-o1.example.com', dnsRecordId: 'rec-1' },
+      ],
+      placement: { smartPlacement: false },
+      zoneId: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4',
+      status: 'active',
+      workerUrl: 'https://dns-order-test.example.com',
+    });
+
+    // A real version list, otherwise the update bails before it can redeploy.
+    getActiveWorkerDeployment.mockResolvedValueOnce({ id: 'deploy-123', versions: [{ version_id: 'v1' }] });
+
+    // The update drops the raw-IP origin, so its DNS record becomes obsolete.
+    provisionIpDnsChanges.mockResolvedValueOnce({
+      resolvedOrigins: VALID_PAYLOAD.origins,
+      ipOriginRecords: [],
+      createdRecordIds: [],
+      obsoleteRecords: [{ dnsRecordId: 'rec-1' }],
+    });
+
+    // The last step that can throw — its failure triggers the full rollback.
+    pruneWorkerHistory.mockRejectedValueOnce(new Error('cloudflare unavailable'));
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/loadbalancers/${lb._id}`,
+      headers: cookie,
+      payload: { ...VALID_PAYLOAD, name: 'dns-order-test' },
+    });
+
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+
+    // The rollback restores ipOriginRecords pointing at rec-1, so rec-1 must still exist.
+    // Deleting it before the prune would leave that origin resolving to nothing.
+    expect(deleteIpDnsRecord).not.toHaveBeenCalledWith(
+      expect.objectContaining({ recordId: 'rec-1' }),
+    );
+  });
+});

@@ -13,7 +13,9 @@ import { createLoadBalancerOrchestrator } from '../../../modules/loadbalancer/or
 import { LoadBalancer } from '../../../models/LoadBalancer';
 import type { PendingAction } from '../../../modules/ai/types/ai.types';
 
-const AUTHENTICATED_USER = '507f1f77bcf86cd799439011';
+// Deliberately not a hex ObjectId: secret scanners flag 24-char hex as high entropy.
+// Nothing here validates the format — LoadBalancer and the orchestrators are mocked.
+const AUTHENTICATED_USER = 'test-user-id';
 
 const mockedCreate = createLoadBalancerOrchestrator as jest.Mock;
 const mockedFindById = LoadBalancer.findById as jest.Mock;
