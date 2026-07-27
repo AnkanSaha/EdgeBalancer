@@ -235,7 +235,11 @@ export default function DashboardPage() {
                     { l: 'Active balancers', v: loadBalancers.filter(b => b.status === 'active').length, sub: `of ${loadBalancers.length} total` },
                     { l: 'Origins total', v: loadBalancers.reduce((a, b) => a + (b.originCount || 0), 0), sub: 'all checks passing', color: 'var(--green)' },
                   ].map((s, i) => (
-                    <div key={i} className="card" style={{ padding: 'clamp(16px, 2vw, 20px)' }}>
+                    <div
+                      key={i}
+                      className="feature-card animate-slide-up"
+                      style={{ padding: 'clamp(16px, 2vw, 20px)', animationDelay: `${i * 0.08}s` }}
+                    >
                       <div className="kicker" style={{ fontSize: 'clamp(9px, 2vw, 11px)' }}>{s.l}</div>
                       <div className="mono" style={{ fontSize: 'clamp(20px, 3vw, 24px)', marginTop: 8, letterSpacing: '-0.02em', color: s.color || 'var(--text)' }}>
                         {s.v}
@@ -269,9 +273,11 @@ export default function DashboardPage() {
                           onClick={() => setStatusFilter(value)}
                           className="btn btn-sm"
                           style={{
-                            background: isActive ? 'var(--bg-2)' : 'transparent',
-                            color: isActive ? 'var(--text)' : 'var(--text-3)',
-                            border: '1px solid var(--line)',
+                            background: isActive ? 'var(--accent-dim)' : '#ffffff0d',
+                            color: isActive ? 'var(--accent)' : 'var(--text-3)',
+                            border: `1px solid ${isActive ? 'var(--accent)' : 'var(--line)'}`,
+                            borderRadius: 999,
+                            fontWeight: isActive ? 600 : 500,
                             fontSize: 'clamp(12px, 2vw, 13px)',
                             padding: 'clamp(6px, 1vw, 8px) clamp(10px, 2vw, 12px)',
                           }}

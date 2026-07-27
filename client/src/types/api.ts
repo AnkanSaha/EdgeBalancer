@@ -16,19 +16,6 @@ export interface User {
   cloudflareApiToken?: string; // masked
 }
 
-// Auth types
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-}
-
 // Cloudflare types
 export interface CloudflareCredentials {
   accountId: string;

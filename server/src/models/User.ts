@@ -5,7 +5,6 @@ export interface IUser extends Document {
   email?: string | null;
   username: string;
   firebaseUid?: string | null;
-  password?: string | null;
   cloudflareAccountId?: string;
   cloudflareApiToken?: string;
   cloudflareAccountIdIv?: string;
@@ -40,20 +39,6 @@ const UserSchema = new Schema<IUser>(
       unique: true,
       lowercase: true,
       trim: true,
-    },
-    password: {
-      type: String,
-      default: null,
-      validate: {
-        validator(value: string | null | undefined) {
-          if (!value) {
-            return true;
-          }
-
-          return value.length >= 8;
-        },
-        message: 'Password must be at least 8 characters',
-      },
     },
     firebaseUid: {
       type: String,

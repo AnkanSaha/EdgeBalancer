@@ -5,249 +5,239 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Card } from '@/components/ui/Card';
+import { AuthLayout } from '@/components/auth/AuthLayout';
+import { Icons } from '@/components/shared/Icons';
+
+const PERMISSIONS = [
+  ['Account', 'Worker Scripts', 'Edit'],
+  ['Account', 'Workers KV Storage', 'Edit'],
+  ['Account', 'Account Analytics', 'Read'],
+  ['Zone', 'Zone', 'Read'],
+  ['Zone', 'DNS', 'Edit'],
+];
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { refreshUser, logout } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    accountId: '',
-    apiToken: '',
-  });
+  const [showToken, setShowToken] = useState(false);
+  const [formData, setFormData] = useState({ accountId: '', apiToken: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleLogout = async () => {
     try {
       await logout();
       router.push('/login');
-    } catch (error: any) {
-      toast.error('Failed to logout');
+    } catch {
+      toast.error('Failed to sign out');
     }
   };
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!formData.accountId.trim()) {
-      newErrors.accountId = 'Account ID is required';
-    } else if (formData.accountId.length !== 32) {
-      newErrors.accountId = 'Account ID must be 32 characters';
-    }
-    
-    if (!formData.apiToken.trim()) {
-      newErrors.apiToken = 'API Token is required';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  // Mirrors server/src/middleware/validators/cloudflareValidators.ts so a bad
+  // paste surfaces inline instead of as a round-trip toast.
+  const validate = (accountId: string, apiToken: string) => {
+    const next: Record<string, string> = {};
+
+    if (!accountId) next.accountId = 'Account ID is required';
+    else if (accountId.length !== 32) next.accountId = 'Account ID must be exactly 32 characters';
+
+    if (!apiToken) next.apiToken = 'API token is required';
+    else if (apiToken.length < 40) next.apiToken = 'That token looks too short — copy the full value';
+
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
+
+    // Pasted tokens routinely carry trailing whitespace; the server encrypts
+    // req.body as-is, so trim before it ever leaves the client.
+    const accountId = formData.accountId.trim();
+    const apiToken = formData.apiToken.trim();
+
+    if (!validate(accountId, apiToken)) return;
 
     setLoading(true);
     try {
-      await api.saveCloudflareCredentials({
-        accountId: formData.accountId,
-        apiToken: formData.apiToken,
-      });
-      
-      toast.success('Cloudflare credentials saved successfully!');
+      await api.saveCloudflareCredentials({ accountId, apiToken });
+      toast.success('Cloudflare account connected');
       await refreshUser();
       router.push('/dashboard');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to save credentials');
+      toast.error(error.message || 'Could not verify those credentials');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative">
-      <div className="absolute top-6 right-6">
-        <Button 
-          variant="outline" 
-          onClick={handleLogout}
-          className="gap-2"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          Sign Out
-        </Button>
-      </div>
+    <AuthLayout step="connect" onBack={() => router.push('/')} aside={<TokenGuide />}>
+      <form onSubmit={handleSubmit}>
+        <div className="kicker" style={{ marginBottom: 8 }}>// Step 02 of 03</div>
+        <h2 style={{ fontSize: 'clamp(28px, 5vw, 32px)', letterSpacing: '-0.03em', margin: 0, lineHeight: 1.1 }}>
+          Connect Cloudflare
+        </h2>
+        <p style={{ color: 'var(--text-3)', fontSize: 'clamp(13px, 2vw, 14px)', marginTop: 8, marginBottom: 24 }}>
+          EdgeBalancer deploys Workers and manages DNS with a scoped token you control. Revoke it any time.
+        </p>
 
-      <div className="w-full max-w-4xl mt-12">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Connect Your Cloudflare Account</h1>
-          <p className="text-muted-foreground">
-            Follow the steps below to create an API token and connect your Cloudflare account
-          </p>
-        </div>
-
-        <Card className="p-8 mb-6">
-          <h2 className="text-xl font-semibold mb-6">Step-by-Step Instructions</h2>
-          
-          <div className="space-y-6">
-            <StepCard number={1}>
-              <p className="font-medium mb-2">Go to your Cloudflare API Tokens page</p>
-              <p className="text-sm text-muted-foreground mb-2">
-                Visit{' '}
-                <a 
-                  href="https://dash.cloudflare.com/profile/api-tokens" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  https://dash.cloudflare.com/profile/api-tokens
-                </a>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="field">
+            <label className="field-label" htmlFor="accountId">
+              Account ID<span className="req">*</span>
+            </label>
+            <input
+              id="accountId"
+              className="input input-mono"
+              type="text"
+              inputMode="text"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="a1b2c3d4e5f6…"
+              value={formData.accountId}
+              aria-invalid={!!errors.accountId}
+              onChange={(e) => {
+                setFormData({ ...formData, accountId: e.target.value });
+                if (errors.accountId) setErrors({ ...errors, accountId: '' });
+              }}
+              disabled={loading}
+              style={errors.accountId ? { borderColor: 'var(--red)' } : undefined}
+            />
+            {errors.accountId ? (
+              <p className="hint" style={{ color: 'var(--red)' }}>{errors.accountId}</p>
+            ) : (
+              <p className="hint">
+                <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer"
+                  style={{ color: 'var(--accent)' }}>dash.cloudflare.com</a>
+                {' '}→ right sidebar → Account ID
               </p>
-            </StepCard>
-
-            <StepCard number={2}>
-              <p className="font-medium">Click &quot;Create Token&quot;</p>
-            </StepCard>
-
-            <StepCard number={3}>
-              <p className="font-medium">Click &quot;Create Custom Token&quot;</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Do not use any template
-              </p>
-            </StepCard>
-
-            <StepCard number={4}>
-              <p className="font-medium mb-2">Give your token a name</p>
-              <p className="text-sm text-muted-foreground">
-                For example: &quot;EdgeBalancer&quot;
-              </p>
-            </StepCard>
-
-            <StepCard number={5}>
-              <p className="font-medium mb-2">Add the following permissions:</p>
-              <div className="space-y-2 mt-3">
-                <PermissionBadge>Account &gt; Worker Scripts &gt; Edit</PermissionBadge>
-                <PermissionBadge>Account &gt; Workers KV Storage &gt; Edit</PermissionBadge>
-                <PermissionBadge>Account &gt; Account Analytics &gt; Read</PermissionBadge>
-                <PermissionBadge>Zone &gt; Zone &gt; Read</PermissionBadge>
-                <PermissionBadge>Zone &gt; DNS &gt; Edit</PermissionBadge>
-              </div>
-            </StepCard>
-
-            <StepCard number={6}>
-              <p className="font-medium mb-2">Under &quot;Zone Resources&quot;</p>
-              <p className="text-sm text-muted-foreground">
-                Select &quot;All Zones&quot; or pick the specific zone you want to use
-              </p>
-            </StepCard>
-
-            <StepCard number={7}>
-              <p className="font-medium">Click &quot;Continue to summary&quot;, then &quot;Create Token&quot;</p>
-            </StepCard>
-
-            <StepCard number={8}>
-              <p className="font-medium mb-2">Copy the token immediately</p>
-              <p className="text-sm text-muted-foreground">
-                ⚠️ Cloudflare will not show it again after you leave the page
-              </p>
-            </StepCard>
+            )}
           </div>
-        </Card>
 
-        <Card className="p-8">
-          <h2 className="text-xl font-semibold mb-6">Enter Your Credentials</h2>
-          
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="accountId" className="block text-sm font-medium mb-2">
-                Cloudflare Account ID
-              </label>
-              <Input
-                id="accountId"
-                type="text"
-                placeholder="32-character Account ID"
-                value={formData.accountId}
-                onChange={(e) => {
-                  setFormData({ ...formData, accountId: e.target.value });
-                  setErrors({ ...errors, accountId: '' });
-                }}
-                className={errors.accountId ? 'border-red-500' : ''}
-                disabled={loading}
-              />
-              {errors.accountId && (
-                <p className="text-sm text-red-500 mt-1">{errors.accountId}</p>
-              )}
-              <p className="text-sm text-muted-foreground mt-2">
-                Find your Account ID at{' '}
-                <a 
-                  href="https://dash.cloudflare.com" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  dash.cloudflare.com
-                </a>
-                {' '}in the right sidebar under &quot;Account ID&quot;
-              </p>
-            </div>
-
-            <div>
-              <label htmlFor="apiToken" className="block text-sm font-medium mb-2">
-                Cloudflare API Token
-              </label>
-              <Input
+          <div className="field">
+            <label className="field-label" htmlFor="apiToken">
+              API Token<span className="req">*</span>
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
                 id="apiToken"
-                type="password"
-                placeholder="Your API Token"
+                className="input input-mono"
+                type={showToken ? 'text' : 'password'}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="••••••••••••••••••••"
                 value={formData.apiToken}
+                aria-invalid={!!errors.apiToken}
                 onChange={(e) => {
                   setFormData({ ...formData, apiToken: e.target.value });
-                  setErrors({ ...errors, apiToken: '' });
+                  if (errors.apiToken) setErrors({ ...errors, apiToken: '' });
                 }}
-                className={errors.apiToken ? 'border-red-500' : ''}
                 disabled={loading}
+                style={{ paddingRight: 44, ...(errors.apiToken ? { borderColor: 'var(--red)' } : {}) }}
               />
-              {errors.apiToken && (
-                <p className="text-sm text-red-500 mt-1">{errors.apiToken}</p>
-              )}
-              <p className="text-sm text-muted-foreground mt-2">
-                The token you just created in step 8 above
-              </p>
+              <button
+                type="button"
+                onClick={() => setShowToken(!showToken)}
+                aria-label={showToken ? 'Hide token' : 'Show token'}
+                style={{
+                  position: 'absolute', right: 12, top: '50%',
+                  transform: 'translateY(-50%)', color: 'var(--text-3)',
+                }}>
+                {showToken ? <Icons.EyeOff size={16} /> : <Icons.Eye size={16} />}
+              </button>
             </div>
+            {errors.apiToken ? (
+              <p className="hint" style={{ color: 'var(--red)' }}>{errors.apiToken}</p>
+            ) : (
+              <p className="hint">Stored encrypted. Never shown again after saving.</p>
+            )}
+          </div>
 
-            <Button type="submit" size="lg" className="w-full" disabled={loading}>
-              {loading ? 'Validating...' : 'Connect Cloudflare Account'}
-            </Button>
-          </form>
-        </Card>
+          <button className="btn btn-primary btn-lg" type="submit" disabled={loading}
+            style={{ justifyContent: 'center', width: '100%' }}>
+            {loading ? 'Verifying with Cloudflare...' : 'Connect account'}
+            {!loading && <Icons.Arrow size={14} />}
+          </button>
+        </div>
+      </form>
+
+      <div style={{
+        marginTop: 20, textAlign: 'center',
+        fontSize: 'clamp(12px, 2vw, 13px)', color: 'var(--text-3)',
+      }}>
+        {user?.email ? `Signed in as ${user.email} — ` : ''}
+        <button type="button" onClick={handleLogout}
+          style={{ color: 'var(--accent)', fontWeight: 500 }}>
+          Sign out
+        </button>
       </div>
+    </AuthLayout>
+  );
+}
+
+function TokenGuide() {
+  return (
+    <div style={{ maxWidth: 420 }}>
+      <div className="kicker" style={{ marginBottom: 6 }}>// create your token</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+        <Icons.Key size={15} stroke="var(--accent)" />
+        <span style={{ fontSize: 15, fontWeight: 500 }}>Six steps in the Cloudflare dashboard</span>
+      </div>
+
+      <ol style={{
+        margin: 0, padding: 0, listStyle: 'none',
+        display: 'flex', flexDirection: 'column', gap: 16,
+      }}>
+        <TokenStep n="01">
+          Open{' '}
+          <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer"
+            style={{ color: 'var(--accent)' }}>
+            the API Tokens page
+          </a>
+        </TokenStep>
+        <TokenStep n="02">
+          <strong style={{ fontWeight: 500 }}>Create Token</strong> → <strong style={{ fontWeight: 500 }}>Create Custom Token</strong>
+          <span style={{ color: 'var(--text-3)' }}> — do not pick a template</span>
+        </TokenStep>
+        <TokenStep n="03">
+          Name it <span className="mono" style={{ color: 'var(--text-2)' }}>EdgeBalancer</span>
+        </TokenStep>
+        <TokenStep n="04">
+          Add all five permissions:
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+            {PERMISSIONS.map(([scope, resource, level]) => (
+              <div key={`${scope}-${resource}`} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                padding: '7px 10px', borderRadius: 'var(--radius)',
+                background: 'var(--bg-2)', border: '1px solid var(--line)',
+                fontFamily: 'var(--mono)', fontSize: 11,
+              }}>
+                <span style={{ color: 'var(--text-2)' }}>
+                  <span style={{ color: 'var(--text-3)' }}>{scope} · </span>{resource}
+                </span>
+                <span style={{ color: 'var(--accent)' }}>{level}</span>
+              </div>
+            ))}
+          </div>
+        </TokenStep>
+        <TokenStep n="05">
+          Zone Resources → <strong style={{ fontWeight: 500 }}>All zones</strong>, or just the zone you plan to balance
+        </TokenStep>
+        <TokenStep n="06">
+          Continue to summary → Create Token, then copy it immediately
+          <span style={{ color: 'var(--red)' }}> — Cloudflare never shows it again</span>
+        </TokenStep>
+      </ol>
     </div>
   );
 }
 
-function StepCard({ number, children }: { number: number; children: React.ReactNode }) {
+function TokenStep({ n, children }: { n: string; children: React.ReactNode }) {
   return (
-    <div className="flex gap-4">
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold">
-        {number}
-      </div>
-      <div className="flex-1 pt-1">
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function PermissionBadge({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="inline-flex items-center px-3 py-1.5 rounded-md bg-primary/5 border border-primary/20 text-sm font-mono">
-      {children}
-    </div>
+    <li style={{ display: 'flex', gap: 12, fontSize: 13, lineHeight: 1.55 }}>
+      <span className="mono" style={{ color: 'var(--text-3)', fontSize: 11, paddingTop: 2, minWidth: 18 }}>{n}</span>
+      <div style={{ flex: 1 }}>{children}</div>
+    </li>
   );
 }

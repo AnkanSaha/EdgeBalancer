@@ -5,9 +5,7 @@ import { api } from '@/lib/api';
 jest.mock('@/lib/api', () => ({
   api: {
     getCurrentUser: jest.fn(),
-    login: jest.fn(),
     logout: jest.fn(),
-    register: jest.fn(),
     googleAuth: jest.fn(),
   },
 }));
@@ -64,34 +62,6 @@ describe('AuthContext', () => {
     await waitFor(() => expect(screen.getByText('User: Alice')).toBeInTheDocument());
   });
 
-  it('login() sets user on success', async () => {
-    mockApi.getCurrentUser.mockRejectedValueOnce(new Error('Not authenticated'));
-    mockApi.login.mockResolvedValueOnce({
-      success: true,
-      data: { user: fakeUser },
-      message: 'ok',
-    });
-
-    function LoginTester() {
-      const { user, loading, login } = useAuth();
-      if (loading) return <div>Loading</div>;
-      return (
-        <div>
-          {user ? <span>User: {user.name}</span> : <button onClick={() => login('a@b.com', 'pass')}>Login</button>}
-        </div>
-      );
-    }
-
-    render(<AuthProvider><LoginTester /></AuthProvider>);
-    await waitFor(() => screen.getByRole('button', { name: 'Login' }));
-
-    await act(async () => {
-      screen.getByRole('button', { name: 'Login' }).click();
-    });
-
-    await waitFor(() => expect(screen.getByText('User: Alice')).toBeInTheDocument());
-  });
-
   it('logout() clears user', async () => {
     mockApi.getCurrentUser.mockResolvedValueOnce({
       success: true,
@@ -121,30 +91,5 @@ describe('AuthContext', () => {
 
     await waitFor(() => expect(screen.getByText('Logged out')).toBeInTheDocument());
     expect(mockApi.logout).toHaveBeenCalledTimes(1);
-  });
-
-  it('register() calls api.register', async () => {
-    mockApi.getCurrentUser.mockRejectedValueOnce(new Error('Not authenticated'));
-    mockApi.register.mockResolvedValueOnce({ success: true, message: 'ok' });
-
-    function RegisterTester() {
-      const { loading, register } = useAuth();
-      if (loading) return <div>Loading</div>;
-      return <button onClick={() => register('Alice', 'a@b.com', 'pass', 'pass')}>Register</button>;
-    }
-
-    render(<AuthProvider><RegisterTester /></AuthProvider>);
-    await waitFor(() => screen.getByRole('button', { name: 'Register' }));
-
-    await act(async () => {
-      screen.getByRole('button', { name: 'Register' }).click();
-    });
-
-    expect(mockApi.register).toHaveBeenCalledWith({
-      name: 'Alice',
-      email: 'a@b.com',
-      password: 'pass',
-      confirmPassword: 'pass',
-    });
   });
 });

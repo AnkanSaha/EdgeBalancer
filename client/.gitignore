@@ -41,3 +41,6 @@ wrangler.toml.lock
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# swc plugin cache
+/.swc/

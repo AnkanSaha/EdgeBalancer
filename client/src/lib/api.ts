@@ -36,16 +36,6 @@ class ApiClient {
 
   
   // Auth endpoints
-  async register(data: any): Promise<ApiResponse> {
-    const response = await this.client.post('/auth/register', data);
-    return response.data;
-  }
-
-  async login(data: any): Promise<ApiResponse> {
-    const response = await this.client.post('/auth/login', data);
-    return response.data; 
-  }
-
   async googleAuth(data: { idToken: string }): Promise<ApiResponse> {
     const response = await this.client.post('/auth/google', data);
     return response.data;
@@ -168,11 +158,6 @@ class ApiClient {
   }
 
   // User/Profile endpoints
-  async changePassword(data: any): Promise<ApiResponse> {
-    const response = await this.client.put('/user/password', data);
-    return response.data;
-  }
-
   async getProfile(): Promise<ApiResponse> {
     const response = await this.client.get('/user/profile');
     return response.data;

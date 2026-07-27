@@ -37,20 +37,10 @@ export const LoadBalancerCard = ({
   };
 
   return (
-    <div onClick={onSelect} style={{
-      textAlign: 'left', width: '100%',
-      background: 'var(--bg-1)', border: '1px solid var(--line)',
-      borderRadius: 'var(--radius-lg)', padding: 20,
+    <div onClick={onSelect} className="feature-card feature-card-lift" style={{
+      textAlign: 'left', width: '100%', padding: 20,
       display: 'flex', flexDirection: 'column', gap: 16,
-      transition: 'all 160ms', cursor: 'pointer',
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.borderColor = 'var(--line-2)';
-      e.currentTarget.style.background = 'var(--bg-2)';
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.borderColor = 'var(--line)';
-      e.currentTarget.style.background = 'var(--bg-1)';
+      cursor: 'pointer',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
         <div style={{ minWidth: 0 }}>
@@ -150,10 +140,10 @@ export const EmptyState = ({ onCreate }: { onCreate: () => void }) => (
     padding: 48, border: '1px dashed var(--line-2)', borderRadius: 'var(--radius-lg)',
     background: 'var(--bg-1)',
   }}>
-    <div style={{
+    <div className="glow" style={{
       width: 64, height: 64, margin: '0 auto 24px',
       borderRadius: 'var(--radius)',
-      border: '1px solid var(--line-2)', background: 'var(--bg)',
+      border: '1px solid var(--accent)', background: 'var(--accent-dim)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       position: 'relative',
     }}>
