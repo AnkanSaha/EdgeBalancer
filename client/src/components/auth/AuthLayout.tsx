@@ -12,11 +12,14 @@ interface AuthLayoutProps {
   children: React.ReactNode;
   step: 'signin' | 'register' | 'connect' | 'verified';
   onBack: () => void;
+  /** Replaces the three-step rail in the brand panel. Re-rendered below the
+   *  form under 768px, where that panel is hidden. */
+  aside?: React.ReactNode;
 }
 
-export const AuthLayout = ({ children, step, onBack }: AuthLayoutProps) => {
+export const AuthLayout = ({ children, step, onBack, aside }: AuthLayoutProps) => {
   const steps: AuthStep[] = [
-    { n: '01', t: 'Create your account', d: 'Email + password. No credit card.' },
+    { n: '01', t: 'Create your account', d: 'One tap with Google. No credit card.' },
     { n: '02', t: 'Connect Cloudflare', d: 'Paste a scoped API token — Workers + DNS edit access.' },
     { n: '03', t: 'Deploy your first balancer', d: 'Pick zone, add origins, choose strategy. 90 seconds.' },
   ];
@@ -36,7 +39,12 @@ export const AuthLayout = ({ children, step, onBack }: AuthLayoutProps) => {
           </button>
         </div>
 
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', zIndex: 2 }}>
+        <div style={{
+          flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+          position: 'relative', zIndex: 2, overflowY: 'auto', padding: '24px 0',
+        }}>
+          {aside ?? (
+            <>
           <div className="kicker" style={{ marginBottom: 20 }}>// three steps</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 420 }}>
             {steps.map((s, i) => {
@@ -64,6 +72,8 @@ export const AuthLayout = ({ children, step, onBack }: AuthLayoutProps) => {
               );
             })}
           </div>
+            </>
+          )}
         </div>
 
         <div style={{
@@ -95,17 +105,13 @@ export const AuthLayout = ({ children, step, onBack }: AuthLayoutProps) => {
 
         <div style={{ width: '100%', maxWidth: 400 }} className="slide-in">
           {children}
+          {aside && (
+            <div className="hide-md-inverse" style={{ marginTop: 28 }}>
+              {aside}
+            </div>
+          )}
         </div>
       </div>
-
-      <style jsx>{`
-        @media (max-width: 768px) {
-          .auth-grid { grid-template-columns: 1fr !important; }
-        }
-        @media (max-width: 640px) {
-          .auth-grid { min-height: 100vh; }
-        }
-      `}</style>
     </div>
   );
 };

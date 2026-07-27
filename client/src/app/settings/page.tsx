@@ -8,12 +8,9 @@ import { Sidebar, Topbar } from '@/components/dashboard/Sidebar';
 import { Icons } from '@/components/shared/Icons';
 import toast from 'react-hot-toast';
 
-type Tab = 'security' | 'cloudflare';
-
 export default function SettingsPage() {
   const router = useRouter();
   const { user, refreshUser, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>('security');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -59,204 +56,14 @@ export default function SettingsPage() {
         <Topbar
           crumbs={['Dashboard', 'Settings']}
           title="Settings"
-          subtitle="Manage your account security and integrations"
+          subtitle="Manage your Cloudflare integration"
         />
         <div style={{ padding: 'clamp(16px, 4vw, 32px)', maxWidth: 1000, overflow: 'auto', flex: 1 }}>
-          {/* Tab Navigation */}
-          <div style={{
-            display: 'inline-flex', gap: 2, marginBottom: 'clamp(20px, 3vw, 32px)',
-            background: 'var(--bg-1)', border: '1px solid var(--line)',
-            borderRadius: 'var(--radius)', padding: 4, flexWrap: 'wrap',
-          }}>
-            <button
-              onClick={() => setActiveTab('security')}
-              className="btn btn-sm"
-              style={{
-                background: activeTab === 'security' ? 'var(--accent)' : 'transparent',
-                color: activeTab === 'security' ? 'oklch(0.18 0.02 60)' : 'var(--text-2)',
-                border: 'none',
-                fontSize: 'clamp(12px, 2vw, 13px)',
-              }}
-            >
-              <Icons.Lock size={14} /> Security
-            </button>
-            <button
-              onClick={() => setActiveTab('cloudflare')}
-              className="btn btn-sm"
-              style={{
-                background: activeTab === 'cloudflare' ? 'var(--accent)' : 'transparent',
-                color: activeTab === 'cloudflare' ? 'oklch(0.18 0.02 60)' : 'var(--text-2)',
-                border: 'none',
-              }}
-            >
-              <Icons.Cloud size={14} /> Cloudflare
-            </button>
-          </div>
-
-          {/* Tab Content */}
           <div className="slide-in">
-            {activeTab === 'security' ? (
-              <SecurityTab />
-            ) : (
-              <CloudflareTab user={user} refreshUser={refreshUser} />
-            )}
+            <CloudflareTab user={user} refreshUser={refreshUser} />
           </div>
         </div>
       </main>
-    </div>
-  );
-}
-
-function SecurityTab() {
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.currentPassword) newErrors.currentPassword = 'Current password is required';
-    if (!formData.newPassword) newErrors.newPassword = 'New password is required';
-    else if (formData.newPassword.length < 8) newErrors.newPassword = 'Minimum 8 characters required';
-    if (formData.newPassword !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-    setLoading(true);
-    try {
-      await api.changePassword({
-        currentPassword: formData.currentPassword,
-        newPassword: formData.newPassword,
-      });
-      toast.success('Password updated successfully');
-      setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setErrors({});
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update password');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="card" style={{ padding: 28, maxWidth: 640, position: 'relative', overflow: 'hidden' }}>
-      {/* Decorative icon */}
-      <div style={{
-        position: 'absolute', top: 20, right: 20,
-        opacity: 0.06, pointerEvents: 'none',
-      }}>
-        <Icons.Lock size={80} />
-      </div>
-
-      <div style={{ position: 'relative' }}>
-        <div className="kicker" style={{ marginBottom: 8 }}>// account security</div>
-        <h2 style={{ fontSize: 22, margin: 0, letterSpacing: '-0.02em', fontWeight: 500 }}>
-          Update Password
-        </h2>
-        <p style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 8, marginBottom: 32, lineHeight: 1.6 }}>
-          Use a unique password to keep your Cloudflare credentials secure.
-        </p>
-
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Current Password */}
-          <div className="field">
-            <label className="field-label">
-              Current Password <span className="req">*</span>
-            </label>
-            <input
-              type="password"
-              className="input"
-              value={formData.currentPassword}
-              onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-              disabled={loading}
-              autoComplete="current-password"
-            />
-            {errors.currentPassword && (
-              <div className="hint" style={{ color: 'var(--red)' }}>{errors.currentPassword}</div>
-            )}
-          </div>
-
-          {/* New Password */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-            <div className="field">
-              <label className="field-label">
-                New Password <span className="req">*</span>
-              </label>
-              <input
-                type="password"
-                className="input"
-                value={formData.newPassword}
-                onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                disabled={loading}
-                autoComplete="new-password"
-              />
-              {errors.newPassword && (
-                <div className="hint" style={{ color: 'var(--red)' }}>{errors.newPassword}</div>
-              )}
-            </div>
-
-            <div className="field">
-              <label className="field-label">
-                Confirm New <span className="req">*</span>
-              </label>
-              <input
-                type="password"
-                className="input"
-                value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                disabled={loading}
-                autoComplete="new-password"
-              />
-              {errors.confirmPassword && (
-                <div className="hint" style={{ color: 'var(--red)' }}>{errors.confirmPassword}</div>
-              )}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 12, paddingTop: 8 }}>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <div style={{
-                    width: 14, height: 14,
-                    border: '2px solid currentColor', borderTopColor: 'transparent',
-                    borderRadius: '50%', animation: 'spin 0.6s linear infinite',
-                  }} />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <Icons.Check size={14} /> Update Password
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => {
-                setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-                setErrors({});
-              }}
-              disabled={loading}
-            >
-              Clear
-            </button>
-          </div>
-        </form>
-      </div>
     </div>
   );
 }

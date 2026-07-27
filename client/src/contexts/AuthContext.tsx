@@ -9,10 +9,8 @@ import { signInWithPopup, signOut } from 'firebase/auth';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  register: (name: string, email: string, password: string, confirmPassword: string) => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -41,13 +39,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const response = await api.login({ email, password });
-    if (response.success && response.data?.user) {
-      setUser(response.data.user);
-    }
-  };
-
   const loginWithGoogle = async () => {
     const auth = getFirebaseAuth();
     
@@ -68,10 +59,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (name: string, email: string, password: string, confirmPassword: string) => {
-    await api.register({ name, email, password, confirmPassword });
-  };
-
   const logout = async () => {
     await api.logout();
     setUser(null);
@@ -82,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, logout, register, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, loginWithGoogle, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Logo } from '@/components/shared/Logo';
 import { Icons } from '@/components/shared/Icons';
-import { useTheme } from '@/hooks/useTheme';
 
 interface SidebarProps {
   current: string;
@@ -14,7 +13,6 @@ interface SidebarProps {
 
 export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { theme, toggleTheme } = useTheme();
 
   const items = [
     { id: 'balancers', icon: 'Layers', label: 'Load Balancers' },
@@ -67,14 +65,16 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
             <button key={it.id} onClick={() => { onNav(it.id); setMobileOpen(false); }} style={{
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '8px 12px', borderRadius: 'var(--radius)',
-              background: active ? 'var(--bg-2)' : 'transparent',
-              color: active ? 'var(--text)' : 'var(--text-2)',
+              background: active ? 'var(--accent-dim)' : 'transparent',
+              color: active ? 'var(--accent)' : 'var(--text-2)',
               fontSize: 13, textAlign: 'left',
               borderLeft: `2px solid ${active ? 'var(--accent)' : 'transparent'}`,
               paddingLeft: 10,
               width: '100%',
               border: 'none',
               cursor: 'pointer',
+              fontWeight: active ? 500 : 400,
+              transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
             }}>
               <Ico size={15} stroke={active ? 'var(--accent)' : 'currentColor'} />
               {it.label}
@@ -91,7 +91,10 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
         fontSize: 'clamp(11px, 2vw, 12px)',
       }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
+          <div style={{ position: 'relative', width: 6, height: 6, flexShrink: 0 }}>
+            <div className="animate-ping" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--green)' }} />
+            <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--green)' }} />
+          </div>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-2)' }}>CF connected</div>
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
@@ -116,16 +119,6 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
           </button>
         );
       })}
-      <button onClick={toggleTheme} style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '8px 12px', borderRadius: 'var(--radius)',
-        color: 'var(--text-3)', fontSize: 13,
-        width: '100%', textAlign: 'left',
-        background: 'none', border: 'none', cursor: 'pointer',
-      }}>
-        {theme === 'dark' ? <Icons.Sun size={15} /> : <Icons.Moon size={15} />}
-        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-      </button>
       <button onClick={() => { onLogout(); setMobileOpen(false); }} style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '8px 12px', borderRadius: 'var(--radius)',
@@ -166,7 +159,8 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 40, height: 40, borderRadius: 'var(--radius)',
-            background: 'var(--accent)', color: 'var(--bg)',
+            backgroundImage: 'linear-gradient(to right, var(--accent), var(--orange))',
+            color: '#fff', boxShadow: '0 4px 24px #f59e0b4d',
             border: 'none', cursor: 'pointer',
           }}
         >
