@@ -116,6 +116,7 @@ export async function updateLoadBalancerOrchestrator(params: {
     accountId,
     apiToken,
     hostname: nextHostname,
+    zoneId,
     excludeLoadBalancerId: loadBalancerId,
   });
   await cancellation.throwIfCancelled();

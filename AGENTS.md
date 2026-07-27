@@ -52,7 +52,7 @@ app/                         # Next.js App Router pages
 
 components/
   auth/                      # AuthLayout, GoogleAuthButton
-  dashboard/                 # LoadBalancerCard, SessionCard, Sidebar
+  dashboard/                 # LoadBalancerCard, SessionCard, Sidebar, AiBuilder
   landing/                   # FlowDiagram
   layout/                    # ProtectedRoute
   loadbalancers/             # DeploymentExperience, LoadBalancerVisualization, PauseModal
@@ -65,6 +65,7 @@ contexts/
 
 lib/
   api.ts                     # Singleton ApiClient (Axios) — calls backend directly
+  aiStream.ts                # fetch-based SSE reader for POST /api/ai/generate
   firebase.ts                # Firebase app init
   cloudRegions.ts            # Cloudflare region list
   geoData.ts                 # Geo targeting data
@@ -103,18 +104,21 @@ models/
   User.ts                    # IUser Mongoose schema
   LoadBalancer.ts            # ILoadBalancer Mongoose schema
   Session.ts                 # ISession Mongoose schema
+  AiRun.ts                   # IAiRun — audit trail for AI provisioning runs
 
-routes/                      # Flat route handlers (auth, cloudflare, user)
+routes/                      # Flat route handlers (auth, cloudflare, user, ai)
   authRoutes.ts
   cloudflareRoutes.ts
   loadBalancerRoutes.ts      # Legacy — active routes are in modules/
   userRoutes.ts
+  aiRoutes.ts
 
-controllers/                 # Flat controllers (auth, cloudflare, user)
+controllers/                 # Flat controllers (auth, cloudflare, user, ai)
   authController.ts
   cloudflareController.ts
   loadBalancerController.ts  # Legacy
   userController.ts
+  aiController.ts            # generateWithAi (SSE)
 
 modules/                     # Domain-module pattern (preferred)
   loadbalancer/
@@ -153,6 +157,22 @@ modules/                     # Domain-module pattern (preferred)
     controllers/
       list.controller.ts
       script.controller.ts
+  ai/                        # Natural-language provisioning agent (LangChain.js)
+                             # routes + controllers live in the flat folders above
+    config/
+      models.ts              # MISTRAL_MODELS + FREE_MODELS + MODEL_LADDER
+      systemPrompt.ts        # guardrails — service scope only, no chat
+    services/
+      model-provider.service.ts   # ladder entry → ChatOpenAI (both providers are OpenAI-compatible)
+      quota.service.ts            # global cooldowns — 24h provider, 60s model
+      rate-limit.service.ts       # per-model rps pacing (falls through, never queues)
+      model-router.service.ts     # walk ladder, skip open breakers, fall through on failure
+      tools.service.ts            # LB tools, bound to the JWT userId
+      agent.service.ts            # tool-calling loop, emits SSE events
+      audit.service.ts            # persists the AiRun record
+      sse.service.ts              # SSE frame writer
+    types/
+      ai.types.ts
 
 services/                    # Cross-cutting infra services
   cloudflareClient.ts        # Cloudflare REST API wrapper
@@ -174,6 +194,7 @@ services/                    # Cross-cutting infra services
     maintenance.js
 
 utils/
+  resourceLock.ts            # Redis SET NX mutex — serialises same-name concurrent creates
   encryption.ts              # AES-256-GCM encrypt/decrypt
   password.ts                # bcrypt hash/compare
   jwt.ts                     # JWT generate/verify
@@ -312,6 +333,46 @@ Stores deployment history snapshots (Worker JS + config) per load balancer actio
 | GET | `/` | cursor-paginated list (filter: all/active/inactive) |
 | GET | `/:id/script` | raw Worker JS for a session |
 
+### AI (`/api/ai`)
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/generate` | `{ prompt }` → SSE stream of the agent run. 3 per 15 min. |
+
+**SSE events:** `run_start`, `model_switch`, `status`, `tool_start`, `tool_result`, `done`, `error`.
+
+**Tools:** `list_zones`, `list_load_balancers`, `create_load_balancer`, `update_load_balancer`,
+`delete_load_balancer`, `pause_load_balancer`, `resume_load_balancer`.
+
+Only `create_load_balancer` performs work — it calls `createLoadBalancerOrchestrator`, so rollback
+and cancellation behave exactly as on the HTTP route. The four destructive tools **never touch
+Cloudflare**: they resolve and authorise the target, then return a `PendingAction` that ends the run
+with `outcome: 'pending'`. The client renders it as a confirmation panel and, on confirm, calls the
+ordinary REST routes (`DELETE /:id`, `POST /:id/pause`, …). Nothing irreversible happens inside an
+agent run, and the server never has to pause mid-request.
+
+**Failure handling:** a tool that fails twice stops the run; a 409 conflict stops it on the first
+attempt — the agent must never rename or re-target to work around a conflict. Either way a final
+model call with `RCA_PROMPT` (no tools bound) writes the root-cause paragraph shown to the user.
+
+**Model ladder:** the OpenRouter free tier first (`openrouter/free` last within it), then all
+Mistral models best-first — the free quota is capped per day, so it is spent before the metered one.
+Failures are classified, and only quota exhaustion is shared with other users:
+
+| Disposition | Trigger | Effect |
+|---|---|---|
+| `provider-exhausted` | OpenRouter 429 matching `DAILY_QUOTA_PATTERN` | 24h Redis cooldown, **global** |
+| `model-exhausted` | Mistral 429 | 60s Redis cooldown on that model, **global** |
+| `provider-dead` | 401/403 | provider skipped for **this run only** |
+| `transient` | anything else, incl. burst 429 | model skipped for **this run only** |
+
+Mistral entries carry their published `rps`; `tryConsume` paces them in Redis and the router moves
+down the ladder rather than waiting. Both providers are reached through `ChatOpenAI` with a
+different `baseURL`.
+
+**Concurrency:** runs are fully independent — separate HTTP calls, separate `trace`, separate tool
+instances. They share only the one server-wide API key per provider, so they share that upstream
+quota.
+
 ### User (`/api/user`)
 | Method | Path | Notes |
 |---|---|---|
@@ -348,6 +409,14 @@ All Cloudflare API calls are **server-only** (never from client).
 - Account > Workers KV Storage > Edit
 - Zone > Zone > Read
 
+**Hostname conflict detection:** `assertHostnameAvailable` checks two independent bindings —
+`GET /accounts/{id}/workers/domains` (Custom Domains) and `GET /zones/{id}/workers/routes` (Worker
+Routes). A Custom Domain silently takes precedence over a route covering the same hostname, so
+checking only the former would move live traffic off whatever Worker the route points at. Route
+patterns are matched with `routePatternCoversHostname` (`*` = zero or more chars, path ignored);
+routes with no `script` attached are bypass rules and are not conflicts. The route check needs a
+`zoneId` and is skipped when the caller has none.
+
 **Key CF operations:**
 - `PUT /accounts/{id}/workers/scripts/{name}` — deploy Worker
 - `PUT /accounts/{id}/workers/domains` — attach hostname
@@ -368,13 +437,19 @@ Client → POST /api/loadbalancers
       3. ensureWorkerNameAvailability (CF API check)
       4. generateWorkerCode (from strategy template)
       5. deployWorker → CF API
-      6. assertHostnameAvailable (CF API check)
+      6. assertHostnameAvailable (CF API check — Custom Domains AND Worker Routes)
       7. attachDomainToWorker → CF API → returns workerUrl
       8. LoadBalancer.create() → MongoDB
       9. createSession() → MongoDB (non-blocking, failure ignored)
     ← formatted LB response
   ← { success, data, message }
 ```
+
+Step 2 first claims `lb:create:{accountId}:{scriptName}` via `acquireLock`, released in a
+`finally`. Cloudflare's script PUT is an upsert and `scriptName` is globally unique in Mongo, so
+without the lock two concurrent creates of the same name overwrite each other's Worker and the
+loser's rollback deletes the winner's. The rollback is gated on holding that lock for the same
+reason. Redis being unreachable fails open — the create proceeds unlocked.
 
 On any failure after Worker deploy: full rollback (delete Worker + DB record).
 
@@ -413,6 +488,8 @@ CORS_ORIGIN=http://localhost:3000
 FIREBASE_PROJECT_ID=
 FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
+MISTRAL_API_KEY=             # AI provisioning — at least one of these two
+OPENROUTER_API_KEY=          # enables POST /api/ai/generate, else it returns 503
 ```
 
 ---

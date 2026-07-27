@@ -1,6 +1,6 @@
 import type { AppHandler, AppRequest } from '../types/http';
 
-export type ValidationFunction = (body: any, request: AppRequest) => string[];
+export type ValidationFunction = (body: any, request?: AppRequest) => string[];
 
 export const createValidationError = (message: string) => {
   const error = new Error(message);

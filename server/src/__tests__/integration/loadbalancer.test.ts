@@ -83,6 +83,7 @@ beforeEach(() => {
   MockCloudflareClient.mockImplementation(() => ({
     workerNameExists: jest.fn().mockResolvedValue(false),
     getWorkerDomains: jest.fn().mockResolvedValue([]),
+    getWorkerRoutes: jest.fn().mockResolvedValue([]),
     testWorkerScriptsPermission: jest.fn().mockResolvedValue(true),
     testWorkersKVPermission: jest.fn().mockResolvedValue(true),
     testZoneReadPermission: jest.fn().mockResolvedValue(true),
@@ -333,6 +334,7 @@ describe('POST /api/loadbalancers/validate-hostname', () => {
     MockCloudflareClient.mockImplementationOnce(() => ({
       workerNameExists: jest.fn().mockResolvedValue(false),
       getWorkerDomains: jest.fn().mockResolvedValue([{ hostname: 'lb.example.com' }]),
+      getWorkerRoutes: jest.fn().mockResolvedValue([]),
     } as any));
 
     const { cookie } = await createTestUser();
@@ -1050,5 +1052,51 @@ describe('GET /api/loadbalancers/:id/origin-ip', () => {
       headers: cookie,
     });
     expect(res.statusCode).toBe(400);
+  });
+});
+
+describe('scriptName uniqueness — scoped per account', () => {
+  it('lets two different users pick the same load balancer name', async () => {
+    // Distinct firebaseUids: the index is unique and two nulls collide.
+    const { user: owner } = await createTestUser({ email: 'owner-a@example.com', firebaseUid: 'uid-a' });
+    const { user: other } = await createTestUser({ email: 'owner-b@example.com', firebaseUid: 'uid-b' });
+
+    const base = {
+      name: 'shared-name',
+      scriptName: 'shared-name',
+      domain: 'example.com',
+      origins: [{ url: 'https://a.example.com', weight: 1 }],
+      strategy: 'round-robin',
+      weightedEnabled: false,
+      zoneId: 'a'.repeat(32),
+      status: 'active',
+      workerUrl: 'https://example.com',
+    };
+
+    await LoadBalancer.create({ ...base, userId: owner._id });
+
+    // Their Workers live in separate Cloudflare accounts, so the name is not actually taken.
+    await expect(LoadBalancer.create({ ...base, userId: other._id })).resolves.toBeTruthy();
+  });
+
+  it('still rejects the same name twice for one user', async () => {
+    const { user: owner } = await createTestUser({ email: 'solo@example.com' });
+
+    const base = {
+      name: 'duplicate-name',
+      scriptName: 'duplicate-name',
+      domain: 'example.com',
+      origins: [{ url: 'https://a.example.com', weight: 1 }],
+      strategy: 'round-robin',
+      weightedEnabled: false,
+      zoneId: 'a'.repeat(32),
+      status: 'active',
+      workerUrl: 'https://example.com',
+      userId: owner._id,
+    };
+
+    await LoadBalancer.create(base);
+
+    await expect(LoadBalancer.create(base)).rejects.toThrow();
   });
 });

@@ -41,6 +41,7 @@ beforeEach(() => {
     testZoneReadPermission: jest.fn().mockResolvedValue(true),
     workerNameExists: jest.fn().mockResolvedValue(false),
     getWorkerDomains: jest.fn().mockResolvedValue([]),
+    getWorkerRoutes: jest.fn().mockResolvedValue([]),
   } as any));
 });
 

@@ -17,6 +17,7 @@ export async function validateLoadBalancerHostname(req: Request, res: Response, 
     const {
       domain,
       subdomain,
+      zoneId,
       excludeLoadBalancerId,
     } = req.body;
 
@@ -33,6 +34,9 @@ export async function validateLoadBalancerHostname(req: Request, res: Response, 
       accountId,
       apiToken,
       hostname,
+      // Optional: without it the preflight skips the Worker Routes check, which the create
+      // itself still performs.
+      zoneId: typeof zoneId === 'string' && zoneId ? zoneId : undefined,
       excludeLoadBalancerId,
     });
 
