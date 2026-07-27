@@ -83,7 +83,25 @@ export async function assertHostnameAvailable(params: {
   // A Custom Domain silently takes precedence over any route covering the same hostname, so
   // without this check we would move live traffic off whatever Worker the route points at.
   // EdgeBalancer only ever creates Custom Domains, so every route found here is foreign.
-  const routes = await cloudflareClient.getWorkerRoutes(zoneId);
+  let routes: any[];
+  try {
+    routes = await cloudflareClient.getWorkerRoutes(zoneId);
+  } catch (error: any) {
+    const status = error?.response?.status;
+
+    // Listing routes needs `Zone > Workers Routes > Read`, which older tokens do not carry.
+    // This check is an extra safety net, not a prerequisite for deploying — refusing to create
+    // because we cannot read routes would break every account issued a token before it existed.
+    if (status === 403 || status === 404) {
+      console.warn(
+        `Worker Routes check skipped for '${hostname}': the Cloudflare token lacks Zone > Workers Routes > Read.`,
+      );
+      return;
+    }
+
+    throw error;
+  }
+
   const conflicting = routes.find((route: any) => (
     route?.script && routePatternCoversHostname(route.pattern, hostname)
   ));

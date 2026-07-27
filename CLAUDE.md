@@ -411,10 +411,20 @@ quota.
 
 All Cloudflare API calls are **server-only** (never from client).
 
-**Required token permissions:**
-- Account > Worker Scripts > Edit
-- Account > Workers KV Storage > Edit
-- Zone > Zone > Read
+**Required token permissions** — every one maps to an endpoint the code actually calls:
+
+| Permission | Used by |
+|---|---|
+| Account > Workers Scripts > Edit | `/accounts/{id}/workers/scripts` (deploy, versions, deployments, delete) and `/accounts/{id}/workers/domains` |
+| Account > Account Analytics > Read | `/client/v4/graphql` — request/error counts |
+| Zone > Zone > Read | `/zones` — zone list for the domain picker |
+| Zone > DNS > Edit | `/zones/{id}/dns_records` — grey-cloud records for raw-IP origins |
+
+**Optional:** Zone > Workers Routes > Read — `/zones/{id}/workers/routes`, the Worker Routes half of
+the hostname conflict check. Without it that check is skipped with a warning; deploys still work.
+
+**Not needed:** Workers KV Storage. Nothing binds or reads KV — it was only ever probed by its own
+validation check, which has been removed.
 
 **Hostname conflict detection:** `assertHostnameAvailable` checks two independent bindings —
 `GET /accounts/{id}/workers/domains` (Custom Domains) and `GET /zones/{id}/workers/routes` (Worker
@@ -422,7 +432,9 @@ Routes). A Custom Domain silently takes precedence over a route covering the sam
 checking only the former would move live traffic off whatever Worker the route points at. Route
 patterns are matched with `routePatternCoversHostname` (`*` = zero or more chars, path ignored);
 routes with no `script` attached are bypass rules and are not conflicts. The route check needs a
-`zoneId` and is skipped when the caller has none.
+`zoneId` and is skipped when the caller has none. It is also skipped — with a warning, never an
+error — when the token returns 403/404 for the routes endpoint, since that permission is not part
+of the documented minimum and a missing safety net must not block deploys.
 
 **Key CF operations:**
 - `PUT /accounts/{id}/workers/scripts/{name}` — deploy Worker
