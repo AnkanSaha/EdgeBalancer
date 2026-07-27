@@ -83,6 +83,7 @@ beforeEach(() => {
   MockCloudflareClient.mockImplementation(() => ({
     workerNameExists: jest.fn().mockResolvedValue(false),
     getWorkerDomains: jest.fn().mockResolvedValue([]),
+    getWorkerRoutes: jest.fn().mockResolvedValue([]),
     testWorkerScriptsPermission: jest.fn().mockResolvedValue(true),
     testWorkersKVPermission: jest.fn().mockResolvedValue(true),
     testZoneReadPermission: jest.fn().mockResolvedValue(true),
@@ -333,6 +334,7 @@ describe('POST /api/loadbalancers/validate-hostname', () => {
     MockCloudflareClient.mockImplementationOnce(() => ({
       workerNameExists: jest.fn().mockResolvedValue(false),
       getWorkerDomains: jest.fn().mockResolvedValue([{ hostname: 'lb.example.com' }]),
+      getWorkerRoutes: jest.fn().mockResolvedValue([]),
     } as any));
 
     const { cookie } = await createTestUser();
@@ -1050,5 +1052,105 @@ describe('GET /api/loadbalancers/:id/origin-ip', () => {
       headers: cookie,
     });
     expect(res.statusCode).toBe(400);
+  });
+});
+
+describe('scriptName uniqueness — scoped per account', () => {
+  it('lets two different users pick the same load balancer name', async () => {
+    // Distinct firebaseUids: the index is unique and two nulls collide.
+    const { user: owner } = await createTestUser({ email: 'owner-a@example.com', firebaseUid: 'uid-a' });
+    const { user: other } = await createTestUser({ email: 'owner-b@example.com', firebaseUid: 'uid-b' });
+
+    const base = {
+      name: 'shared-name',
+      scriptName: 'shared-name',
+      domain: 'example.com',
+      origins: [{ url: 'https://a.example.com', weight: 1 }],
+      strategy: 'round-robin',
+      weightedEnabled: false,
+      zoneId: 'a'.repeat(32),
+      status: 'active',
+      workerUrl: 'https://example.com',
+    };
+
+    await LoadBalancer.create({ ...base, userId: owner._id });
+
+    // Their Workers live in separate Cloudflare accounts, so the name is not actually taken.
+    await expect(LoadBalancer.create({ ...base, userId: other._id })).resolves.toBeTruthy();
+  });
+
+  it('still rejects the same name twice for one user', async () => {
+    const { user: owner } = await createTestUser({ email: 'solo@example.com' });
+
+    const base = {
+      name: 'duplicate-name',
+      scriptName: 'duplicate-name',
+      domain: 'example.com',
+      origins: [{ url: 'https://a.example.com', weight: 1 }],
+      strategy: 'round-robin',
+      weightedEnabled: false,
+      zoneId: 'a'.repeat(32),
+      status: 'active',
+      workerUrl: 'https://example.com',
+      userId: owner._id,
+    };
+
+    await LoadBalancer.create(base);
+
+    await expect(LoadBalancer.create(base)).rejects.toThrow();
+  });
+});
+
+describe('update rollback — obsolete DNS record ordering', () => {
+  it('leaves removed IP origins\' DNS records intact when a later step fails', async () => {
+    const { getActiveWorkerDeployment, pruneWorkerHistory } = require('../../services/workerDeployment');
+    const { provisionIpDnsChanges, deleteIpDnsRecord } = require('../../services/workerDns');
+
+    const { user, cookie } = await createTestUser();
+    const lb = await LoadBalancer.create({
+      userId: user._id,
+      name: 'dns-order-test',
+      scriptName: 'dns-order-test',
+      domain: 'example.com',
+      origins: [{ url: 'https://lb-o1.example.com', weight: 100 }],
+      strategy: 'round-robin',
+      weightedEnabled: false,
+      ipOriginRecords: [
+        { originalUrl: 'http://1.2.3.4', hostname: 'lb-o1.example.com', dnsRecordId: 'rec-1' },
+      ],
+      placement: { smartPlacement: false },
+      zoneId: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4',
+      status: 'active',
+      workerUrl: 'https://dns-order-test.example.com',
+    });
+
+    // A real version list, otherwise the update bails before it can redeploy.
+    getActiveWorkerDeployment.mockResolvedValueOnce({ id: 'deploy-123', versions: [{ version_id: 'v1' }] });
+
+    // The update drops the raw-IP origin, so its DNS record becomes obsolete.
+    provisionIpDnsChanges.mockResolvedValueOnce({
+      resolvedOrigins: VALID_PAYLOAD.origins,
+      ipOriginRecords: [],
+      createdRecordIds: [],
+      obsoleteRecords: [{ dnsRecordId: 'rec-1' }],
+    });
+
+    // The last step that can throw — its failure triggers the full rollback.
+    pruneWorkerHistory.mockRejectedValueOnce(new Error('cloudflare unavailable'));
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/loadbalancers/${lb._id}`,
+      headers: cookie,
+      payload: { ...VALID_PAYLOAD, name: 'dns-order-test' },
+    });
+
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+
+    // The rollback restores ipOriginRecords pointing at rec-1, so rec-1 must still exist.
+    // Deleting it before the prune would leave that origin resolving to nothing.
+    expect(deleteIpDnsRecord).not.toHaveBeenCalledWith(
+      expect.objectContaining({ recordId: 'rec-1' }),
+    );
   });
 });

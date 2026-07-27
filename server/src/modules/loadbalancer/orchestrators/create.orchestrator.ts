@@ -18,6 +18,7 @@ import { formatLoadBalancer } from '../services/formatter.service';
 import { createSession } from '../../../services/sessionService';
 import { resolveIpOrigins, deleteIpDnsRecord } from '../../../services/workerDns';
 import type { IpOriginRecord } from '../../../services/workerDns';
+import { acquireLock, releaseLock, type LockHandle } from '../../../utils/resourceLock';
 import type { RequestCancellation } from '../../../utils/requestCancellation';
 
 export interface CreateLoadBalancerInput {
@@ -70,6 +71,7 @@ export async function createLoadBalancerOrchestrator(params: {
   let apiToken = '';
   let workerCode = '';
   let ipOriginRecords: IpOriginRecord[] = [];
+  let nameLock: LockHandle | null = null;
 
   const {
     name,
@@ -94,6 +96,19 @@ export async function createLoadBalancerOrchestrator(params: {
 
     // Step 2: Generate script name and validate availability
     scriptName = generateScriptName(name);
+
+    // Claim the name before checking it. Without this, two concurrent creates both pass the
+    // availability check, both PUT the same script (an upsert, so the second silently replaces
+    // the first), and the one that loses the DB unique index deletes the survivor's Worker
+    // during rollback. Scoped to the Cloudflare account so one user's names never reveal or
+    // block another's.
+    nameLock = await acquireLock(`lb:create:${accountId}:${scriptName}`);
+    if (!nameLock) {
+      const error = new Error('Another deployment is already using this name. Wait for it to finish or choose a different name.');
+      (error as any).statusCode = 409;
+      throw error;
+    }
+
     await ensureWorkerNameAvailability({
       userId,
       accountId,
@@ -133,6 +148,7 @@ export async function createLoadBalancerOrchestrator(params: {
       accountId,
       apiToken,
       hostname,
+      zoneId,
     });
     await cancellation.throwIfCancelled();
 
@@ -199,8 +215,10 @@ export async function createLoadBalancerOrchestrator(params: {
       },
     };
   } catch (error) {
-    // Rollback: clean up all resources created so far
-    if (accountId && apiToken && scriptName) {
+    // Rollback: clean up all resources created so far.
+    // `nameLock` gates this. A run that lost the race never deployed anything under this script
+    // name, so cleaning up by that name would destroy the Worker the winning run owns.
+    if (nameLock && accountId && apiToken && scriptName) {
       try {
         // Delete auto-created DNS records for raw IP origins
         await Promise.allSettled(
@@ -223,5 +241,7 @@ export async function createLoadBalancerOrchestrator(params: {
     }
 
     throw error;
+  } finally {
+    await releaseLock(nameLock);
   }
 }

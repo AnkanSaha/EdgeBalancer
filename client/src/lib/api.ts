@@ -81,6 +81,8 @@ class ApiClient {
   async validateLoadBalancerHostname(data: {
     domain: string;
     subdomain?: string;
+    // Optional — enables the server's Worker Routes conflict check on the preflight.
+    zoneId?: string;
     excludeLoadBalancerId?: string;
   }): Promise<ApiResponse> {
     const response = await this.client.post('/loadbalancers/validate-hostname', data);

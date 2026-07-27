@@ -9,6 +9,8 @@ jest.mock('../../utils/redisClient', () => {
     exists: async () => 0,
     del: async () => 1,
     scriptLoad: async () => 'test-sha',
+    // Used by resourceLock's compare-and-delete release.
+    eval: async () => 1,
     evalSha: async (_sha: string, opts: { keys: string[]; arguments: string[] }) => {
       const window = Number(opts.arguments[0]);
       const now = Date.now();

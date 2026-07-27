@@ -121,3 +121,34 @@ export interface CreateLoadBalancerRequest {
   corsOrigins: string[];
   placement: PlacementConfig;
 }
+
+// --- AI provisioning ---
+
+export type AiOutcome = 'success' | 'failure' | 'pending' | 'refused';
+
+export type PendingActionKind = 'delete' | 'pause' | 'resume' | 'update';
+
+/** A destructive step the agent resolved but did not perform — the user confirms it. */
+export interface PendingAction {
+  action: PendingActionKind;
+  loadBalancerId: string;
+  name: string;
+  fullDomain: string;
+  summary: string;
+  payload?: Record<string, unknown>;
+}
+
+export type AiEvent =
+  | { name: 'run_start'; payload: { runId: string } }
+  | { name: 'model_switch'; payload: { from: string; to: string; reason: string } }
+  | { name: 'status'; payload: { message: string; progress: number } }
+  | { name: 'tool_start'; payload: { name: string; args: Record<string, unknown> } }
+  | { name: 'tool_result'; payload: { name: string; ok: boolean; summary: string } }
+  | { name: 'done'; payload: { outcome: AiOutcome; message: string; loadBalancers: LoadBalancer[]; pendingAction: PendingAction | null } }
+  | { name: 'error'; payload: { message: string } };
+
+export interface AiStep {
+  label: string;
+  state: 'running' | 'ok' | 'failed';
+  detail?: string;
+}

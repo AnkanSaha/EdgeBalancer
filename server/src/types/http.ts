@@ -127,6 +127,25 @@ export class AppResponse {
     return this.reply.sent || this.reply.raw.headersSent;
   }
 
+  /** Raw Node response, for handlers that stream (SSE) instead of sending a single payload. */
+  get raw() {
+    return this.reply.raw;
+  }
+
+  /**
+   * Headers staged by hooks (CORS, security) but not yet flushed. A streaming handler writes
+   * its own head, so it has to carry these over itself.
+   */
+  getHeaders() {
+    return this.reply.getHeaders();
+  }
+
+  /** Hands response lifecycle to the caller so Fastify stops managing it. */
+  hijack() {
+    this.reply.hijack();
+    return this;
+  }
+
   get writableEnded() {
     return this.reply.raw.writableEnded;
   }

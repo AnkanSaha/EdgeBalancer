@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
@@ -10,6 +10,8 @@ import { Icons } from '@/components/shared/Icons';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { PauseModal } from '@/components/loadbalancers/PauseModal';
 import { DeploymentOverlay, DeploymentSuccessModal } from '@/components/loadbalancers/DeploymentExperience';
+import { AiPromptCard, AiProgressOverlay, applyAiEvent, initialAiRunState, type AiRunState } from '@/components/dashboard/AiBuilder';
+import { streamAiGeneration } from '@/lib/aiStream';
 import type { LoadBalancer, LoadBalancerAnalytics } from '@/types/api';
 import toast from 'react-hot-toast';
 
@@ -27,6 +29,14 @@ export default function DashboardPage() {
   const [pauseModal, setPauseModal] = useState<{ isOpen: boolean; lb: LoadBalancer | null }>({ isOpen: false, lb: null });
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; lb: LoadBalancer | null }>({ isOpen: false, lb: null });
   const [deleteSuccess, setDeleteSuccess] = useState<{ name: string; fullDomain: string } | null>(null);
+
+  // AI provisioning state
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiRun, setAiRun] = useState<AiRunState | null>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const aiRunRef = useRef<AiRunState | null>(null);
+  const aiAbortRef = useRef<AbortController | null>(null);
+  aiRunRef.current = aiRun;
 
   // Search & filter state
   const [searchValue, setSearchValue] = useState('');
@@ -102,6 +112,68 @@ export default function DashboardPage() {
     fetchLoadBalancers();
     fetchAnalytics();
   }, [fetchLoadBalancers, fetchAnalytics]);
+
+  const runAiGeneration = useCallback(async () => {
+    const prompt = aiPrompt.trim();
+    if (!prompt) return;
+
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
+    setAiRun(initialAiRunState);
+
+    try {
+      await streamAiGeneration(prompt, {
+        signal: controller.signal,
+        onEvent: (event) => setAiRun((current) => applyAiEvent(current ?? initialAiRunState, event)),
+      });
+    } catch (error: any) {
+      // Aborting closes the request, which the server treats as a cancellation and rolls back.
+      const cancelled = controller.signal.aborted;
+      setAiRun((current) => {
+        const base = current ?? initialAiRunState;
+        return cancelled
+          ? { ...base, phase: 'done', outcome: 'failure', message: 'You cancelled the run. The step in progress was rolled back; anything already finished was kept.' }
+          : applyAiEvent(base, { name: 'error', payload: { message: error.message || 'AI generation failed' } });
+      });
+    } finally {
+      aiAbortRef.current = null;
+    }
+  }, [aiPrompt]);
+
+  const cancelAiGeneration = useCallback(() => aiAbortRef.current?.abort(), []);
+
+  // The agent only ever prepares a destructive step. Running it is a plain REST call from here,
+  // through the same endpoints the dashboard buttons already use.
+  const confirmAiAction = useCallback(async () => {
+    const pending = aiRunRef.current?.pendingAction;
+    if (!pending) return;
+
+    const { action, loadBalancerId, payload } = pending;
+    setActionPending(true);
+    try {
+      if (action === 'delete') await api.deleteLoadBalancer(loadBalancerId);
+      else if (action === 'pause') await api.pauseLoadBalancer(loadBalancerId, (payload?.mode as 'release-domain' | 'keep-domain') ?? 'keep-domain');
+      else if (action === 'resume') await api.resumeLoadBalancer(loadBalancerId);
+      else await api.updateLoadBalancer(loadBalancerId, payload ?? {});
+
+      toast.success(`${pending.name} updated`);
+      setAiPrompt('');
+      setAiRun(null);
+      refreshAll();
+    } catch (error: any) {
+      toast.error(error.message || 'Action failed');
+    } finally {
+      setActionPending(false);
+    }
+  }, [refreshAll]);
+
+  // A failed run can still have deployed something before it broke, so always resync.
+  const closeAiOverlay = useCallback((clearPrompt: boolean) => {
+    aiAbortRef.current?.abort();
+    if (clearPrompt) setAiPrompt('');
+    setAiRun(null);
+    refreshAll();
+  }, [refreshAll]);
 
   const handleNav = (id: string) => {
     if (id === 'settings') router.push('/settings');
@@ -222,6 +294,13 @@ export default function DashboardPage() {
             }
           />
           <div style={{ padding: 'clamp(16px, 4vw, 32px)', overflow: 'auto', flex: 1 }}>
+            <AiPromptCard
+              value={aiPrompt}
+              onChange={setAiPrompt}
+              onSubmit={runAiGeneration}
+              disabled={!!aiRun}
+            />
+
             {!hasBalancers && !loading ? (
               <EmptyState onCreate={() => router.push('/loadbalancers/create')} />
             ) : (
@@ -319,6 +398,16 @@ export default function DashboardPage() {
           </div>
         </main>
       </div>
+
+      <AiProgressOverlay
+        isOpen={!!aiRun}
+        run={aiRun ?? initialAiRunState}
+        actionPending={actionPending}
+        onConfirmAction={confirmAiAction}
+        onCancel={cancelAiGeneration}
+        onClose={() => closeAiOverlay(aiRun?.outcome === 'success')}
+        onRetry={() => closeAiOverlay(false)}
+      />
 
       <PauseModal
         isOpen={pauseModal.isOpen}

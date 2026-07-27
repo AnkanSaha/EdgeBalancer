@@ -19,7 +19,6 @@ import { normalizeStrategy, isWeightedStrategy } from '../services/strategy.serv
 import { toHostname, assertHostnameAvailable } from '../services/hostname.service';
 import { snapshotLoadBalancer, configSignature } from '../services/snapshot.service';
 import { provisionIpDnsChanges, deleteIpDnsRecord } from '../../../services/workerDns';
-import type { IpOriginRecord } from '../../../services/workerDns';
 import { isNameUpdateAttempt } from '../services/validation.service';
 import { formatLoadBalancer } from '../services/formatter.service';
 import { createSession, deactivateSessionsForLoadBalancer } from '../../../services/sessionService';
@@ -116,6 +115,7 @@ export async function updateLoadBalancerOrchestrator(params: {
     accountId,
     apiToken,
     hostname: nextHostname,
+    zoneId,
     excludeLoadBalancerId: loadBalancerId,
   });
   await cancellation.throwIfCancelled();
@@ -304,14 +304,7 @@ export async function updateLoadBalancerOrchestrator(params: {
       await cancellation.throwIfCancelled();
     }
 
-    // Step 5: Delete DNS records for IP origins removed from this update
-    if (obsoleteDnsRecords.length > 0) {
-      await Promise.allSettled(
-        obsoleteDnsRecords.map(r => deleteIpDnsRecord({ apiToken, zoneId, recordId: r.dnsRecordId }))
-      );
-    }
-
-    // Step 6: Prune Worker history (if worker was redeployed)
+    // Step 5: Prune Worker history (if worker was redeployed)
     if (workerNeedsRedeploy) {
       await pruneWorkerHistory({
         accountId,
@@ -319,6 +312,13 @@ export async function updateLoadBalancerOrchestrator(params: {
         scriptName: persistedLoadBalancer.scriptName,
         keepInactiveCount: 2,
       });
+    }
+
+    // Step 6: Delete DNS records for IP origins removed from this update.
+    if (obsoleteDnsRecords.length > 0) {
+      await Promise.allSettled(
+        obsoleteDnsRecords.map(r => deleteIpDnsRecord({ apiToken, zoneId, recordId: r.dnsRecordId }))
+      );
     }
 
     // Step 7: Deactivate old session(s) and save new session log

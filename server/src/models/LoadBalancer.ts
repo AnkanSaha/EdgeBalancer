@@ -62,7 +62,6 @@ const LoadBalancerSchema = new Schema<ILoadBalancer>(
     scriptName: {
       type: String,
       required: [true, 'Script name is required'],
-      unique: true,
     },
     domain: {
       type: String,
@@ -156,7 +155,12 @@ const LoadBalancerSchema = new Schema<ILoadBalancer>(
 // Index for performance on userId queries
 LoadBalancerSchema.index({ userId: 1 });
 
-// Note: scriptName index is already created by 'unique: true' field option
-// No need for explicit schema.index() to avoid duplicate index warning
+// Worker script names only have to be unique within a Cloudflare account, and each account
+// belongs to one user. A globally unique scriptName wrongly rejected a name simply because an
+// unrelated user had already taken it.
+//
+// MIGRATION: Mongo does not drop the old global index on its own. Run once against each
+// environment before deploying:  db.loadbalancers.dropIndex('scriptName_1')
+LoadBalancerSchema.index({ userId: 1, scriptName: 1 }, { unique: true });
 
 export const LoadBalancer = mongoose.model<ILoadBalancer>('LoadBalancer', LoadBalancerSchema);

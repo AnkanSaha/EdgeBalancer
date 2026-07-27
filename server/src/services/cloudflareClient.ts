@@ -112,4 +112,17 @@ export class CloudflareClient {
 
     return response.data?.result ?? [];
   }
+
+  /**
+   * Worker Routes are a separate binding from Custom Domains and are not listed by
+   * `getWorkerDomains`, yet a route can already be serving the hostname we are about to claim.
+   */
+  async getWorkerRoutes(zoneId: string): Promise<any[]> {
+    const response = await retryWithBackoff(
+      () => this.client.get(`/zones/${zoneId}/workers/routes`),
+      { maxRetries: 3 }
+    );
+
+    return response.data?.result ?? [];
+  }
 }

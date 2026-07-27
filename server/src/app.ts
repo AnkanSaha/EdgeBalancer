@@ -8,6 +8,7 @@ import { RedisSlidingWindowStore } from './middleware/rateLimitStore';
 import authRoutes from './routes/authRoutes';
 import cloudflareRoutes from './routes/cloudflareRoutes';
 import userRoutes from './routes/userRoutes';
+import aiRoutes from './routes/aiRoutes';
 import loadBalancerRoutes from './modules/loadbalancer/loadbalancer.routes';
 import sessionRoutes from './modules/session/session.routes';
 
@@ -86,6 +87,7 @@ export const buildServer = async () => {
   await app.register(userRoutes, { prefix: '/api/user' });
   await app.register(loadBalancerRoutes, { prefix: '/api/loadbalancers' });
   await app.register(sessionRoutes, { prefix: '/api/sessions' });
+  await app.register(aiRoutes, { prefix: '/api/ai' });
 
   return app;
 };
