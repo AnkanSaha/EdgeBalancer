@@ -21,12 +21,6 @@ export const validateCloudflareCredentials = async (
       errors.push('Missing permission: Account > Worker Scripts > Edit');
     }
 
-    // Test Workers KV Storage permission
-    const hasWorkersKV = await client.testWorkersKVPermission(accountId);
-    if (!hasWorkersKV) {
-      errors.push('Missing permission: Account > Workers KV Storage > Edit');
-    }
-
     // Test Zone Read permission
     const hasZoneRead = await client.testZoneReadPermission(accountId);
     if (!hasZoneRead) {

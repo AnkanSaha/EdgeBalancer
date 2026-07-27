@@ -29,18 +29,6 @@ export class CloudflareClient {
     }
   }
 
-  async testWorkersKVPermission(accountId: string): Promise<boolean> {
-    try {
-      await retryWithBackoff(
-        () => this.client.get(`/accounts/${accountId}/storage/kv/namespaces`),
-        { maxRetries: 2 }
-      );
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-
   async testZoneReadPermission(accountId: string): Promise<boolean> {
     try {
       await retryWithBackoff(

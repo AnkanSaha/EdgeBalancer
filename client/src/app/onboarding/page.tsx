@@ -7,14 +7,7 @@ import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Icons } from '@/components/shared/Icons';
-
-const PERMISSIONS = [
-  ['Account', 'Worker Scripts', 'Edit'],
-  ['Account', 'Workers KV Storage', 'Edit'],
-  ['Account', 'Account Analytics', 'Read'],
-  ['Zone', 'Zone', 'Read'],
-  ['Zone', 'DNS', 'Edit'],
-];
+import { CLOUDFLARE_PERMISSIONS } from '@/lib/cloudflarePermissions';
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -204,9 +197,10 @@ function TokenGuide() {
           Name it <span className="mono" style={{ color: 'var(--text-2)' }}>EdgeBalancer</span>
         </TokenStep>
         <TokenStep n="04">
-          Add all five permissions:
+          {/* Counted from the list so the copy can never drift out of step with it again. */}
+          Add all {CLOUDFLARE_PERMISSIONS.length} permissions:
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
-            {PERMISSIONS.map(([scope, resource, level]) => (
+            {CLOUDFLARE_PERMISSIONS.map(([scope, resource, level]) => (
               <div key={`${scope}-${resource}`} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
                 padding: '7px 10px', borderRadius: 'var(--radius)',

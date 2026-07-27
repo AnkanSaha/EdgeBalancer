@@ -37,7 +37,6 @@ beforeEach(() => {
   MockCloudflareClient.mockImplementation(() => ({
     getZones: jest.fn().mockResolvedValue({ result: [{ id: 'zone1', name: 'example.com', status: 'active' }] }),
     testWorkerScriptsPermission: jest.fn().mockResolvedValue(true),
-    testWorkersKVPermission: jest.fn().mockResolvedValue(true),
     testZoneReadPermission: jest.fn().mockResolvedValue(true),
     workerNameExists: jest.fn().mockResolvedValue(false),
     getWorkerDomains: jest.fn().mockResolvedValue([]),

@@ -105,6 +105,31 @@ describe('assertHostnameAvailable — Worker Routes', () => {
     expect(getWorkerRoutes).not.toHaveBeenCalled();
   });
 
+  it('still deploys when the token cannot list routes', async () => {
+    // Tokens issued before this check exists only carry Zone > Zone > Read.
+    getWorkerRoutes.mockRejectedValue(Object.assign(new Error('Request failed with status code 403'), {
+      response: { status: 403 },
+    }));
+
+    await expect(assertHostnameAvailable(params)).resolves.toBeUndefined();
+  });
+
+  it('treats a 404 on the routes endpoint the same way', async () => {
+    getWorkerRoutes.mockRejectedValue(Object.assign(new Error('Not found'), {
+      response: { status: 404 },
+    }));
+
+    await expect(assertHostnameAvailable(params)).resolves.toBeUndefined();
+  });
+
+  it('does not swallow a genuine Cloudflare outage', async () => {
+    getWorkerRoutes.mockRejectedValue(Object.assign(new Error('Bad gateway'), {
+      response: { status: 502 },
+    }));
+
+    await expect(assertHostnameAvailable(params)).rejects.toThrow('Bad gateway');
+  });
+
   it('still reports a Custom Domain conflict before looking at routes', async () => {
     getWorkerDomains.mockResolvedValue([{ hostname: 'ankan.in' }]);
 

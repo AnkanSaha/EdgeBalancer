@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { Sidebar, Topbar } from '@/components/dashboard/Sidebar';
 import { Icons } from '@/components/shared/Icons';
 import toast from 'react-hot-toast';
+import { permissionSummary } from '@/lib/cloudflarePermissions';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -227,7 +228,7 @@ function CloudflareTab({ user, refreshUser }: any) {
                 disabled={loading}
               />
               <div className="hint">
-                Token must have <span className="mono" style={{ color: 'var(--accent)' }}>Workers Scripts: Edit</span>, <span className="mono" style={{ color: 'var(--accent)' }}>Account Analytics: Read</span>, and <span className="mono" style={{ color: 'var(--accent)' }}>Zone: Read</span> permissions
+                Token must have <span className="mono" style={{ color: 'var(--accent)' }}>{permissionSummary()}</span>
               </div>
             </div>
 
