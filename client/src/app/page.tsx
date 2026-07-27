@@ -196,12 +196,6 @@ export default function LandingPage() {
               features: ['Ordered retry logic', 'Health monitoring', 'Zero config needed'],
             },
             {
-              icon: 'Activity',
-              title: 'Blue/Green Deployments',
-              desc: 'Use weighted strategies to gradually shift traffic from old to new infrastructure with fine-grained control.',
-              features: ['Gradual rollouts', 'Instant rollback', 'A/B testing'],
-            },
-            {
               icon: 'Link',
               title: 'Stateful Workloads',
               desc: 'Cookie-sticky routing keeps users pinned to the same backend server for sessions, WebSockets, or shopping carts.',
