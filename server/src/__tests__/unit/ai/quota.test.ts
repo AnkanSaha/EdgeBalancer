@@ -10,7 +10,6 @@ jest.mock('../../../utils/redisClient', () => ({
         return 'OK';
       },
       exists: async (key: string) => (store.has(key) ? 1 : 0),
-      ttl: async (key: string) => store.get(key) ?? -2,
     };
   },
 }));
@@ -22,7 +21,6 @@ import {
   isProviderExhausted,
   markModelExhausted,
   markProviderExhausted,
-  providerCooldownRemaining,
 } from '../../../modules/ai/services/quota.service';
 
 describe('quota cooldowns', () => {
@@ -51,13 +49,6 @@ describe('quota cooldowns', () => {
     expect(await isModelExhausted('mistral-large-2512')).toBe(true);
     expect(store.get('ai:quota:model:mistral-large-2512')).toBe(MODEL_COOLDOWN_SECONDS);
     expect(await isModelExhausted('ministral-3b-2512')).toBe(false);
-  });
-
-  it('reports how long the cooldown has left', async () => {
-    await markProviderExhausted('openrouter');
-
-    expect(await providerCooldownRemaining('openrouter')).toBe(PROVIDER_COOLDOWN_SECONDS);
-    expect(await providerCooldownRemaining('mistral')).toBe(0);
   });
 
   it('honours a Retry-After over the default', async () => {

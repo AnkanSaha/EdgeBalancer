@@ -42,17 +42,6 @@ export async function isModelExhausted(model: string): Promise<boolean> {
   return exists(modelKey(model));
 }
 
-/** Seconds until the provider is usable again, or 0 if it already is. */
-export async function providerCooldownRemaining(provider: ModelProvider): Promise<number> {
-  try {
-    const redis = await getRedisClient();
-    const ttl = await redis.ttl(providerKey(provider));
-    return ttl > 0 ? ttl : 0;
-  } catch {
-    return 0;
-  }
-}
-
 // A Redis outage must never disable the feature: an unreadable cooldown reads as "not exhausted",
 // matching how the rate limiter treats the same failure.
 async function exists(key: string): Promise<boolean> {
