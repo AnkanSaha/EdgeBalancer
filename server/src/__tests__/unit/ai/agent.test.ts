@@ -168,6 +168,29 @@ describe('runAgent failure handling', () => {
     expect(result.message).toBe('I need the domain and at least one origin URL.');
   });
 
+  it('binds only find_tools until it has loaded something', async () => {
+    const finder = jest.fn(async () => JSON.stringify({ ok: true, data: 'ready' }));
+    const creating = jest.fn(async () => JSON.stringify({ ok: true, data: { fullDomain: 'api.example.com' } }));
+    mockedBuildTools.mockImplementation((ctx: any) => [
+      fakeTool('find_tools', jest.fn(async () => {
+        ctx.unlocked.add('create_load_balancer');
+        return finder();
+      })),
+      fakeTool('create_load_balancer', creating),
+    ]);
+
+    mockedInvoke
+      .mockResolvedValueOnce(aiMessage([call('find_tools', { names: ['create_load_balancer'] })]))
+      .mockResolvedValueOnce(aiMessage([call('create_load_balancer')]))
+      .mockResolvedValueOnce(aiMessage([], 'Deployed api.example.com.'));
+
+    await execute();
+
+    const boundNames = mockedInvoke.mock.calls.map((c: any[]) => c[0].tools.map((t: any) => t.name));
+    expect(boundNames[0]).toEqual(['find_tools']);
+    expect(boundNames[1]).toEqual(['find_tools', 'create_load_balancer']);
+  });
+
   it('reports success when a tool actually created something', async () => {
     const creating = jest.fn(async () => JSON.stringify({ ok: true, data: { fullDomain: 'api.example.com' } }));
     mockedBuildTools.mockReturnValue([fakeTool('create_load_balancer', creating)]);
