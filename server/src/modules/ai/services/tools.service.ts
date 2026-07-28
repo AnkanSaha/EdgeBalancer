@@ -7,6 +7,7 @@ import { validateCreateLoadBalancerBody } from '../../../middleware/validators/l
 import { formatLoadBalancer } from '../../loadbalancer/services/formatter.service';
 import { createLoadBalancerOrchestrator } from '../../loadbalancer/orchestrators/create.orchestrator';
 import { toHostname } from '../../loadbalancer/services/hostname.service';
+import { buildResearchTools } from './research.service';
 import type { RunLogger } from './log.service';
 import type { RequestCancellation } from '../../../utils/requestCancellation';
 import type { AiEmitter, PendingAction, PendingActionKind } from '../types/ai.types';
@@ -22,7 +23,7 @@ export interface ToolContext {
   touched: unknown[];
   /** Set when a tool resolves a destructive action for the user to confirm. */
   proposed: { current: PendingAction | null };
-  /** Tool names find_tools has loaded. The agent loop binds only these plus find_tools itself. */
+  /** Tool names find_tools has loaded; the agent loop binds only these plus find_tools. */
   unlocked: Set<string>;
 }
 
@@ -271,14 +272,12 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
     deleteLoadBalancer,
     pauseLoadBalancer,
     resumeLoadBalancer,
+    ...buildResearchTools(log),
   ];
   const names = new Set<string>(work.map((t) => t.name));
 
-  /**
-   * The only tool bound on the first model call. Loading is a side effect on `unlocked`; the
-   * schemas reach the model when the agent loop re-binds on the next iteration, so the result
-   * here stays deliberately tiny — repeating the schema in it would pay the cost twice.
-   */
+  // Loading is a side effect on `unlocked`; the schemas reach the model when the loop re-binds
+  // next iteration, so the result here stays tiny rather than repeating them.
   const findTools = tool(
     async (input: any) => {
       const requested: unknown = input?.names;

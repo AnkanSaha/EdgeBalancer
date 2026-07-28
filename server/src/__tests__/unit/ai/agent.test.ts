@@ -191,6 +191,50 @@ describe('runAgent failure handling', () => {
     expect(boundNames[1]).toEqual(['find_tools', 'create_load_balancer']);
   });
 
+  it('lets RCA research a conflict, with only the web tools bound', async () => {
+    const conflicting = jest.fn(async () => {
+      throw Object.assign(new Error('A Worker with this name already exists.'), { statusCode: 409 });
+    });
+    const searching = jest.fn(async () => JSON.stringify({ ok: true, data: { results: [{ title: 'CF docs' }] } }));
+    mockedBuildTools.mockReturnValue([
+      fakeTool('create_load_balancer', conflicting),
+      fakeTool('web_search', searching),
+      fakeTool('fetch_url', jest.fn()),
+    ]);
+
+    mockedInvoke
+      .mockResolvedValueOnce(aiMessage([call('create_load_balancer')]))
+      // RCA step 1: research the conflict rather than answering straight away.
+      .mockResolvedValueOnce(aiMessage([call('web_search', { query: 'worker name already exists' })]))
+      .mockResolvedValueOnce(aiMessage([], 'That Worker name is taken in your Cloudflare account.'));
+
+    const result = await execute();
+
+    expect(searching).toHaveBeenCalledTimes(1);
+    expect(result.outcome).toBe('failure');
+    expect(result.message).toBe('That Worker name is taken in your Cloudflare account.');
+
+    // The create tool must not be reachable once RCA starts — it could only be used to retry.
+    const rcaBound = mockedInvoke.mock.calls[1][0].tools.map((t: any) => t.name);
+    expect(rcaBound.sort()).toEqual(['fetch_url', 'web_search']);
+  });
+
+  it('gives RCA its own budget when the main loop runs out', async () => {
+    const looping = jest.fn(async () => JSON.stringify({ ok: true, data: {} }));
+    mockedBuildTools.mockReturnValue([fakeTool('list_zones', looping), fakeTool('web_search', jest.fn())]);
+
+    // The model never stops calling tools, so the run exhausts MAX_ITERATIONS and RCA still runs.
+    mockedInvoke.mockResolvedValue(aiMessage([call('list_zones')]));
+    mockedInvoke.mockResolvedValueOnce(aiMessage([call('list_zones')]));
+
+    const result = await execute();
+
+    expect(result.outcome).toBe('failure');
+    // 12 main iterations + 3 RCA steps, and RCA was bound to the web tools only.
+    expect(mockedInvoke).toHaveBeenCalledTimes(15);
+    expect(mockedInvoke.mock.calls[14][0].tools.map((t: any) => t.name)).toEqual(['web_search']);
+  });
+
   it('reports success when a tool actually created something', async () => {
     const creating = jest.fn(async () => JSON.stringify({ ok: true, data: { fullDomain: 'api.example.com' } }));
     mockedBuildTools.mockReturnValue([fakeTool('create_load_balancer', creating)]);
