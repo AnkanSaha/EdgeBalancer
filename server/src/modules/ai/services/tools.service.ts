@@ -63,6 +63,15 @@ const CONFIG_PROPERTIES = {
   },
 } as const;
 
+// Loading one of these is the model stating it means to change something.
+export const MUTATING_TOOL_NAMES = [
+  'create_load_balancer',
+  'update_load_balancer',
+  'delete_load_balancer',
+  'pause_load_balancer',
+  'resume_load_balancer',
+] as const;
+
 const ok = (data: unknown) => JSON.stringify({ ok: true, data });
 const fail = (message: string) => JSON.stringify({ ok: false, error: message });
 

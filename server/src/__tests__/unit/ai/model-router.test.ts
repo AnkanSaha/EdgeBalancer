@@ -23,7 +23,7 @@ jest.mock('../../../modules/ai/services/rate-limit.service', () => ({
   tryConsume: jest.fn(async () => true),
 }));
 
-import { invokeWithFallback } from '../../../modules/ai/services/model-router.service';
+import { invokeWithFallback, createRouterState } from '../../../modules/ai/services/model-router.service';
 import { createChatModel, getApiKey } from '../../../modules/ai/services/model-provider.service';
 import {
   isModelExhausted,
@@ -71,6 +71,18 @@ describe('invokeWithFallback', () => {
     expect((await run()).model).toBe('free-b');
   });
 
+  it('does not retry a model that already failed earlier in the same run', async () => {
+    const state = createRouterState();
+    const call = () => invokeWithFallback({ messages: [], tools: [], attempts: [], emit: jest.fn(), state });
+
+    mockedCreate.mockImplementationOnce(() => throws(new Error('boom'))).mockImplementation(answers);
+
+    expect((await call()).model).toBe('free-b');
+    // free-a is remembered as broken, so the second call starts at free-b instead of retrying it.
+    expect((await call()).model).toBe('free-b');
+    expect(mockedCreate).toHaveBeenCalledTimes(3);
+  });
+
   it('records every attempt in order', async () => {
     mockedCreate.mockImplementationOnce(() => throws(new Error('boom'))).mockImplementation(answers);
 
@@ -106,18 +118,7 @@ describe('quota handling', () => {
       .mockImplementation(answers);
 
     expect((await run()).model).toBe('paid-best');
-    expect(markProviderExhausted).toHaveBeenCalledWith('openrouter', undefined);
-  });
-
-  it('reads the daily quota message out of a nested error body', async () => {
-    mockedCreate
-      .mockImplementationOnce(() => throws(Object.assign(new Error('Request failed'), {
-        status: 429,
-        response: { data: { error: { message: 'You have exceeded your daily limit for free models' } } },
-      })))
-      .mockImplementation(answers);
-
-    expect((await run()).model).toBe('paid-best');
+    expect(markProviderExhausted).toHaveBeenCalledWith('openrouter');
   });
 
   it('passes a Retry-After header through as the cooldown', async () => {
@@ -157,13 +158,26 @@ describe('quota handling', () => {
     expect(markModelExhausted).toHaveBeenCalledWith('paid-best', undefined);
   });
 
-  it('keeps a burst 429 local — one user must not cost everyone the free tier', async () => {
+  it('stands OpenRouter down on a burst 429 too — the free tier is not reliable enough to retry', async () => {
     mockedCreate
       .mockImplementationOnce(() => throws(rateLimited('Rate limit exceeded, please slow down')))
       .mockImplementation(answers);
 
-    expect((await run()).model).toBe('free-b');
-    expect(markProviderExhausted).not.toHaveBeenCalled();
+    // Not free-b: the whole provider is skipped, so the run drops straight to Mistral.
+    expect((await run()).model).toBe('paid-best');
+    expect(markProviderExhausted).toHaveBeenCalledWith('openrouter');
+  });
+
+  it('ignores Retry-After for OpenRouter — the cooldown is always the full 24h', async () => {
+    mockedCreate
+      .mockImplementationOnce(() => throws(Object.assign(rateLimited('slow down'), {
+        headers: { 'retry-after': '5' },
+      })))
+      .mockImplementation(answers);
+
+    await run();
+
+    expect(markProviderExhausted).toHaveBeenCalledWith('openrouter');
   });
 
   it('does not share an ordinary failure with other users', async () => {

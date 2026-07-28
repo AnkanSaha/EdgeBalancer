@@ -20,6 +20,19 @@ export interface InvokeResult {
   model: string;
 }
 
+// Shared by every call of one run: a model that fails once will fail again a second later.
+export interface RouterState {
+  skippedModels: Set<string>;
+  deadProviders: Set<ModelProvider>;
+  exhaustedProviders: Set<ModelProvider>;
+}
+
+export const createRouterState = (): RouterState => ({
+  skippedModels: new Set(),
+  deadProviders: new Set(),
+  exhaustedProviders: new Set(),
+});
+
 const statusOf = (error: any): number | undefined =>
   error?.status ?? error?.statusCode ?? error?.response?.status;
 
@@ -35,16 +48,8 @@ const messageOf = (error: any): string =>
     .filter(Boolean)
     .join(' ');
 
-// OpenRouter returns 429 for two unrelated conditions: a short per-minute burst, and the
-// account-wide free-model allowance being spent for the day. Only the daily one justifies
-// standing the provider down.
-const DAILY_QUOTA_PATTERN = /free-models-per-day|per[-\s]?day|daily limit|daily quota|add (more )?credits/i;
-
-/**
- * Both providers answer a 429 with `Retry-After` (seconds). It is more accurate than any fixed
- * guess — Mistral's per-second request cap clears almost immediately, while its per-minute token
- * budget takes up to a minute — so when it is present it decides the cooldown.
- */
+// Mistral's per-second cap clears almost immediately while its per-minute token budget takes up
+// to a minute, so its own header beats any fixed guess. Only used for Mistral.
 const retryAfterSeconds = (error: any): number | undefined => {
   const headers = error?.headers ?? error?.response?.headers;
   if (!headers) return undefined;
@@ -70,12 +75,10 @@ type Disposition = 'provider-exhausted' | 'model-exhausted' | 'provider-dead' | 
 function classify(error: any, provider: ModelProvider): Disposition {
   if (isAuthFailure(error)) return 'provider-dead';
 
+  // OpenRouter's free tier is account-wide and unreliable, so any 429 stands the whole provider
+  // down for a day. Mistral publishes limits per model, so its 429 only cools that model.
   if (statusOf(error) === 429) {
-    if (provider === 'openrouter') {
-      return DAILY_QUOTA_PATTERN.test(messageOf(error)) ? 'provider-exhausted' : 'transient';
-    }
-    // Mistral's limits are published per model, so a 429 stands that one model down briefly.
-    return 'model-exhausted';
+    return provider === 'openrouter' ? 'provider-exhausted' : 'model-exhausted';
   }
 
   return 'transient';
@@ -87,12 +90,11 @@ export async function invokeWithFallback(params: {
   attempts: ModelAttempt[];
   emit: AiEmitter;
   log?: RunLogger;
+  state?: RouterState;
 }): Promise<InvokeResult> {
-  const { messages, tools, attempts, emit, log = NOOP_LOGGER } = params;
+  const { messages, tools, attempts, emit, log = NOOP_LOGGER, state = createRouterState() } = params;
+  const { skippedModels, deadProviders, exhaustedProviders } = state;
 
-  const deadProviders = new Set<ModelProvider>();
-  const skippedThisRun = new Set<string>();
-  const exhaustedProviders = new Set<ModelProvider>();
   let lastError: Error | null = null;
   let previousModel: string | null = null;
 
@@ -101,7 +103,7 @@ export async function invokeWithFallback(params: {
 
     if (deadProviders.has(provider) || exhaustedProviders.has(provider)) continue;
     if (!getApiKey(provider)) continue;
-    if (skippedThisRun.has(model)) continue;
+    if (skippedModels.has(model)) continue;
 
     if (await isProviderExhausted(provider)) {
       log.info(`${provider} is in quota cooldown — skipping its models`);
@@ -138,13 +140,13 @@ export async function invokeWithFallback(params: {
         deadProviders.add(provider);
       } else if (disposition === 'provider-exhausted') {
         exhaustedProviders.add(provider);
-        await markProviderExhausted(provider, retryAfter);
-        log.warn(`${provider} quota exhausted — standing it down for ${retryAfter ?? 'the default 24h'}`);
+        await markProviderExhausted(provider);
+        log.warn(`${provider} rate limited — standing the whole provider down for 24h`);
       } else if (disposition === 'model-exhausted') {
         await markModelExhausted(model, retryAfter);
         log.warn(`${model} rate limited — cooling down for ${retryAfter ?? 60}s`);
       } else {
-        skippedThisRun.add(model);
+        skippedModels.add(model);
       }
 
       emit('model_switch', {

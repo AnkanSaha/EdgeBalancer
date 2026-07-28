@@ -1,8 +1,8 @@
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import type { BaseMessage } from '@langchain/core/messages';
 import { SYSTEM_PROMPT, RCA_PROMPT } from '../config/systemPrompt';
-import { invokeWithFallback } from './model-router.service';
-import { buildTools } from './tools.service';
+import { invokeWithFallback, createRouterState } from './model-router.service';
+import { buildTools, MUTATING_TOOL_NAMES } from './tools.service';
 import { RESEARCH_TOOL_NAMES } from './research.service';
 import { logRun } from './log.service';
 import type { RequestCancellation } from '../../../utils/requestCancellation';
@@ -20,6 +20,7 @@ const TOOL_FINDER = 'find_tools';
 // RCA gets its own budget so a failure at iteration 12 still gets explained.
 const MAX_RCA_ITERATIONS = 3;
 const RESEARCH_TOOLS = new Set<string>(RESEARCH_TOOL_NAMES);
+const MUTATING_TOOLS = new Set<string>(MUTATING_TOOL_NAMES);
 
 /**
  * Accumulated in place so a run that throws mid-way still leaves the caller a complete audit
@@ -76,6 +77,7 @@ export async function runAgent(params: {
 
   const messages: BaseMessage[] = [new SystemMessage(SYSTEM_PROMPT), new HumanMessage(prompt)];
   const failuresByTool = new Map<string, number>();
+  const routerState = createRouterState();
 
   const finish = (outcome: AiOutcome, message: string): AgentRun => {
     log.info(`outcome=${outcome} — ${message}`);
@@ -125,7 +127,7 @@ export async function runAgent(params: {
     let response;
     let model;
     try {
-      ({ response, model } = await invokeWithFallback({ messages, tools: bound, attempts: modelAttempts, emit, log }));
+      ({ response, model } = await invokeWithFallback({ messages, tools: bound, attempts: modelAttempts, emit, log, state: routerState }));
     } catch (error: any) {
       // The run has already failed by then, so a dead ladder must not swallow the real error.
       if (!rcaMode) throw error;
@@ -145,9 +147,12 @@ export async function runAgent(params: {
       // No tool ran at all: the model refused an out-of-scope prompt or asked for missing detail.
       if (toolCalls.length === 0) return finish('refused', message || 'Done.');
 
-      // It stopped after using tools — success only if it actually got something done.
+      // Loading a mutating tool is the model stating intent to change something. Ending with
+      // nothing changed means it abandoned the job, whether or not a tool actually failed.
       const failed = toolCalls.some((call) => !call.ok);
-      if (failed && loadBalancers.length === 0) {
+      const intendedChange = [...unlocked].some((name) => MUTATING_TOOLS.has(name));
+
+      if ((failed || intendedChange) && loadBalancers.length === 0) {
         rcaFallback = message;
         enterRca();
         continue;
