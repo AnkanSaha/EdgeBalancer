@@ -43,6 +43,7 @@ const makeTools = (touched: unknown[] = []) =>
     log: { info: jest.fn(), warn: jest.fn() },
     touched,
     proposed,
+    unlocked: new Set<string>(),
   });
 
 const toolNamed = (name: string) => {

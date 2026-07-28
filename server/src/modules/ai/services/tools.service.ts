@@ -22,6 +22,8 @@ export interface ToolContext {
   touched: unknown[];
   /** Set when a tool resolves a destructive action for the user to confirm. */
   proposed: { current: PendingAction | null };
+  /** Tool names find_tools has loaded. The agent loop binds only these plus find_tools itself. */
+  unlocked: Set<string>;
 }
 
 const ORIGIN_SCHEMA = {
@@ -72,7 +74,7 @@ const fail = (message: string) => JSON.stringify({ ok: false, error: message });
  * REST routes. Nothing irreversible can happen inside an agent run.
  */
 export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
-  const { runId, userId, userEmail, cancellation, log, touched, proposed } = ctx;
+  const { runId, userId, userEmail, cancellation, log, touched, proposed, unlocked } = ctx;
 
   const findOwned = async (id: string) => {
     const lb = await LoadBalancer.findById(id);
@@ -261,7 +263,7 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
     },
   );
 
-  return [
+  const work = [
     listZones,
     listLoadBalancers,
     createLoadBalancer,
@@ -269,5 +271,40 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
     deleteLoadBalancer,
     pauseLoadBalancer,
     resumeLoadBalancer,
-  ] as unknown as StructuredToolInterface[];
+  ];
+  const names = new Set<string>(work.map((t) => t.name));
+
+  /**
+   * The only tool bound on the first model call. Loading is a side effect on `unlocked`; the
+   * schemas reach the model when the agent loop re-binds on the next iteration, so the result
+   * here stays deliberately tiny — repeating the schema in it would pay the cost twice.
+   */
+  const findTools = tool(
+    async (input: any) => {
+      const requested: unknown = input?.names;
+      const valid = (Array.isArray(requested) ? requested : []).filter(
+        (n): n is string => typeof n === 'string' && names.has(n),
+      );
+
+      if (valid.length === 0) return fail(`No such tool. Available: ${[...names].join(', ')}`);
+
+      valid.forEach((n) => unlocked.add(n));
+      log.info(`find_tools loaded ${valid.join(', ')}`);
+
+      return ok('ready');
+    },
+    {
+      name: 'find_tools',
+      description:
+        'Load the tools you need before you can call them. Name every tool the request will need, then use them on your next step.',
+      verboseParsingErrors: true,
+      schema: {
+        type: 'object',
+        properties: { names: { type: 'array', items: { type: 'string' }, minItems: 1 } },
+        required: ['names'],
+      },
+    },
+  );
+
+  return [findTools, ...work] as unknown as StructuredToolInterface[];
 }

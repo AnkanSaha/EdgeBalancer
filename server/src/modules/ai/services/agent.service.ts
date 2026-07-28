@@ -13,6 +13,13 @@ const MAX_ITERATIONS = 12;
 const MAX_FAILURES_PER_TOOL = 2;
 
 /**
+ * Bound on every call. Everything else is sent only once find_tools has loaded it, so a run pays
+ * for the schemas it actually uses instead of all ~1,500 tokens of them on every iteration. The
+ * trade is one extra model call per run for the discovery step.
+ */
+const TOOL_FINDER = 'find_tools';
+
+/**
  * Accumulated in place so a run that throws mid-way still leaves the caller a complete audit
  * trail of the models tried and the tools already executed.
  */
@@ -61,7 +68,8 @@ export async function runAgent(params: {
   log.info(`prompt: ${prompt}`);
 
   const proposed: { current: PendingAction | null } = { current: null };
-  const tools = buildTools({ runId, userId, userEmail, cancellation, emit, log, touched: loadBalancers, proposed });
+  const unlocked = new Set<string>();
+  const tools = buildTools({ runId, userId, userEmail, cancellation, emit, log, touched: loadBalancers, proposed, unlocked });
   const toolsByName = new Map(tools.map((t) => [t.name, t]));
 
   const messages: BaseMessage[] = [new SystemMessage(SYSTEM_PROMPT), new HumanMessage(prompt)];
@@ -80,7 +88,12 @@ export async function runAgent(params: {
       progress: progressFor(iteration),
     });
 
-    const { response, model } = await invokeWithFallback({ messages, tools, attempts: modelAttempts, emit, log });
+    // Only what the model *sees* is filtered — toolsByName stays complete, so a tool it remembers
+    // from an earlier turn still executes rather than erroring back as unknown.
+    const bound = tools.filter((t) => t.name === TOOL_FINDER || unlocked.has(t.name));
+    log.info(`iteration ${iteration} — bound ${bound.length}/${tools.length}: ${bound.map((t) => t.name).join(', ')}`);
+
+    const { response, model } = await invokeWithFallback({ messages, tools: bound, attempts: modelAttempts, emit, log });
     trace.finalModel = model;
     messages.push(response);
 
