@@ -1,8 +1,9 @@
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import type { BaseMessage } from '@langchain/core/messages';
 import { SYSTEM_PROMPT, RCA_PROMPT } from '../config/systemPrompt';
-import { invokeWithFallback } from './model-router.service';
-import { buildTools } from './tools.service';
+import { invokeWithFallback, createRouterState } from './model-router.service';
+import { buildTools, MUTATING_TOOL_NAMES } from './tools.service';
+import { RESEARCH_TOOL_NAMES } from './research.service';
 import { logRun } from './log.service';
 import type { RequestCancellation } from '../../../utils/requestCancellation';
 import type { AiEmitter, AiOutcome, ModelAttempt, PendingAction, ToolCallRecord } from '../types/ai.types';
@@ -12,12 +13,14 @@ const MAX_ITERATIONS = 12;
 // of burning the rate limit on a third identical mistake.
 const MAX_FAILURES_PER_TOOL = 2;
 
-/**
- * Bound on every call. Everything else is sent only once find_tools has loaded it, so a run pays
- * for the schemas it actually uses instead of all ~1,500 tokens of them on every iteration. The
- * trade is one extra model call per run for the discovery step.
- */
+// Always bound. Everything else is sent only once find_tools has loaded it, trading one discovery
+// call for not re-sending ~1,500 tokens of schema on every iteration.
 const TOOL_FINDER = 'find_tools';
+
+// RCA gets its own budget so a failure at iteration 12 still gets explained.
+const MAX_RCA_ITERATIONS = 3;
+const RESEARCH_TOOLS = new Set<string>(RESEARCH_TOOL_NAMES);
+const MUTATING_TOOLS = new Set<string>(MUTATING_TOOL_NAMES);
 
 /**
  * Accumulated in place so a run that throws mid-way still leaves the caller a complete audit
@@ -74,39 +77,85 @@ export async function runAgent(params: {
 
   const messages: BaseMessage[] = [new SystemMessage(SYSTEM_PROMPT), new HumanMessage(prompt)];
   const failuresByTool = new Map<string, number>();
+  const routerState = createRouterState();
 
   const finish = (outcome: AiOutcome, message: string): AgentRun => {
     log.info(`outcome=${outcome} — ${message}`);
     return { outcome, message, loadBalancers, ...(proposed.current ? { pendingAction: proposed.current } : {}) };
   };
 
-  for (let iteration = 0; iteration < MAX_ITERATIONS; iteration += 1) {
+  const rawError = (): string => {
+    const failed = [...toolCalls].reverse().find((call) => !call.ok);
+    return failed ? errorTextOf(failed.result) : 'The request could not be completed.';
+  };
+
+  let iteration = 0;
+  let rcaStep = 0;
+  let rcaMode = false;
+  let rcaFallback = '';
+
+  // Keeps the same chain — the model explains from the tool results already in it.
+  const enterRca = () => {
+    messages.push(new HumanMessage(RCA_PROMPT));
+    rcaMode = true;
+    log.info('entering RCA — research tools only');
+  };
+
+  while (true) {
+    if (!rcaMode && iteration >= MAX_ITERATIONS) enterRca();
+    if (rcaMode && rcaStep >= MAX_RCA_ITERATIONS) break;
+
+    if (rcaMode) rcaStep += 1;
+    else iteration += 1;
+
     await cancellation.throwIfCancelled();
 
     emit('status', {
-      message: iteration === 0 ? 'Interpreting your request' : 'Deciding the next step',
-      progress: progressFor(iteration),
+      message: rcaMode
+        ? 'Working out what went wrong'
+        : iteration === 1 ? 'Interpreting your request' : 'Deciding the next step',
+      progress: rcaMode ? 95 : progressFor(iteration - 1),
     });
 
-    // Only what the model *sees* is filtered — toolsByName stays complete, so a tool it remembers
-    // from an earlier turn still executes rather than erroring back as unknown.
-    const bound = tools.filter((t) => t.name === TOOL_FINDER || unlocked.has(t.name));
-    log.info(`iteration ${iteration} — bound ${bound.length}/${tools.length}: ${bound.map((t) => t.name).join(', ')}`);
+    // Only what the model sees is filtered; toolsByName stays complete. RCA narrows to the
+    // read-only web tools so it can research the failure but never retry it.
+    const bound = rcaMode
+      ? tools.filter((t) => RESEARCH_TOOLS.has(t.name))
+      : tools.filter((t) => t.name === TOOL_FINDER || unlocked.has(t.name));
+    log.info(`${rcaMode ? 'rca' : 'iteration'} ${rcaMode ? rcaStep : iteration - 1} — bound ${bound.length}/${tools.length}: ${bound.map((t) => t.name).join(', ')}`);
 
-    const { response, model } = await invokeWithFallback({ messages, tools: bound, attempts: modelAttempts, emit, log });
+    let response;
+    let model;
+    try {
+      ({ response, model } = await invokeWithFallback({ messages, tools: bound, attempts: modelAttempts, emit, log, state: routerState }));
+    } catch (error: any) {
+      // The run has already failed by then, so a dead ladder must not swallow the real error.
+      if (!rcaMode) throw error;
+
+      log.warn(`RCA generation failed: ${error?.message}`);
+      return finish('failure', rcaFallback || rawError());
+    }
+
     trace.finalModel = model;
     messages.push(response);
 
     const calls = response.tool_calls ?? [];
     if (calls.length === 0) {
       const message = textOf(response);
+      if (rcaMode) return finish('failure', message || rcaFallback || rawError());
+
       // No tool ran at all: the model refused an out-of-scope prompt or asked for missing detail.
       if (toolCalls.length === 0) return finish('refused', message || 'Done.');
 
-      // It stopped after using tools — success only if it actually got something done.
+      // Loading a mutating tool is the model stating intent to change something. Ending with
+      // nothing changed means it abandoned the job, whether or not a tool actually failed.
       const failed = toolCalls.some((call) => !call.ok);
-      if (failed && loadBalancers.length === 0) {
-        return finish('failure', await explain({ messages, trace, emit, log, fallback: message }));
+      const intendedChange = [...unlocked].some((name) => MUTATING_TOOLS.has(name));
+
+      if ((failed || intendedChange) && loadBalancers.length === 0) {
+        rcaFallback = message;
+        enterRca();
+        continue;
       }
       return finish('success', message || 'Done.');
     }
@@ -148,11 +197,15 @@ export async function runAgent(params: {
         continue;
       }
 
+      // A failed search during RCA is not worth a second RCA — the model writes up what it has.
+      if (rcaMode) continue;
+
       // A conflict is the user's to resolve. Retrying can only "succeed" by silently changing
       // what they asked for — a different name, a different hostname — so stop and explain.
       if (terminal) {
         log.warn(`${call.name} hit a conflict — stopping without retrying`);
-        return finish('failure', await explain({ messages, trace, emit, log }));
+        enterRca();
+        break;
       }
 
       const failures = (failuresByTool.get(call.name) ?? 0) + 1;
@@ -160,46 +213,13 @@ export async function runAgent(params: {
 
       if (failures >= MAX_FAILURES_PER_TOOL) {
         log.warn(`${call.name} failed ${failures}x — stopping and explaining`);
-        return finish('failure', await explain({ messages, trace, emit, log }));
+        enterRca();
+        break;
       }
     }
   }
 
-  return finish('failure', await explain({ messages, trace, emit, log }));
-}
-
-/**
- * Turns the raw tool errors into a paragraph the user can act on. One extra model call, with no
- * tools bound so it cannot try to "fix" anything — it only writes the root-cause analysis.
- */
-async function explain(params: {
-  messages: BaseMessage[];
-  trace: AgentTrace;
-  emit: AiEmitter;
-  log: ReturnType<typeof logRun>;
-  fallback?: string;
-}): Promise<string> {
-  const { messages, trace, emit, log, fallback } = params;
-
-  const lastError = [...trace.toolCalls].reverse().find((call) => !call.ok);
-  const rawError = lastError ? errorTextOf(lastError.result) : 'The request could not be completed.';
-
-  try {
-    const { response } = await invokeWithFallback({
-      messages: [...messages, new HumanMessage(RCA_PROMPT)],
-      tools: [],
-      attempts: trace.modelAttempts,
-      emit,
-      log,
-    });
-
-    const text = textOf(response);
-    if (text) return text;
-  } catch (error: any) {
-    log.warn(`RCA generation failed: ${error?.message}`);
-  }
-
-  return fallback || rawError;
+  return finish('failure', rcaFallback || rawError());
 }
 
 interface ToolOutcome {

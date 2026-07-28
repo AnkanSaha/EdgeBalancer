@@ -1,9 +1,11 @@
 jest.mock('../../../modules/ai/services/model-router.service', () => ({
   invokeWithFallback: jest.fn(),
+  createRouterState: () => ({ skippedModels: new Set(), deadProviders: new Set(), exhaustedProviders: new Set() }),
 }));
 
 jest.mock('../../../modules/ai/services/tools.service', () => ({
   buildTools: jest.fn(),
+  MUTATING_TOOL_NAMES: ['create_load_balancer', 'update_load_balancer', 'delete_load_balancer', 'pause_load_balancer', 'resume_load_balancer'],
 }));
 
 import { createTrace, runAgent } from '../../../modules/ai/services/agent.service';
@@ -189,6 +191,96 @@ describe('runAgent failure handling', () => {
     const boundNames = mockedInvoke.mock.calls.map((c: any[]) => c[0].tools.map((t: any) => t.name));
     expect(boundNames[0]).toEqual(['find_tools']);
     expect(boundNames[1]).toEqual(['find_tools', 'create_load_balancer']);
+  });
+
+  it('lets RCA research a conflict, with only the web tools bound', async () => {
+    const conflicting = jest.fn(async () => {
+      throw Object.assign(new Error('A Worker with this name already exists.'), { statusCode: 409 });
+    });
+    const searching = jest.fn(async () => JSON.stringify({ ok: true, data: { results: [{ title: 'CF docs' }] } }));
+    mockedBuildTools.mockReturnValue([
+      fakeTool('create_load_balancer', conflicting),
+      fakeTool('web_search', searching),
+      fakeTool('fetch_url', jest.fn()),
+    ]);
+
+    mockedInvoke
+      .mockResolvedValueOnce(aiMessage([call('create_load_balancer')]))
+      // RCA step 1: research the conflict rather than answering straight away.
+      .mockResolvedValueOnce(aiMessage([call('web_search', { query: 'worker name already exists' })]))
+      .mockResolvedValueOnce(aiMessage([], 'That Worker name is taken in your Cloudflare account.'));
+
+    const result = await execute();
+
+    expect(searching).toHaveBeenCalledTimes(1);
+    expect(result.outcome).toBe('failure');
+    expect(result.message).toBe('That Worker name is taken in your Cloudflare account.');
+
+    // The create tool must not be reachable once RCA starts — it could only be used to retry.
+    const rcaBound = mockedInvoke.mock.calls[1][0].tools.map((t: any) => t.name);
+    expect(rcaBound.sort()).toEqual(['fetch_url', 'web_search']);
+  });
+
+  it('gives RCA its own budget when the main loop runs out', async () => {
+    const looping = jest.fn(async () => JSON.stringify({ ok: true, data: {} }));
+    mockedBuildTools.mockReturnValue([fakeTool('list_zones', looping), fakeTool('web_search', jest.fn())]);
+
+    // The model never stops calling tools, so the run exhausts MAX_ITERATIONS and RCA still runs.
+    mockedInvoke.mockResolvedValue(aiMessage([call('list_zones')]));
+    mockedInvoke.mockResolvedValueOnce(aiMessage([call('list_zones')]));
+
+    const result = await execute();
+
+    expect(result.outcome).toBe('failure');
+    // 12 main iterations + 3 RCA steps, and RCA was bound to the web tools only.
+    expect(mockedInvoke).toHaveBeenCalledTimes(15);
+    expect(mockedInvoke.mock.calls[14][0].tools.map((t: any) => t.name)).toEqual(['web_search']);
+  });
+
+  it('does not report success when it loaded a create tool but never created anything', async () => {
+    const zones = jest.fn(async () => JSON.stringify({ ok: true, data: { zones: [] } }));
+    mockedBuildTools.mockImplementation((ctx: any) => [
+      fakeTool('find_tools', jest.fn(async () => {
+        ctx.unlocked.add('list_zones');
+        ctx.unlocked.add('create_load_balancer');
+        return JSON.stringify({ ok: true, data: 'ready' });
+      })),
+      fakeTool('list_zones', zones),
+      fakeTool('create_load_balancer', jest.fn()),
+      fakeTool('web_search', jest.fn()),
+    ]);
+
+    mockedInvoke
+      .mockResolvedValueOnce(aiMessage([call('find_tools', { names: ['list_zones', 'create_load_balancer'] })]))
+      .mockResolvedValueOnce(aiMessage([call('list_zones')]))
+      // No tool failed, but the model stops without ever calling create.
+      .mockResolvedValueOnce(aiMessage([], ''))
+      .mockResolvedValueOnce(aiMessage([], 'I looked up your zones but never created the balancer.'));
+
+    const result = await execute();
+
+    expect(result.outcome).toBe('failure');
+    expect(result.message).toBe('I looked up your zones but never created the balancer.');
+  });
+
+  it('still reports success for a read-only run that changes nothing', async () => {
+    mockedBuildTools.mockImplementation((ctx: any) => [
+      fakeTool('find_tools', jest.fn(async () => {
+        ctx.unlocked.add('list_load_balancers');
+        return JSON.stringify({ ok: true, data: 'ready' });
+      })),
+      fakeTool('list_load_balancers', jest.fn(async () => JSON.stringify({ ok: true, data: { loadBalancers: [] } }))),
+    ]);
+
+    mockedInvoke
+      .mockResolvedValueOnce(aiMessage([call('find_tools', { names: ['list_load_balancers'] })]))
+      .mockResolvedValueOnce(aiMessage([call('list_load_balancers')]))
+      .mockResolvedValueOnce(aiMessage([], 'You have no load balancers yet.'));
+
+    const result = await execute('list my load balancers');
+
+    expect(result.outcome).toBe('success');
+    expect(result.message).toBe('You have no load balancers yet.');
   });
 
   it('reports success when a tool actually created something', async () => {
