@@ -1,0 +1,10 @@
+# Binary assets - extract to orphan nodes with zero edges
+# NOTE: client/src/lib/ is hand-written Next.js source, NOT build output - do not ignore it.
+# Real build output (client/.next/, server/dist/) is already skipped by graphify's defaults.
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.ico
+*.svg
