@@ -41,6 +41,11 @@ Thumbs.db
 # Local AI / tool state
 .codex
 .claude/
+graphify-out/
+.agent/
+.codex/
+.opencode/
+opencode.json
 
 # Misc
 *.pem

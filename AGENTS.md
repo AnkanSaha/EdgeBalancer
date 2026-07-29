@@ -593,3 +593,15 @@ Every successful create/edit saves a `Session` record with the full generated Wo
 - Server tests: integration only (real MongoDB); `firebaseUid` uses a unique index — two users in one test must be given distinct values, since nulls collide
 - AI tests need **no API keys** and make no network calls: `model-provider.service` and `model-router.service` are mocked, and no test exercises `/api/ai/generate`
 - Worker generator tests: unit-level, verify template output per strategy
+
+---
+
+## Graphify
+
+This project has a graphify knowledge graph at `graphify-out/`.
+
+Rules:
+- Before answering architecture or codebase questions, read [GRAPH_REPORT.md](file:///home/ankan/Documents/Projects/EdgeBalancer/graphify-out/GRAPH_REPORT.md) for god nodes and community structure.
+- If `graphify-out/wiki/index.md` exists, navigate it instead of reading raw files.
+- Always use `graphify query` or graph search ahead of grep/read for tracing modular relationships and finding connections.
+- After modifying code files in this session, run `python3 -c "from graphify.watch import _rebuild_code; from pathlib import Path; _rebuild_code(Path('.'))"` to keep the graph current.
