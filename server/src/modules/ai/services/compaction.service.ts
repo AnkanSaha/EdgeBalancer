@@ -53,6 +53,13 @@ export const needsCompaction = (messages: BaseMessage[]): boolean =>
 const requestsTools = (message: BaseMessage | undefined): boolean =>
   message instanceof AIMessage && (message.tool_calls?.length ?? 0) > 0;
 
+function lastHumanIndex(messages: BaseMessage[]): number {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index] instanceof HumanMessage) return index;
+  }
+  return -1;
+}
+
 /**
  * Providers reject a history where a tool result is detached from its request, or a request is
  * short of results — with a 400 the router then misreads as transient and answers by walking the
@@ -150,7 +157,12 @@ export async function compactHistory(
 
   cut = snapToSafeCut(messages, cut);
 
-  const toSummarize = messages.slice(promptIndex + 1, cut);
+  // RCA's instruction is a later human message, so pinning the first prompt does not cover it.
+  // Summarising it away would leave the model researching a failure with no brief.
+  const rcaIndex = lastHumanIndex(messages);
+  const pinnedRca = rcaIndex > promptIndex && rcaIndex < cut ? messages[rcaIndex] : null;
+
+  const toSummarize = messages.slice(promptIndex + 1, cut).filter((message) => message !== pinnedRca);
   if (toSummarize.length === 0) {
     return { messages, summarized: false };
   }
@@ -166,7 +178,12 @@ export async function compactHistory(
     });
 
     const summary = String(response.content).trim();
-    const compacted = [...head, new AIMessage({ content: `[Conversation Summary]: ${summary}` }), ...messages.slice(cut)];
+    const compacted = [
+      ...head,
+      new AIMessage({ content: `[Conversation Summary]: ${summary}` }),
+      ...(pinnedRca ? [pinnedRca] : []),
+      ...messages.slice(cut),
+    ];
 
     log.info(`Compacted history: ${toSummarize.length} messages → 1 summary (${summary.split(/\s+/).length} words)`);
 

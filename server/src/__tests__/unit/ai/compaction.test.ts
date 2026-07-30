@@ -137,6 +137,20 @@ describe('compactHistory', () => {
     expect(estimateTokens(result.messages)).toBeLessThan(estimateTokens(messages));
   });
 
+  it('keeps the RCA instruction, which the first-prompt pin does not cover', async () => {
+    const messages = buildHistory(4);
+    const rca = new HumanMessage('The run has stopped. Write a root-cause analysis.');
+    messages.push(rca, ...buildHistory(4).slice(2));
+
+    const result = await compactHistory(messages, log, state());
+
+    expect(result.summarized).toBe(true);
+    // Position proves it was pinned, not merely carried along by the recent chunk.
+    expect(String(result.messages[2].content)).toContain('[Conversation Summary]');
+    expect(result.messages[3]).toBe(rca);
+    expect(findOrphanIndex(result.messages)).toBe(-1);
+  });
+
   it('keeps the full history when the summarizer fails', async () => {
     const messages = buildHistory(8);
     mockedInvoke.mockRejectedValueOnce(new Error('all models down'));
