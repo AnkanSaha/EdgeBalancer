@@ -5,6 +5,8 @@ import { invokeWithFallback, createRouterState } from './model-router.service';
 import { buildTools, MUTATING_TOOL_NAMES } from './tools.service';
 import { RESEARCH_TOOL_NAMES } from './research.service';
 import { logRun } from './log.service';
+import { compactHistory } from './compaction.service';
+import { MODEL_LADDER } from '../config/models';
 import type { RequestCancellation } from '../../../utils/requestCancellation';
 import type { AiEmitter, AiOutcome, ModelAttempt, PendingAction, ToolCallRecord } from '../types/ai.types';
 
@@ -12,6 +14,8 @@ const MAX_ITERATIONS = 12;
 // A model that fails the same tool twice is guessing, not converging. Stop and explain instead
 // of burning the rate limit on a third identical mistake.
 const MAX_FAILURES_PER_TOOL = 2;
+
+const SUMMARIZE_THRESHOLD = 10;
 
 // Always bound. Everything else is sent only once find_tools has loaded it, trading one discovery
 // call for not re-sending ~1,500 tokens of schema on every iteration.
@@ -75,7 +79,7 @@ export async function runAgent(params: {
   const tools = buildTools({ runId, userId, userEmail, cancellation, emit, log, touched: loadBalancers, proposed, unlocked });
   const toolsByName = new Map(tools.map((t) => [t.name, t]));
 
-  const messages: BaseMessage[] = [new SystemMessage(SYSTEM_PROMPT), new HumanMessage(prompt)];
+  let messages: BaseMessage[] = [new SystemMessage(SYSTEM_PROMPT), new HumanMessage(prompt)];
   const failuresByTool = new Map<string, number>();
   const routerState = createRouterState();
 
@@ -185,6 +189,19 @@ export async function runAgent(params: {
 
       emit('tool_result', { name: call.name, ok, summary: summarize(result) });
       messages.push(new ToolMessage({ content: result, tool_call_id: call.id ?? call.name }));
+
+      if (messages.length > SUMMARIZE_THRESHOLD) {
+        const { messages: compacted, summarized } = await compactHistory(
+          messages,
+          log,
+          SYSTEM_PROMPT,
+          MODEL_LADDER,
+        );
+        if (summarized) {
+          messages = compacted;
+          log.info(`History compacted: ${messages.length} messages retained`);
+        }
+      }
 
       // A destructive step was resolved but deliberately not performed. Nothing further should
       // run — the user confirms it against the ordinary REST routes.

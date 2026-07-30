@@ -345,12 +345,7 @@ Stores deployment history snapshots (Worker JS + config) per load balancer actio
 **Tools:** `list_zones`, `list_load_balancers`, `create_load_balancer`, `update_load_balancer`,
 `delete_load_balancer`, `pause_load_balancer`, `resume_load_balancer`.
 
-Only `create_load_balancer` performs work — it calls `createLoadBalancerOrchestrator`, so rollback
-and cancellation behave exactly as on the HTTP route. The four destructive tools **never touch
-Cloudflare**: they resolve and authorise the target, then return a `PendingAction` that ends the run
-with `outcome: 'pending'`. The client renders it as a confirmation panel and, on confirm, calls the
-ordinary REST routes (`DELETE /:id`, `POST /:id/pause`, …). Nothing irreversible happens inside an
-agent run, and the server never has to pause mid-request.
+`create_load_balancer` **executes directly** — it calls `createLoadBalancerOrchestrator` which deploys the Worker, attaches the hostname, and saves to MongoDB. The four destructive tools (`update_load_balancer`, `delete_load_balancer`, `pause_load_balancer`, `resume_load_balancer`) **never touch Cloudflare**: they resolve the target and return a `PendingAction` for user confirmation via REST API. Nothing irreversible happens inside an agent run.
 
 **Failure handling:** a tool that fails twice stops the run; a 409 conflict stops it on the first
 attempt — the agent must never rename or re-target to work around a conflict. Either way a final
