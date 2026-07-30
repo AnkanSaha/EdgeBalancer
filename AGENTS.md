@@ -343,12 +343,7 @@ Stores deployment history snapshots (Worker JS + config) per load balancer actio
 **Tools:** `list_zones`, `list_load_balancers`, `create_load_balancer`, `update_load_balancer`,
 `delete_load_balancer`, `pause_load_balancer`, `resume_load_balancer`.
 
-Only `create_load_balancer` performs work — it calls `createLoadBalancerOrchestrator`, so rollback
-and cancellation behave exactly as on the HTTP route. The four destructive tools **never touch
-Cloudflare**: they resolve and authorise the target, then return a `PendingAction` that ends the run
-with `outcome: 'pending'`. The client renders it as a confirmation panel and, on confirm, calls the
-ordinary REST routes (`DELETE /:id`, `POST /:id/pause`, …). Nothing irreversible happens inside an
-agent run, and the server never has to pause mid-request.
+`create_load_balancer` **executes directly** — it calls `createLoadBalancerOrchestrator` which deploys the Worker, attaches the hostname, and saves to MongoDB. The four destructive tools (`update_load_balancer`, `delete_load_balancer`, `pause_load_balancer`, `resume_load_balancer`) **never touch Cloudflare**: they resolve the target and return a `PendingAction` for user confirmation via REST API. Nothing irreversible happens inside an agent run.
 
 **Failure handling:** a tool that fails twice stops the run; a 409 conflict stops it on the first
 attempt — the agent must never rename or re-target to work around a conflict. Either way a final
@@ -593,3 +588,15 @@ Every successful create/edit saves a `Session` record with the full generated Wo
 - Server tests: integration only (real MongoDB); `firebaseUid` uses a unique index — two users in one test must be given distinct values, since nulls collide
 - AI tests need **no API keys** and make no network calls: `model-provider.service` and `model-router.service` are mocked, and no test exercises `/api/ai/generate`
 - Worker generator tests: unit-level, verify template output per strategy
+
+---
+
+## graphify
+
+This project has a graphify knowledge graph at `graphify-out/`.
+
+Rules:
+- Use `graphify query "<question>"` as the DEFAULT codebase search: run it before any grep/glob/file-read, and fall back to raw search only when the graph returns nothing
+- Before answering architecture or codebase questions, read `graphify-out/GRAPH_REPORT.md` for god nodes and community structure
+- If `graphify-out/wiki/index.md` exists, navigate it instead of reading raw files
+- After modifying code files in this session, run `python3 -c "from graphify.watch import _rebuild_code; from pathlib import Path; _rebuild_code(Path('.'))"` to keep the graph current

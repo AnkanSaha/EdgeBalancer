@@ -1,3 +1,7 @@
+jest.mock('../../../modules/ai/services/compaction.service', () => ({
+  compactHistory: jest.fn(async (messages) => ({ messages, summarized: false })),
+}));
+
 jest.mock('../../../modules/ai/services/model-router.service', () => ({
   invokeWithFallback: jest.fn(),
   createRouterState: () => ({ skippedModels: new Set(), deadProviders: new Set(), exhaustedProviders: new Set() }),
