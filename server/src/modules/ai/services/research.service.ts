@@ -2,6 +2,7 @@ import axios from 'axios';
 import { BlockList, isIP } from 'node:net';
 import { lookup } from 'node:dns/promises';
 import { tool } from '@langchain/core/tools';
+import { search, SafeSearchType } from 'duck-duck-scrape';
 import type { RunLogger } from './log.service';
 
 /**
@@ -18,7 +19,6 @@ const MAX_REDIRECTS = 3;
 // Results re-enter `messages` and are re-sent on every later model call, so they stay small.
 const MAX_SNIPPET = 220;
 const MAX_PAGE_CHARS = 2000;
-const MAX_RESULTS = 5;
 
 const PRIVATE_V4 = [
   ['0.0.0.0', 8],
@@ -117,52 +117,13 @@ async function safeGet(target: string): Promise<string> {
   throw new Error('Too many redirects.');
 }
 
-const ENTITIES: Record<string, string> = {
-  '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&#x27;': "'", '&nbsp;': ' ',
-};
-
-const decode = (html: string): string =>
-  html
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-    .replace(/&[a-z#0-9]+;/gi, (entity) => ENTITIES[entity.toLowerCase()] ?? entity);
-
 const toText = (html: string): string =>
-  decode(
-    html
-      .replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ')
-      .replace(/<[^>]+>/g, ' '),
-  )
+  html
+    .replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&[a-z#0-9]+;/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-
-/** DuckDuckGo wraps every result in a /l/?uddg= redirector; unwrap it to the real destination. */
-const unwrap = (href: string): string => {
-  try {
-    const target = new URL(href, 'https://duckduckgo.com').searchParams.get('uddg');
-    return target ?? href;
-  } catch {
-    return href;
-  }
-};
-
-const RESULT = /<a[^>]+class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-const SNIPPET = /<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
-
-export interface SearchResult {
-  title: string;
-  url: string;
-  snippet: string;
-}
-
-export function parseDuckDuckGo(html: string): SearchResult[] {
-  const snippets = [...html.matchAll(SNIPPET)].map((m) => toText(m[1]).slice(0, MAX_SNIPPET));
-
-  return [...html.matchAll(RESULT)].slice(0, MAX_RESULTS).map((match, index) => ({
-    title: toText(match[2]),
-    url: unwrap(match[1]),
-    snippet: snippets[index] ?? '',
-  }));
-}
 
 const ok = (data: unknown) => JSON.stringify({ ok: true, data });
 const fail = (message: string) => JSON.stringify({ ok: false, error: message });
@@ -177,13 +138,24 @@ export function buildResearchTools(log: RunLogger) {
       const query = typeof input?.query === 'string' ? input.query.trim() : '';
       if (!query) return fail('A search query is required.');
 
+      const numResults = typeof input?.numResults === 'number' ? input.numResults : 5;
+
       try {
-        const html = await safeGet(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`);
-        const results = parseDuckDuckGo(html);
+        const response = await search(query, { safeSearch: SafeSearchType.STRICT });
+
+        if (response.noResults || !response.results?.length) {
+          return fail(`No results for "${query}".`);
+        }
+
+        const results = response.results.slice(0, numResults).map((r) => ({
+          title: r.title,
+          url: r.url,
+          snippet: r.description.slice(0, MAX_SNIPPET),
+        }));
 
         log.info(`web_search "${query}" → ${results.length} result(s)`);
 
-        return results.length === 0 ? fail(`No results for "${query}".`) : ok({ results });
+        return ok({ results });
       } catch (error: any) {
         return fail(`Search failed: ${error?.message ?? 'unknown error'}`);
       }
@@ -191,11 +163,14 @@ export function buildResearchTools(log: RunLogger) {
     {
       name: 'web_search',
       description:
-        'Search the web via DuckDuckGo. Use it to research an error message you cannot explain from the tool result alone. Returns the top 5 titles, urls and snippets.',
+        'Search the web. Use it to research an error message you cannot explain from the tool result alone. Returns titles, urls and snippets.',
       verboseParsingErrors: true,
       schema: {
         type: 'object',
-        properties: { query: { type: 'string', description: 'Search terms, e.g. the exact error message' } },
+        properties: {
+          query: { type: 'string', description: 'Search terms, e.g. the exact error message' },
+          numResults: { type: 'integer', description: 'Number of results to return (default 5, max 20)', minimum: 1, maximum: 20 },
+        },
         required: ['query'],
       },
     },
