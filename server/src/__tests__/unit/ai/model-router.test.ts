@@ -83,6 +83,35 @@ describe('invokeWithFallback', () => {
     expect(mockedCreate).toHaveBeenCalledTimes(3);
   });
 
+  it('names the model being switched to, not the one that just failed', async () => {
+    mockedCreate.mockImplementationOnce(() => throws(new Error('boom'))).mockImplementation(answers);
+
+    const emit = jest.fn();
+    await invokeWithFallback({ messages: [], tools: [], attempts: [], emit });
+
+    const switches = emit.mock.calls.filter(([event]) => event === 'model_switch');
+    expect(switches).toHaveLength(1);
+    expect(switches[0][1]).toMatchObject({ from: 'free-a', to: 'free-b', reason: 'boom' });
+  });
+
+  it('says nothing when the first model answers', async () => {
+    mockedCreate.mockImplementation(answers);
+
+    const emit = jest.fn();
+    await invokeWithFallback({ messages: [], tools: [], attempts: [], emit });
+
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('does not report a switch for a model skipped by its cooldown', async () => {
+    mockedModelExhausted.mockImplementation(async (model: string) => model === 'free-a');
+    mockedCreate.mockImplementation(answers);
+
+    const emit = jest.fn();
+    expect((await invokeWithFallback({ messages: [], tools: [], attempts: [], emit })).model).toBe('free-b');
+    expect(emit).not.toHaveBeenCalled();
+  });
+
   it('records every attempt in order', async () => {
     mockedCreate.mockImplementationOnce(() => throws(new Error('boom'))).mockImplementation(answers);
 

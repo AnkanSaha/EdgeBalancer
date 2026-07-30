@@ -17,6 +17,10 @@ export function hasAnyProviderConfigured(): boolean {
   return Boolean(process.env.MISTRAL_API_KEY || process.env.OPENROUTER_API_KEY);
 }
 
+// The SDK default is measured in minutes, and an endpoint that accepts then stalls would hold the
+// SSE stream for all of it, once per ladder entry.
+const CALL_TIMEOUT_MS = 45_000;
+
 export function createChatModel({ provider, model }: ModelDescriptor): BaseChatModel {
   const apiKey = getApiKey(provider);
   if (!apiKey) {
@@ -28,6 +32,7 @@ export function createChatModel({ provider, model }: ModelDescriptor): BaseChatM
     apiKey,
     temperature: 0,
     maxRetries: 0,
+    timeout: CALL_TIMEOUT_MS,
     configuration: { baseURL: BASE_URLS[provider] },
   });
 }

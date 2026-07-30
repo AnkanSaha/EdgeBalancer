@@ -5,8 +5,7 @@ import { invokeWithFallback, createRouterState } from './model-router.service';
 import { buildTools, MUTATING_TOOL_NAMES } from './tools.service';
 import { RESEARCH_TOOL_NAMES } from './research.service';
 import { logRun } from './log.service';
-import { compactHistory } from './compaction.service';
-import { MODEL_LADDER } from '../config/models';
+import { compactHistory, needsCompaction } from './compaction.service';
 import type { RequestCancellation } from '../../../utils/requestCancellation';
 import type { AiEmitter, AiOutcome, ModelAttempt, PendingAction, ToolCallRecord } from '../types/ai.types';
 
@@ -15,7 +14,9 @@ const MAX_ITERATIONS = 12;
 // of burning the rate limit on a third identical mistake.
 const MAX_FAILURES_PER_TOOL = 2;
 
-const SUMMARIZE_THRESHOLD = 10;
+// The iteration cap bounds steps, not time: a stalling provider is bounded only by the per-call
+// timeout, which the ladder then multiplies.
+const RUN_DEADLINE_MS = 6 * 60 * 1000;
 
 // Always bound. Everything else is sent only once find_tools has loaded it, trading one discovery
 // call for not re-sending ~1,500 tokens of schema on every iteration.
@@ -97,6 +98,18 @@ export async function runAgent(params: {
   let rcaStep = 0;
   let rcaMode = false;
   let rcaFallback = '';
+  const deadline = Date.now() + RUN_DEADLINE_MS;
+
+  // Providers reject an assistant message whose tool_calls are not all answered, so leaving a batch
+  // early means answering what will now never run.
+  const skipRemaining = (calls: { id?: string; name: string }[], from: number) => {
+    for (const pending of calls.slice(from + 1)) {
+      messages.push(new ToolMessage({
+        content: JSON.stringify({ ok: false, error: 'Skipped — the run stopped after an earlier failure.' }),
+        tool_call_id: pending.id ?? pending.name,
+      }));
+    }
+  };
 
   // Keeps the same chain — the model explains from the tool results already in it.
   const enterRca = () => {
@@ -113,6 +126,13 @@ export async function runAgent(params: {
     else iteration += 1;
 
     await cancellation.throwIfCancelled();
+
+    // Finished, not thrown: the client keeps its retry affordance, and RCA — another model call
+    // there is no time budget for — is skipped.
+    if (Date.now() > deadline) {
+      log.warn(`run exceeded ${RUN_DEADLINE_MS}ms — stopping`);
+      return finish('failure', 'This run took too long and was stopped. Try a simpler request.');
+    }
 
     emit('status', {
       message: rcaMode
@@ -166,7 +186,7 @@ export async function runAgent(params: {
 
     // Sequential: a create depends on the zone lookup before it, and serialised Cloudflare
     // writes keep the orchestrators' rollback semantics intact.
-    for (const call of calls) {
+    for (const [index, call] of calls.entries()) {
       await cancellation.throwIfCancelled();
 
       const args = (call.args ?? {}) as Record<string, unknown>;
@@ -190,13 +210,8 @@ export async function runAgent(params: {
       emit('tool_result', { name: call.name, ok, summary: summarize(result) });
       messages.push(new ToolMessage({ content: result, tool_call_id: call.id ?? call.name }));
 
-      if (messages.length > SUMMARIZE_THRESHOLD) {
-        const { messages: compacted, summarized } = await compactHistory(
-          messages,
-          log,
-          SYSTEM_PROMPT,
-          MODEL_LADDER,
-        );
+      if (needsCompaction(messages)) {
+        const { messages: compacted, summarized } = await compactHistory(messages, log, routerState);
         if (summarized) {
           messages = compacted;
           log.info(`History compacted: ${messages.length} messages retained`);
@@ -204,7 +219,8 @@ export async function runAgent(params: {
       }
 
       // A destructive step was resolved but deliberately not performed. Nothing further should
-      // run — the user confirms it against the ordinary REST routes.
+      // run — the user confirms it against the ordinary REST routes. Later calls in this batch stay
+      // unanswered on purpose: the run ends here, so no model call sees the incomplete chain.
       if (proposed.current) {
         return finish('pending', proposed.current.summary);
       }
@@ -221,6 +237,7 @@ export async function runAgent(params: {
       // what they asked for — a different name, a different hostname — so stop and explain.
       if (terminal) {
         log.warn(`${call.name} hit a conflict — stopping without retrying`);
+        skipRemaining(calls, index);
         enterRca();
         break;
       }
@@ -230,6 +247,7 @@ export async function runAgent(params: {
 
       if (failures >= MAX_FAILURES_PER_TOOL) {
         log.warn(`${call.name} failed ${failures}x — stopping and explaining`);
+        skipRemaining(calls, index);
         enterRca();
         break;
       }
@@ -259,7 +277,7 @@ async function executeTool(
   try {
     const output = await selected.invoke(args);
     const result = typeof output === 'string' ? output : JSON.stringify(output);
-    return { result, ok: !result.includes('"ok":false') };
+    return { result, ok: resultOk(result) };
   } catch (error: any) {
     // Surfaced back to the model so it can correct itself rather than killing the run.
     // `verboseParsingErrors` on every tool makes LangChain name the offending fields here.
@@ -271,6 +289,16 @@ async function executeTool(
     };
   }
 }
+
+// Reads the flag rather than searching for it: `"ok":false` also occurs inside successful
+// payloads — a fetched page, a search snippet — and two false failures divert the run into RCA.
+const resultOk = (result: string): boolean => {
+  try {
+    return (JSON.parse(result) as { ok?: unknown })?.ok !== false;
+  } catch {
+    return true;
+  }
+};
 
 const errorTextOf = (result: string): string => {
   try {

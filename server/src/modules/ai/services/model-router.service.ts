@@ -96,7 +96,8 @@ export async function invokeWithFallback(params: {
   const { skippedModels, deadProviders, exhaustedProviders } = state;
 
   let lastError: Error | null = null;
-  let previousModel: string | null = null;
+  // Only models actually called — one skipped by a cooldown was never a candidate.
+  let lastAttempted: string | null = null;
 
   for (const descriptor of MODEL_LADDER) {
     const { provider, model, rps } = descriptor;
@@ -119,6 +120,16 @@ export async function invokeWithFallback(params: {
       continue;
     }
 
+    // Announced before the call so `to` is the replacement — the client renders "Falling back to".
+    if (lastAttempted) {
+      emit('model_switch', {
+        from: lastAttempted,
+        to: model,
+        reason: lastError?.message ?? 'Previous model unavailable',
+      });
+    }
+
+    lastAttempted = model;
     const startedAt = Date.now();
 
     try {
@@ -148,13 +159,6 @@ export async function invokeWithFallback(params: {
       } else {
         skippedModels.add(model);
       }
-
-      emit('model_switch', {
-        from: previousModel ?? model,
-        to: model,
-        reason: error?.message ?? 'Model call failed',
-      });
-      previousModel = model;
     }
   }
 

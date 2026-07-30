@@ -7,6 +7,7 @@ import { validateCreateLoadBalancerBody } from '../../../middleware/validators/l
 import { formatLoadBalancer } from '../../loadbalancer/services/formatter.service';
 import { createLoadBalancerOrchestrator } from '../../loadbalancer/orchestrators/create.orchestrator';
 import { toHostname } from '../../loadbalancer/services/hostname.service';
+import { isWeightedStrategy } from '../../loadbalancer/services/strategy.service';
 import { buildResearchTools } from './research.service';
 import type { RunLogger } from './log.service';
 import type { RequestCancellation } from '../../../utils/requestCancellation';
@@ -191,7 +192,29 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
       const existing = await findOwned(id);
       if (!existing) return fail('Load balancer not found.');
 
-      return propose('update', existing, `Apply a new configuration to "${existing.name}"`, config);
+      // The PUT route this is confirmed against has no body validator, so the proposal must be
+      // complete and checked here — where the model can still correct itself.
+      const strategy = config.strategy ?? existing.strategy;
+      const merged = {
+        name: existing.name, // locked at creation; present only for the shared validator
+        domain: config.domain ?? existing.domain,
+        subdomain: config.subdomain ?? existing.subdomain,
+        zoneId: config.zoneId ?? existing.zoneId,
+        origins: config.origins ?? existing.origins,
+        strategy,
+        weightedEnabled: config.weightedEnabled ?? isWeightedStrategy(strategy),
+        exposeRealOrigin: config.exposeRealOrigin ?? existing.exposeRealOrigin,
+        corsEnabled: config.corsEnabled ?? existing.corsEnabled,
+        corsOrigins: config.corsOrigins ?? existing.corsOrigins,
+        placement: config.placement ?? existing.placement ?? { smartPlacement: false },
+      };
+
+      const errors = validateCreateLoadBalancerBody(merged);
+      if (errors.length > 0) return fail(`Invalid configuration: ${errors.join(', ')}`);
+
+      const { name, ...payload } = merged;
+
+      return propose('update', existing, `Apply a new configuration to "${existing.name}"`, payload);
     },
     {
       name: 'update_load_balancer',

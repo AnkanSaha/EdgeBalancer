@@ -92,4 +92,7 @@ const AiRunSchema = new Schema<IAiRun>(
 
 AiRunSchema.index({ userId: 1, createdAt: -1 });
 
+// A debugging trail, not a permanent record — without this the collection only grows.
+AiRunSchema.index({ createdAt: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 });
+
 export const AiRun = mongoose.model<IAiRun>('AiRun', AiRunSchema);
