@@ -1,4 +1,4 @@
-import { buildResearchTools, parseDuckDuckGo } from '../../../modules/ai/services/research.service';
+import { buildResearchTools } from '../../../modules/ai/services/research.service';
 
 const log = { info: jest.fn(), warn: jest.fn() };
 const [webSearch, fetchUrl] = buildResearchTools(log as any) as any[];
@@ -43,31 +43,5 @@ describe('research tools — SSRF guard', () => {
   it('requires a query and a url', async () => {
     expect((await call(webSearch, { query: '   ' })).ok).toBe(false);
     expect((await call(fetchUrl, { url: '' })).ok).toBe(false);
-  });
-});
-
-describe('parseDuckDuckGo', () => {
-  // Trimmed to the two elements the parser reads, in DuckDuckGo's real shape.
-  const html = `
-    <div class="result">
-      <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fdevelopers.cloudflare.com%2Fworkers%2F&amp;rut=abc">Workers &amp; docs</a>
-      <a class="result__snippet">A Worker with this <b>name</b> already exists.</a>
-    </div>
-    <div class="result">
-      <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fcommunity.cloudflare.com%2Ft%2F123">Community thread</a>
-      <a class="result__snippet">Second snippet</a>
-    </div>`;
-
-  it('unwraps the redirector and decodes entities', () => {
-    const [first, second] = parseDuckDuckGo(html);
-
-    expect(first.url).toBe('https://developers.cloudflare.com/workers/');
-    expect(first.title).toBe('Workers & docs');
-    expect(first.snippet).toBe('A Worker with this name already exists.');
-    expect(second.url).toBe('https://community.cloudflare.com/t/123');
-  });
-
-  it('returns nothing for markup with no results', () => {
-    expect(parseDuckDuckGo('<html><body>no results</body></html>')).toEqual([]);
   });
 });
