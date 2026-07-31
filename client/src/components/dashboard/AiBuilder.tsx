@@ -201,7 +201,7 @@ export function AiPromptCard({ value, onChange, onSubmit, disabled }: AiPromptCa
           style={{ flex: '1 1 auto', justifyContent: 'center' }}>
           <Icons.Zap size={14} />
           <span className="hide-sm">Create Load Balancer with AI</span>
-          <span className="show-sm">Create with AI</span>
+          <span className="show-sm">Execute</span>
         </button>
       </div>
     </div>
