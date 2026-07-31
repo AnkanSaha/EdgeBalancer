@@ -147,7 +147,7 @@ export default function SessionsPage() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'row' }}>
+      <div className="app-shell">
         <Sidebar
           current="sessions"
           onNav={handleNav}
@@ -162,7 +162,7 @@ export default function SessionsPage() {
           />
           <div style={{ padding: 'clamp(16px, 4vw, 32px)', overflow: 'auto', flex: 1 }}>
             {/* Filter row */}
-            <div style={{ display: 'flex', gap: 4, marginBottom: 'clamp(16px, 3vw, 24px)', flexWrap: 'wrap' }}>
+            <div className="dash-pills" style={{ display: 'flex', gap: 4, marginBottom: 'clamp(16px, 3vw, 24px)', flexWrap: 'wrap' }}>
               {filterLabels.map(({ key, label }) => (
                 <button
                   key={key}
@@ -178,7 +178,7 @@ export default function SessionsPage() {
                   {label}
                 </button>
               ))}
-              <div style={{ flex: 1 }} />
+              <div className="hide-sm" style={{ flex: 1 }} />
               {sessions.length > 0 && (
                 <div className="kicker hide-sm" style={{ fontSize: 'clamp(9px, 2vw, 11px)', alignSelf: 'center' }}>
                   {sessions.length} session{sessions.length !== 1 ? 's' : ''} loaded
@@ -191,11 +191,7 @@ export default function SessionsPage() {
               <SessionsEmptyState />
             ) : (
               <>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))',
-                  gap: 'clamp(12px, 2vw, 16px)',
-                }}>
+                <div className="dash-cards">
                   {sessions.map(session => (
                     <SessionCard
                       key={session._id}

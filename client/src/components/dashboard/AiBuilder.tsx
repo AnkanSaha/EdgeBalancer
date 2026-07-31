@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Icons } from '@/components/shared/Icons';
+import { RainLayer } from '@/components/shared/RainLayer';
 import type { AiEvent, AiOutcome, AiStep, LoadBalancer, PendingAction } from '@/types/api';
 
 const MAX_PROMPT_LENGTH = 2000;
+const MAX_PROMPT_HEIGHT = 220;
 
 const TOOL_LABELS: Record<string, string> = {
   list_zones: 'Reading your Cloudflare zones',
@@ -145,7 +147,10 @@ export function AiPromptCard({ value, onChange, onSubmit, disabled }: AiPromptCa
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+    const next = Math.min(el.scrollHeight, MAX_PROMPT_HEIGHT);
+    el.style.height = `${next}px`;
+    // Only scroll once the box has stopped growing, otherwise the bar shows on an empty prompt.
+    el.style.overflowY = el.scrollHeight > MAX_PROMPT_HEIGHT ? 'auto' : 'hidden';
   }, [value]);
 
   const canSubmit = !disabled && value.trim().length > 0;
@@ -192,9 +197,11 @@ export function AiPromptCard({ value, onChange, onSubmit, disabled }: AiPromptCa
         <span className="mono" style={{ fontSize: 11, color: 'var(--text-3)' }}>
           {value.length}/{MAX_PROMPT_LENGTH}
         </span>
-        <button className="btn btn-primary btn-sm" onClick={onSubmit} disabled={!canSubmit}>
+        <button className="btn btn-primary btn-sm" onClick={onSubmit} disabled={!canSubmit}
+          style={{ flex: '1 1 auto', justifyContent: 'center' }}>
           <Icons.Zap size={14} />
           <span className="hide-sm">Create Load Balancer with AI</span>
+          <span className="show-sm">Create with AI</span>
         </button>
       </div>
     </div>
@@ -226,12 +233,14 @@ export function AiProgressOverlay({
   const finished = run.phase === 'done';
   // Hooks must run unconditionally, so the early return comes after them.
   const typed = useTypewriter(finished ? run.message : '');
+  const tone = finished ? OUTCOME_COPY[run.outcome ?? 'failure'].accent : 'var(--accent)';
 
   if (!isOpen) return null;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'var(--bg)', overflow: 'auto' }}>
-      <div style={{ position: 'absolute', inset: 0, opacity: 0.4, pointerEvents: 'none' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'var(--bg)', overflowY: 'auto', overflowX: 'hidden' }}>
+
+      <div style={{ position: 'absolute', inset: 0, opacity: 0.4, pointerEvents: 'none', overflow: 'hidden' }}>
         <div style={{
           position: 'absolute', left: '-96px', top: '64px', width: 288, height: 288, borderRadius: '50%',
           background: 'radial-gradient(circle, var(--accent) 0%, transparent 70%)', filter: 'blur(80px)',
@@ -243,15 +252,10 @@ export function AiProgressOverlay({
       </div>
 
       <div style={{
-        position: 'relative', display: 'flex', minHeight: '100vh',
+        position: 'relative', zIndex: 2, display: 'flex', minHeight: '100vh',
         alignItems: 'center', justifyContent: 'center', padding: 'clamp(20px, 5vw, 48px)',
       }}>
-        <div style={{
-          width: '100%', maxWidth: 900,
-          background: 'var(--bg-1)', border: '1px solid var(--line)',
-          borderRadius: 'var(--radius-lg)', padding: 'clamp(20px, 4vw, 48px)',
-          boxShadow: '0 40px 120px rgba(0, 0, 0, 0.6)',
-        }}>
+        <div style={{ width: '100%', maxWidth: 900 }}>
           <Header run={run} finished={finished} />
 
           {!finished && (
@@ -267,7 +271,7 @@ export function AiProgressOverlay({
                 }} />
               </div>
               <div style={{
-                display: 'flex', justifyContent: 'space-between', gap: 12,
+                display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
                 marginBottom: 24, fontSize: 13, color: 'var(--text-2)',
               }}>
                 <span>{run.statusMessage}</span>
@@ -303,6 +307,8 @@ export function AiProgressOverlay({
           )}
         </div>
       </div>
+
+      <RainLayer tone={tone} />
     </div>
   );
 }
@@ -331,7 +337,7 @@ function Header({ run, finished }: { run: AiRunState; finished: boolean }) {
     : 'The agent is reading your Cloudflare account and provisioning the Worker. Keep this tab open.';
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, marginBottom: finished ? 20 : 32 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'clamp(12px, 3vw, 24px)', marginBottom: finished ? 20 : 32 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="kicker" style={{ marginBottom: 12, color: finished ? copy.accent : 'var(--accent)' }}>
           {finished ? copy.kicker : '// AI Provisioning'}
@@ -376,6 +382,7 @@ function StepList({ steps, running }: { steps: AiStep[]; running: boolean }) {
         return (
           <div
             key={`${step.label}-${index}`}
+            className="ai-step"
             style={{
               display: 'flex', alignItems: 'flex-start', gap: 12,
               padding: '12px 14px', borderRadius: 'var(--radius-lg)',
@@ -455,7 +462,7 @@ function Result({
           <p style={{ margin: '0 0 4px', fontSize: 14, color: 'var(--text)' }}>{pending.summary}</p>
           <p className="mono" style={{ margin: 0, fontSize: 12, color: 'var(--text-3)' }}>{pending.fullDomain}</p>
 
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 16 }}>
+          <div className="ai-actions" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 16 }}>
             <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={actionPending}>Cancel</button>
             <button className="btn btn-primary btn-sm" onClick={onConfirmAction} disabled={actionPending}>
               {actionPending ? 'Working…' : ACTION_VERBS[pending.action]}
@@ -482,7 +489,7 @@ function Result({
 
       {/* The pending panel carries its own buttons — a second pair would compete with it. */}
       {!pending && (
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        <div className="ai-actions" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button className={`btn btn-sm ${canRetry ? 'btn-ghost' : 'btn-primary'}`} onClick={onClose}>
             Back to dashboard
           </button>

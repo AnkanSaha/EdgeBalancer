@@ -10,6 +10,7 @@ import { Icons } from '@/components/shared/Icons';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { PauseModal } from '@/components/loadbalancers/PauseModal';
 import { DeploymentOverlay, DeploymentSuccessModal } from '@/components/loadbalancers/DeploymentExperience';
+import { RainLayer } from '@/components/shared/RainLayer';
 import { AiPromptCard, AiProgressOverlay, applyAiEvent, initialAiRunState, type AiRunState } from '@/components/dashboard/AiBuilder';
 import { streamAiGeneration } from '@/lib/aiStream';
 import type { LoadBalancer, LoadBalancerAnalytics } from '@/types/api';
@@ -270,7 +271,9 @@ export default function DashboardPage() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'row' }}>
+      <RainLayer />
+
+      <div className="app-shell">
         <Sidebar
           current={currentNav}
           onNav={handleNav}
@@ -287,8 +290,8 @@ export default function DashboardPage() {
                 <button className="btn btn-ghost btn-sm" onClick={() => { fetchLoadBalancers(); fetchAnalytics(); }}>
                   <Icons.Refresh size={14} /> <span className="hide-sm">Refresh</span>
                 </button>
-                <button className="btn btn-primary btn-sm" onClick={() => router.push('/loadbalancers/create')}>
-                  <Icons.Plus size={14} /> <span className="hide-sm">Create Load Balancer</span><span className="hide-md">New</span>
+                <button className="btn btn-primary btn-sm hide-sm" onClick={() => router.push('/loadbalancers/create')}>
+                  <Icons.Plus size={14} /> <span className="hide-md">Create Load Balancer</span><span className="hide-md-inverse">New</span>
                 </button>
               </>
             }
@@ -306,8 +309,7 @@ export default function DashboardPage() {
             ) : (
               <>
                 {/* Summary */}
-                <div style={{
-                  display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                <div className="dash-stats" style={{
                   gap: 'clamp(12px, 2vw, 16px)', marginBottom: 'clamp(20px, 4vw, 32px)',
                 }}>
                   {[
@@ -329,8 +331,8 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Filter row */}
-                <div style={{ display: 'flex', gap: 'clamp(8px, 2vw, 12px)', alignItems: 'center', marginBottom: 'clamp(16px, 3vw, 20px)', flexWrap: 'wrap' }}>
-                  <div style={{ position: 'relative', flex: 1, minWidth: 200, maxWidth: 320 }}>
+                <div className="dash-filters" style={{ gap: 'clamp(8px, 2vw, 12px)', marginBottom: 'clamp(16px, 3vw, 20px)', flexWrap: 'wrap' }}>
+                  <div className="dash-search">
                     <Icons.Search size={14} style={{
                       position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
                       color: 'var(--text-3)',
@@ -343,7 +345,7 @@ export default function DashboardPage() {
                       style={{ paddingLeft: 36, height: 38, padding: '8px 12px 8px 36px' }}
                     />
                   </div>
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  <div className="dash-pills" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     {filterLabels.map(({ label, value }) => {
                       const isActive = statusFilter === value;
                       return (
@@ -364,14 +366,13 @@ export default function DashboardPage() {
                       );
                     })}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }} />
+                  <div className="hide-sm" style={{ flex: 1, minWidth: 0 }} />
                   <div className="kicker hide-sm" style={{ fontSize: 'clamp(9px, 2vw, 11px)', opacity: isFetching ? 0.5 : 1 }}>
                     {loadBalancers.length} results
                   </div>
                 </div>
 
-                <div style={{
-                  display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: 'clamp(12px, 2vw, 16px)',
+                <div className="dash-cards" style={{
                   opacity: isFetching ? 0.6 : 1, transition: 'opacity 200ms',
                 }}>
                   {loadBalancers.map(lb => (

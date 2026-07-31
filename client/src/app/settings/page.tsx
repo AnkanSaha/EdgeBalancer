@@ -46,7 +46,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', flexDirection: 'row' }}>
+    <div className="app-shell" style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar
         current="settings"
         onNav={(id) => {
@@ -94,7 +94,7 @@ function TwoFactorSection({ user, refreshUser }: any) {
         so a spare is what keeps you from being locked out.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, alignItems: 'start' }}>
+      <div className="settings-cards">
         <TotpCard user={user} refreshUser={refreshUser} onPrefer={setPreference} />
         <PasskeyCard user={user} refreshUser={refreshUser} onPrefer={setPreference} />
       </div>

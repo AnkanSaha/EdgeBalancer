@@ -139,7 +139,7 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
       {/* Desktop Sidebar */}
       <aside className="sidebar-desktop" style={{
         width: 240, borderRight: '1px solid var(--line)',
-        background: 'var(--bg)', display: 'flex', flexDirection: 'column',
+        background: 'var(--bg)', flexDirection: 'column',
         padding: '20px 12px', position: 'sticky', top: 0, height: '100vh',
         overflowY: 'auto',
       }} suppressHydrationWarning>
@@ -148,7 +148,7 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
 
       {/* Mobile Sidebar Header with Toggle */}
       <div className="sidebar-mobile-header" style={{
-        display: 'none', alignItems: 'center', justifyContent: 'space-between',
+        alignItems: 'center', justifyContent: 'space-between',
         padding: 'clamp(12px, 2vw, 16px)', borderBottom: '1px solid var(--line)',
         gap: 12, zIndex: 35,
       }}>
@@ -185,7 +185,7 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
           position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 41,
           width: 'min(280px, 85vw)',
           borderRight: '1px solid var(--line)',
-          background: 'var(--bg)', display: 'flex', flexDirection: 'column',
+          background: 'var(--bg)', flexDirection: 'column',
           padding: '20px 12px', overflow: 'auto',
           transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
           transition: 'transform 280ms cubic-bezier(0.4, 0, 0.2, 1)',
@@ -194,27 +194,6 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
         </aside>
       </>
 
-      <style jsx>{`
-        @media (min-width: 769px) {
-          .sidebar-desktop {
-            display: flex !important;
-          }
-          .sidebar-mobile-header {
-            display: none !important;
-          }
-          .mobile-menu-trigger {
-            display: none !important;
-          }
-        }
-        @media (max-width: 768px) {
-          .sidebar-desktop {
-            display: none !important;
-          }
-          .sidebar-mobile-header {
-            display: flex !important;
-          }
-        }
-      `}</style>
     </>
   );
 };
