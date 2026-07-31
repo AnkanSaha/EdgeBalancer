@@ -1,11 +1,14 @@
 import { User } from '../models/User';
-import { generateUsername, generateToken } from '../utils';
+import { generateUsername } from '../utils';
+import { CHALLENGE_COOKIE, issueChallengeCookie, issueSessionCookie, toUserPayload } from '../utils/authSession';
+import { hasTotp } from '../services/totpService';
 import { verifyFirebaseToken, isFirebaseConfigured } from '../config/firebase';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
 export const logout = async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.clearCookie('token');
+    res.clearCookie(CHALLENGE_COOKIE);
     res.json({
       success: true,
       message: 'Logout successful',
@@ -33,15 +36,7 @@ export const getCurrentUser = async (req: Request, res: Response, next: NextFunc
     res.json({
       success: true,
       message: 'User retrieved successfully',
-      data: {
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          username: user.username,
-          hasCloudflareCredentials: !!(user.cloudflareAccountId && user.cloudflareApiToken),
-        },
-      },
+      data: { user: toUserPayload(user) },
     });
   } catch (error) {
     next(error as Error);
@@ -93,32 +88,24 @@ export const googleAuth = async (req: Request, res: Response, next: NextFunction
       }
     }
 
-    // 3. Issue JWT
-    const token = generateToken({
-      userId: user._id.toString(),
-      email: user.email,
-      firebaseUid: user.firebaseUid,
-    });
+    // 3. Google proved the identity — with 2FA on, that only earns a challenge, not a session.
+    if (hasTotp(user)) {
+      issueChallengeCookie(res, user);
 
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    });
+      res.json({
+        success: true,
+        message: 'Enter the code from your authenticator app',
+        data: { totpRequired: true },
+      });
+      return;
+    }
+
+    issueSessionCookie(res, user);
 
     res.json({
       success: true,
       message: 'Authentication successful',
-      data: {
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          username: user.username,
-          hasCloudflareCredentials: !!(user.cloudflareAccountId && user.cloudflareApiToken),
-        },
-      },
+      data: { user: toUserPayload(user) },
     });
   } catch (error) {
     next(error as Error);

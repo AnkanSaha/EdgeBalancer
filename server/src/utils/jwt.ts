@@ -4,17 +4,19 @@ export interface JwtPayload {
   userId: string;
   email?: string | null;
   firebaseUid?: string | null;
+  // Present only on the short-lived two-factor challenge token, which must never authenticate a request.
+  stage?: 'pending-2fa';
 }
 
 const JWT_EXPIRY = '24h';
 
-export const generateToken = (payload: JwtPayload): string => {
+export const generateToken = (payload: JwtPayload, expiresIn: string = JWT_EXPIRY): string => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     throw new Error('JWT_SECRET is not defined in environment variables');
   }
 
-  return jwt.sign(payload, secret, { expiresIn: JWT_EXPIRY });
+  return jwt.sign(payload, secret, { expiresIn } as jwt.SignOptions);
 };
 
 export const verifyToken = (token: string): JwtPayload => {

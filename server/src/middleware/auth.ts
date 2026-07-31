@@ -13,6 +13,13 @@ export const authenticate: AppHandler = async (req, res, next): Promise<void> =>
 
     // Verify token
     const payload = verifyToken(token);
+
+    // A challenge token copied into the session cookie must not grant access.
+    if (payload.stage) {
+      res.status(401);
+      throw new Error('Two-factor verification required');
+    }
+
     req.user = payload;
 
     next();

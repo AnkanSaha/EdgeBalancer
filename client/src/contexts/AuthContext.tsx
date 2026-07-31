@@ -9,7 +9,8 @@ import { signInWithPopup, signOut } from 'firebase/auth';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  loginWithGoogle: () => Promise<void>;
+  loginWithGoogle: () => Promise<{ totpRequired: boolean }>;
+  verifyTotp: (code: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -39,24 +40,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, []);
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (): Promise<{ totpRequired: boolean }> => {
     const auth = getFirebaseAuth();
-    
+
     try {
       const result = await signInWithPopup(auth, googleAuthProvider);
       const idToken = await result.user.getIdToken();
-      
+
       const response = await api.googleAuth({ idToken });
 
-      if (response.success && response.data?.user) {
-        setUser(response.data.user);
+      // With 2FA on, Google only earns a challenge — the session comes from verifyTotp.
+      if (response.data?.totpRequired) {
+        return { totpRequired: true };
       }
+
+      if (!response.success || !response.data?.user) {
+        throw new Error(response.message || 'Google sign-in failed');
+      }
+
+      setUser(response.data.user);
+      return { totpRequired: false };
     } catch (error) {
       console.error('Google login error:', error);
       throw error;
     } finally {
       await signOut(auth);
     }
+  };
+
+  const verifyTotp = async (code: string) => {
+    const response = await api.verifyTotp({ code });
+
+    if (!response.success || !response.data?.user) {
+      throw new Error(response.message || 'Verification failed');
+    }
+
+    setUser(response.data.user);
   };
 
   const logout = async () => {
@@ -69,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, loginWithGoogle, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, loginWithGoogle, verifyTotp, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -130,6 +130,52 @@ describe('destructive tools', () => {
     expect(proposed.current?.payload).not.toHaveProperty('id');
   });
 
+  it('rejects an invalid update before asking the user to confirm it', async () => {
+    const result = await toolNamed('update_load_balancer').invoke({
+      ...VALID_CONFIG,
+      id: 'lb-1',
+      origins: [{ url: 'ftp://not-http.example.com', weight: 1 }],
+    });
+
+    expect(String(result)).toContain('Invalid configuration');
+    expect(proposed.current).toBeNull();
+  });
+
+  it('fills the fields the update schema does not require from the stored record', async () => {
+    mockedFindById.mockResolvedValue({
+      _id: 'lb-1',
+      name: 'edge-api',
+      domain: 'example.com',
+      subdomain: 'api',
+      zoneId: 'b'.repeat(32),
+      origins: [{ url: 'https://old.example.com', weight: 1 }],
+      strategy: 'round-robin',
+      exposeRealOrigin: true,
+      placement: { smartPlacement: true, region: 'aws:us-east-1' },
+      userId: { toString: () => AUTHENTICATED_USER },
+    });
+
+    // Optional on the tool schema, required by the validator — the merge is what bridges them.
+    const { name, weightedEnabled, placement, ...required } = VALID_CONFIG;
+    await toolNamed('update_load_balancer').invoke({ ...required, id: 'lb-1', strategy: 'ip-hash' });
+
+    expect(proposed.current?.payload).toMatchObject({
+      strategy: 'ip-hash',
+      weightedEnabled: false,
+      exposeRealOrigin: true,
+      placement: { smartPlacement: true, region: 'aws:us-east-1' },
+    });
+    expect(proposed.current?.payload).not.toHaveProperty('name');
+  });
+
+  it('derives weightedEnabled from the strategy the model chose', async () => {
+    const { weightedEnabled, ...config } = VALID_CONFIG;
+
+    await toolNamed('update_load_balancer').invoke({ ...config, id: 'lb-1', strategy: 'weighted-round-robin' });
+
+    expect(proposed.current?.payload).toMatchObject({ strategy: 'weighted-round-robin', weightedEnabled: true });
+  });
+
   it('refuses a load balancer owned by another user', async () => {
     mockedFindById.mockResolvedValue({
       _id: 'lb-9',

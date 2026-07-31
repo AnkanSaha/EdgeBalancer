@@ -1,4 +1,14 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
+
+export interface ITotpDevice {
+  _id: Types.ObjectId;
+  name: string;
+  secret: string;
+  iv: string;
+  tag: string;
+  confirmed: boolean;
+  createdAt: Date;
+}
 
 export interface IUser extends Document {
   name: string;
@@ -11,9 +21,27 @@ export interface IUser extends Document {
   cloudflareTokenIv?: string;
   cloudflareAccountIdTag?: string;
   cloudflareTokenTag?: string;
+  totpDevices: Types.DocumentArray<ITotpDevice>;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const TotpDeviceSchema = new Schema<ITotpDevice>(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: [30, 'Device name cannot exceed 30 characters'],
+    },
+    secret: { type: String, required: true },
+    iv: { type: String, required: true },
+    tag: { type: String, required: true },
+    confirmed: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
 
 const UserSchema = new Schema<IUser>(
   {
@@ -69,6 +97,10 @@ const UserSchema = new Schema<IUser>(
     cloudflareTokenTag: {
       type: String,
       default: null,
+    },
+    totpDevices: {
+      type: [TotpDeviceSchema],
+      default: [],
     },
   },
   {

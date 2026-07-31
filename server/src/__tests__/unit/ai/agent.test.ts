@@ -1,4 +1,5 @@
 jest.mock('../../../modules/ai/services/compaction.service', () => ({
+  needsCompaction: jest.fn(() => false),
   compactHistory: jest.fn(async (messages) => ({ messages, summarized: false })),
 }));
 
@@ -285,6 +286,79 @@ describe('runAgent failure handling', () => {
 
     expect(result.outcome).toBe('success');
     expect(result.message).toBe('You have no load balancers yet.');
+  });
+
+  it('answers every tool call in a batch before the next model call', async () => {
+    const conflicting = jest.fn(async () => {
+      throw Object.assign(new Error('Hostname already assigned'), { statusCode: 409 });
+    });
+    mockedBuildTools.mockReturnValue([
+      fakeTool('create_load_balancer', conflicting),
+      fakeTool('list_zones', jest.fn(async () => JSON.stringify({ ok: true, data: { zones: [] } }))),
+      fakeTool('web_search', jest.fn()),
+    ]);
+
+    mockedInvoke
+      .mockResolvedValueOnce(aiMessage([call('create_load_balancer'), call('list_zones')]))
+      .mockResolvedValueOnce(aiMessage([], 'That hostname is already in use.'));
+
+    await execute();
+
+    const rcaMessages = mockedInvoke.mock.calls[1][0].messages;
+    const answered = rcaMessages.filter((m: any) => m.tool_call_id).map((m: any) => m.tool_call_id);
+
+    expect(answered).toEqual(['create_load_balancer-1', 'list_zones-1']);
+    // The second tool was answered, not executed.
+    expect(conflicting).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops the run when it outlives the deadline', async () => {
+    const slow = jest.fn(async () => JSON.stringify({ ok: true, data: {} }));
+    mockedBuildTools.mockReturnValue([fakeTool('list_zones', slow)]);
+    mockedInvoke.mockResolvedValue(aiMessage([call('list_zones')]));
+
+    const realNow = Date.now;
+    let clock = realNow();
+    // Two calls set the deadline, then every later read is past it.
+    jest.spyOn(Date, 'now').mockImplementation(() => {
+      clock += 60_000;
+      return clock;
+    });
+
+    try {
+      const result = await execute();
+
+      expect(result.outcome).toBe('failure');
+      expect(result.message).toMatch(/took too long/);
+    } finally {
+      (Date.now as jest.Mock).mockRestore();
+    }
+  });
+
+  it('does not mistake "ok":false inside a successful payload for a failure', async () => {
+    const quoting = jest.fn(async () =>
+      JSON.stringify({ ok: true, data: { text: 'the server replied {"ok":false,"error":"nope"}' } }),
+    );
+    mockedBuildTools.mockReturnValue([fakeTool('fetch_url', quoting)]);
+
+    mockedInvoke
+      .mockResolvedValueOnce(aiMessage([call('fetch_url')]))
+      .mockResolvedValueOnce(aiMessage([], 'Read the page.'));
+
+    const trace = createTrace();
+    await runAgent({
+      runId: 'run-1',
+      userId: 'user-1',
+      userEmail: null,
+      prompt: 'read that page',
+      cancellation: { isCancelled: () => false, throwIfCancelled: async () => undefined } as any,
+      emit: jest.fn(),
+      trace,
+    });
+
+    expect(trace.toolCalls[0].ok).toBe(true);
+    // A false failure here would have been retried, then diverted into RCA.
+    expect(quoting).toHaveBeenCalledTimes(1);
   });
 
   it('reports success when a tool actually created something', async () => {

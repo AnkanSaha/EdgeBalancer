@@ -1,0 +1,54 @@
+import type { IUser } from '../models/User';
+import { confirmedDevices, hasTotp } from '../services/totpService';
+import type { AppResponse } from '../types/http';
+import { generateToken } from './jwt';
+
+export const CHALLENGE_COOKIE = 'eb_2fa';
+
+const SESSION_MAX_AGE = 24 * 60 * 60 * 1000;
+const CHALLENGE_MAX_AGE = 5 * 60 * 1000;
+
+const cookieOptions = (maxAge: number) => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict' as const,
+  maxAge,
+});
+
+/** The user object every authenticated response returns. Secrets never appear here. */
+export const toUserPayload = (user: IUser) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  username: user.username,
+  hasCloudflareCredentials: !!(user.cloudflareAccountId && user.cloudflareApiToken),
+  totpEnabled: hasTotp(user),
+  totpDevices: confirmedDevices(user).map((device) => ({
+    id: device._id.toString(),
+    name: device.name,
+    createdAt: device.createdAt,
+  })),
+});
+
+export const issueSessionCookie = (res: AppResponse, user: IUser): void => {
+  const token = generateToken({
+    userId: user._id.toString(),
+    email: user.email,
+    firebaseUid: user.firebaseUid,
+  });
+
+  res.cookie('token', token, cookieOptions(SESSION_MAX_AGE));
+};
+
+/**
+ * Proves the Google step passed without granting access. Deliberately a different cookie name from
+ * the session, and marked with `stage` so `authenticate` rejects it if it is ever moved.
+ */
+export const issueChallengeCookie = (res: AppResponse, user: IUser): void => {
+  const token = generateToken(
+    { userId: user._id.toString(), email: user.email, stage: 'pending-2fa' },
+    '5m'
+  );
+
+  res.cookie(CHALLENGE_COOKIE, token, cookieOptions(CHALLENGE_MAX_AGE));
+};

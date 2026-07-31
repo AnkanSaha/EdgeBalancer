@@ -1,6 +1,6 @@
 {
   "name": "server",
-  "version": "2.4.9",
+  "version": "2.4.10",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -27,6 +27,8 @@
     "form-data": "^4.0.5",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.4.1",
+    "otpauth": "^9.5.1",
+    "qrcode": "^1.5.4",
     "redis": "^6.0.0"
   },
   "devDependencies": {
@@ -35,6 +37,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/mongoose": "^5.11.96",
     "@types/node": "^25.5.2",
+    "@types/qrcode": "^1.5.6",
     "jest": "^30.4.2",
     "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.1.14",

@@ -51,6 +51,26 @@ class ApiClient {
     return response.data;
   }
 
+  async setupTotp(data: { name?: string }): Promise<ApiResponse> {
+    const response = await this.client.post('/auth/2fa/setup', data);
+    return response.data;
+  }
+
+  async confirmTotp(data: { deviceId: string; code: string }): Promise<ApiResponse> {
+    const response = await this.client.post('/auth/2fa/confirm', data);
+    return response.data;
+  }
+
+  async removeTotp(data: { deviceId: string; code: string }): Promise<ApiResponse> {
+    const response = await this.client.post('/auth/2fa/remove', data);
+    return response.data;
+  }
+
+  async verifyTotp(data: { code: string }): Promise<ApiResponse> {
+    const response = await this.client.post('/auth/2fa/verify', data);
+    return response.data;
+  }
+
   // Cloudflare endpoints
   async saveCloudflareCredentials(data: any): Promise<ApiResponse> {
     const response = await this.client.post('/cloudflare/credentials', data);

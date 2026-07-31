@@ -29,7 +29,7 @@ interface CookieOptions {
   path?: string;
 }
 
-const parseCookies = (cookieHeader?: string): Record<string, string> => {
+export const parseCookies = (cookieHeader?: string): Record<string, string> => {
   if (!cookieHeader) {
     return {};
   }

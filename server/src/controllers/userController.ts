@@ -1,5 +1,6 @@
 import { User } from '../models/User';
 import { getMaskedCredentials } from '../services/credentialsService';
+import { toUserPayload } from '../utils/authSession';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
 export const getProfile = async (req: Request, res: Response, next: NextFunction) => {
@@ -24,11 +25,7 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
       message: 'Profile retrieved successfully',
       data: {
         user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          username: user.username,
-          hasCloudflareCredentials: !!(user.cloudflareAccountId && user.cloudflareApiToken),
+          ...toUserPayload(user),
           cloudflareAccountId: maskedCreds?.accountId || null,
           cloudflareApiToken: maskedCreds?.apiToken || null,
           createdAt: user.createdAt,
