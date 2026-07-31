@@ -259,6 +259,7 @@ types/
 | cloudflareApiToken | String | AES-256-GCM encrypted |
 | cloudflareAccountIdIv / Tag | String | IV + GCM tag for accountId |
 | cloudflareTokenIv / Tag | String | IV + GCM tag for apiToken |
+| totpDevices | Array\<ITotpDevice\> | unbounded; each `{ name, secret, iv, tag, confirmed, createdAt }`, secret AES-256-GCM encrypted |
 
 ### LoadBalancer
 | Field | Type | Notes |
@@ -302,11 +303,41 @@ Stores deployment history snapshots (Worker JS + config) per load balancer actio
 ### Auth (`/api/auth`)
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/register` | email+password signup |
-| POST | `/login` | sets httpOnly JWT cookie |
-| POST | `/logout` | clears cookie |
+| POST | `/google` | Firebase ID token → JWT. **The only credential** — there is no password login. |
+| POST | `/logout` | clears session + challenge cookies |
 | GET | `/me` | current user (protected) |
-| POST | `/google` | Firebase ID token → JWT |
+| POST | `/2fa/setup` | `{ name }` → `{ deviceId, name, secret, otpauthUrl, qrDataUrl }` (protected) |
+| POST | `/2fa/confirm` | `{ deviceId, code }` → activates the device (protected) |
+| POST | `/2fa/remove` | `{ deviceId, code }` → revokes a device (protected) |
+| POST | `/2fa/verify` | `{ code }` → trades the challenge cookie for a session |
+
+### Two-Factor Authentication (TOTP)
+
+Authenticator apps only — no SMS, no email, **no recovery codes**. Redundancy comes from enrolling
+**any number of apps**, each a separate `totpDevices[]` subdocument with its own AES-256-GCM
+encrypted secret and a user-chosen name (required, ≤30 chars), so a lost phone is revoked without
+disturbing the others. Verification is a linear scan over enrolled devices; growth is bounded only
+by the `STRICT` rate limit on `/2fa/setup`.
+
+There is no `totpEnabled` column: 2FA is on iff at least one device is `confirmed` (`hasTotp()` in
+`services/totpService.ts` is the single definition).
+
+**Login is two-stage when 2FA is on.** `POST /auth/google` issues an `eb_2fa` cookie (5 min, JWT
+carrying `stage: 'pending-2fa'`) and returns `{ totpRequired: true }` *instead of* the `token`
+cookie. `POST /auth/2fa/verify` exchanges it. The challenge deliberately uses a different cookie
+name, and `authenticate` rejects any token carrying `stage` — otherwise a user could rename their
+own challenge cookie and skip the code screen.
+
+**Removal rule:** the code must come from a *different* confirmed device than the target — the
+lost-phone case, where the target's codes are gone. Only when it is the last device is its own code
+accepted; that path turns 2FA off.
+
+Codes are single-use for 90s via `acquireLock('totp:used:{userId}:{code}')` — no new Redis code, the
+key just expires. Drift window is ±1 step. All four routes use the `STRICT` rate limit.
+
+Client: `components/auth/OtpInput.tsx` is one transparent input over six boxes (paste, backspace,
+`one-time-code` autofill work for free) and auto-submits on the sixth digit — there is no submit
+button anywhere in the 2FA flow.
 
 ### Cloudflare (`/api/cloudflare`)
 | Method | Path | Notes |

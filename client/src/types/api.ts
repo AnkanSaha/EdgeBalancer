@@ -14,6 +14,14 @@ export interface User {
   hasCloudflareCredentials: boolean;
   cloudflareAccountId?: string; // masked
   cloudflareApiToken?: string; // masked
+  totpEnabled?: boolean;
+  totpDevices?: TotpDevice[];
+}
+
+export interface TotpDevice {
+  id: string;
+  name: string;
+  createdAt: string;
 }
 
 // Cloudflare types

@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthLayout, GoogleG } from '@/components/auth/AuthLayout';
+import { OtpInput } from '@/components/auth/OtpInput';
 import { isFirebaseConfigured } from '@/lib/firebase';
+import { Icons } from '@/components/shared/Icons';
 import toast from 'react-hot-toast';
 
 /** Sign-in and sign-up are the same Google popup — the server does find-or-create.
@@ -40,9 +42,12 @@ const COPY = {
 
 export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
   const router = useRouter();
-  const { user, loginWithGoogle, loading: authLoading } = useAuth();
+  const { user, loginWithGoogle, verifyTotp, loading: authLoading } = useAuth();
   const copy = COPY[mode];
   const [loading, setLoading] = useState(false);
+  const [awaitingCode, setAwaitingCode] = useState(false);
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -53,11 +58,33 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
   const handleGoogle = async () => {
     setLoading(true);
     try {
-      await loginWithGoogle();
+      const { totpRequired } = await loginWithGoogle();
+
+      if (totpRequired) {
+        setAwaitingCode(true);
+        return;
+      }
+
       toast.success(copy.success);
       router.push('/dashboard');
     } catch (error: any) {
       toast.error(error.message || copy.failure);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCode = async (value: string) => {
+    setLoading(true);
+    setCodeError(false);
+    try {
+      await verifyTotp(value);
+      toast.success(copy.success);
+      router.push('/dashboard');
+    } catch (error: any) {
+      toast.error(error.message || 'That code is not valid');
+      setCodeError(true);
+      setCode('');
     } finally {
       setLoading(false);
     }
@@ -75,6 +102,43 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
           <p style={{ color: 'var(--text-3)' }}>Loading...</p>
         </div>
       </div>
+    );
+  }
+
+  if (awaitingCode) {
+    return (
+      <AuthLayout step="signin" onBack={() => setAwaitingCode(false)}>
+        <div className="kicker" style={{ marginBottom: 8 }}>// Step 02 of 02</div>
+        <h2 style={{ fontSize: 'clamp(28px, 5vw, 32px)', letterSpacing: '-0.03em', margin: 0, lineHeight: 1.1 }}>
+          Two-factor code
+        </h2>
+        <p style={{ color: 'var(--text-3)', fontSize: 'clamp(13px, 2vw, 14px)', marginTop: 8, marginBottom: 28 }}>
+          Enter the 6-digit code from any of your authenticator apps.
+        </p>
+
+        <OtpInput
+          value={code}
+          onChange={(value) => { setCode(value); if (codeError) setCodeError(false); }}
+          onComplete={handleCode}
+          error={codeError}
+          disabled={loading}
+        />
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 20, minHeight: 20, fontSize: 13, color: 'var(--text-3)' }}>
+          {loading ? (
+            <>
+              <div style={{
+                width: 14, height: 14,
+                border: '2px solid var(--line)', borderTopColor: 'var(--accent)',
+                borderRadius: '50%', animation: 'spin 0.6s linear infinite',
+              }} />
+              Verifying...
+            </>
+          ) : (
+            <><Icons.Lock size={12} /> The code changes every 30 seconds</>
+          )}
+        </div>
+      </AuthLayout>
     );
   }
 

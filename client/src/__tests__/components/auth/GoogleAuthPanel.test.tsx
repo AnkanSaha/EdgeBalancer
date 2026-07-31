@@ -16,7 +16,8 @@ const mockConfigured = isFirebaseConfigured as jest.MockedFunction<typeof isFire
 const authState = (over: Partial<ReturnType<typeof useAuth>> = {}) => ({
   user: null,
   loading: false,
-  loginWithGoogle: jest.fn().mockResolvedValue(undefined),
+  loginWithGoogle: jest.fn().mockResolvedValue({ totpRequired: false }),
+  verifyTotp: jest.fn().mockResolvedValue(undefined),
   logout: jest.fn(),
   refreshUser: jest.fn(),
   ...over,
@@ -42,13 +43,41 @@ describe('GoogleAuthPanel', () => {
   });
 
   it('signs in and redirects to the dashboard', async () => {
-    const loginWithGoogle = jest.fn().mockResolvedValue(undefined);
+    const loginWithGoogle = jest.fn().mockResolvedValue({ totpRequired: false });
     mockUseAuth.mockReturnValue(authState({ loginWithGoogle }));
 
     render(<GoogleAuthPanel mode="signin" />);
     await userEvent.click(screen.getByRole('button', { name: /Continue with Google/i }));
 
     await waitFor(() => expect(loginWithGoogle).toHaveBeenCalledTimes(1));
+    expect(push).toHaveBeenCalledWith('/dashboard');
+  });
+
+  it('stops at the code screen instead of the dashboard when 2FA is on', async () => {
+    const loginWithGoogle = jest.fn().mockResolvedValue({ totpRequired: true });
+    mockUseAuth.mockReturnValue(authState({ loginWithGoogle }));
+
+    render(<GoogleAuthPanel mode="signin" />);
+    await userEvent.click(screen.getByRole('button', { name: /Continue with Google/i }));
+
+    expect(await screen.findByLabelText('6-digit authentication code')).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('a complete code verifies and redirects, with no submit button', async () => {
+    const verifyTotp = jest.fn().mockResolvedValue(undefined);
+    mockUseAuth.mockReturnValue(authState({
+      loginWithGoogle: jest.fn().mockResolvedValue({ totpRequired: true }),
+      verifyTotp,
+    }));
+
+    render(<GoogleAuthPanel mode="signin" />);
+    await userEvent.click(screen.getByRole('button', { name: /Continue with Google/i }));
+
+    const field = await screen.findByLabelText('6-digit authentication code');
+    await userEvent.type(field, '123456');
+
+    await waitFor(() => expect(verifyTotp).toHaveBeenCalledWith('123456'));
     expect(push).toHaveBeenCalledWith('/dashboard');
   });
 
