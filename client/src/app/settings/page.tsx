@@ -15,23 +15,22 @@ import type { Credential, SecondFactorMethod } from '@/types/api';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, refreshUser, logout } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const { user, loading: authLoading, refreshUser, logout } = useAuth();
 
+  // Wait for the auth check to finish — redirecting on the initial null makes /settings
+  // impossible to open directly.
   useEffect(() => {
-    if (!user) {
+    if (!authLoading && !user) {
       router.push('/login');
-    } else {
-      setLoading(false);
     }
-  }, [user, router]);
+  }, [user, authLoading, router]);
 
   const handleLogout = async () => {
     await logout();
     router.push('/login');
   };
 
-  if (loading || !user) {
+  if (authLoading || !user) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
         <div style={{ textAlign: 'center' }}>
