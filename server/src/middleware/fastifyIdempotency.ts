@@ -3,6 +3,8 @@ import fp from 'fastify-plugin';
 import crypto from 'crypto';
 import { getRedisClient } from '../utils/redisClient';
 import { verifyToken } from '../utils/jwt';
+import { authenticate } from './auth';
+import { runHandlers } from '../utils/routeRunner';
 
 interface IdempotencyRecord {
   statusCode: number;
@@ -115,13 +117,41 @@ async function idempotencyPlugin(fastify: FastifyInstance) {
     return payload;
   });
 
-  fastify.get('/api/idempotency/stats', async () => {
-    const redis = await getRedisClient();
-    const keys = await redis.keys('idempotency:*');
-    const total = keys.filter((k) => !k.includes(':processing:')).length;
-    const processing = keys.filter((k) => k.includes(':processing:')).length;
-    return { success: true, data: { totalKeys: total, processingKeys: processing } };
-  });
+  // Enumerating the keyspace stalls single-threaded Redis, and Redis is on the hot path for every
+  // request — so this is authenticated, rate limited, and cursor-based rather than KEYS.
+  fastify.get(
+    '/api/idempotency/stats',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) =>
+      runHandlers(
+        [
+          authenticate,
+          async (_req, res) => {
+            const redis = await getRedisClient();
+            let cursor = '0';
+            let total = 0;
+            let processing = 0;
+            const seen = new Set<string>();
+
+            do {
+              const batch = await redis.scan(cursor, { MATCH: 'idempotency:*', COUNT: 500 });
+              cursor = String(batch.cursor);
+
+              for (const key of batch.keys) {
+                // SCAN can return the same key more than once across iterations.
+                if (seen.has(key)) continue;
+                seen.add(key);
+                key.includes(':processing:') ? processing++ : total++;
+              }
+            } while (cursor !== '0');
+
+            res.json({ success: true, data: { totalKeys: total, processingKeys: processing } });
+          },
+        ],
+        request,
+        reply
+      )
+  );
 }
 
 export default fp(idempotencyPlugin, {
