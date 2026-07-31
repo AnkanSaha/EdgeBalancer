@@ -26,6 +26,15 @@ export const createRequestCancellation = (req: Request, res: Response, operation
     }
   });
 
+  // The request half of a POST closes as soon as its body is read, and 'aborted' is not emitted
+  // for it at all — so on a streamed response neither listener above ever sees the client leave.
+  // The response socket closing while we are still writing is the signal that actually fires.
+  res.raw.on('close', () => {
+    if (!res.raw.writableEnded) {
+      cancelled = true;
+    }
+  });
+
   return {
     isCancelled: () => cancelled,
     throwIfCancelled: async () => {

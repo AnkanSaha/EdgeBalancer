@@ -15,23 +15,22 @@ import type { Credential, SecondFactorMethod } from '@/types/api';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, refreshUser, logout } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const { user, loading: authLoading, refreshUser, logout } = useAuth();
 
+  // Wait for the auth check to finish — redirecting on the initial null makes /settings
+  // impossible to open directly.
   useEffect(() => {
-    if (!user) {
+    if (!authLoading && !user) {
       router.push('/login');
-    } else {
-      setLoading(false);
     }
-  }, [user, router]);
+  }, [user, authLoading, router]);
 
   const handleLogout = async () => {
     await logout();
     router.push('/login');
   };
 
-  if (loading || !user) {
+  if (authLoading || !user) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
         <div style={{ textAlign: 'center' }}>
@@ -47,7 +46,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', flexDirection: 'row' }}>
+    <div className="app-shell" style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar
         current="settings"
         onNav={(id) => {
@@ -95,7 +94,7 @@ function TwoFactorSection({ user, refreshUser }: any) {
         so a spare is what keeps you from being locked out.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, alignItems: 'start' }}>
+      <div className="settings-cards">
         <TotpCard user={user} refreshUser={refreshUser} onPrefer={setPreference} />
         <PasskeyCard user={user} refreshUser={refreshUser} onPrefer={setPreference} />
       </div>

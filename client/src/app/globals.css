@@ -308,6 +308,71 @@ details[open] > summary svg { transform: rotate(180deg); }
   .settings-grid { grid-template-columns: 1fr; }
 }
 
+/* Sidebar: a full column on desktop, hamburger + slide-out drawer below 768px.
+   These live here rather than in a styled-jsx block, which does not apply in this setup. */
+.sidebar-desktop { display: flex; }
+.sidebar-mobile-header { display: none; }
+.sidebar-overlay { display: none; }
+.sidebar-mobile { display: none; }
+
+@media (max-width: 768px) {
+  .sidebar-desktop { display: none; }
+  .sidebar-mobile-header { display: flex; }
+  .sidebar-overlay { display: block; }
+  .sidebar-mobile { display: flex; }
+}
+
+/* Dashboard — sidebar beside content on desktop, stacked under the mobile header below 768px */
+.app-shell { display: flex; flex: 1; min-height: 0; }
+.dash-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.dash-filters { display: flex; align-items: center; }
+.dash-search { position: relative; flex: 1; min-width: 200px; max-width: 320px; }
+.settings-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; align-items: start; }
+.dash-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+.show-sm { display: none !important; }
+
+@media (max-width: 768px) {
+  .app-shell { flex-direction: column; }
+}
+
+@media (max-width: 640px) {
+  .show-sm { display: inline !important; }
+  /* Everything becomes a single top-to-bottom column on a phone. */
+  .dash-stats { grid-template-columns: 1fr; }
+  .dash-filters { flex-direction: column; align-items: stretch; }
+  .dash-search { max-width: none; min-width: 0; }
+  .dash-cards { grid-template-columns: 1fr; gap: 14px; }
+  .settings-cards { grid-template-columns: 1fr; gap: 14px; }
+  .settings-grid { gap: 14px; }
+  .dash-pills { width: 100%; }
+  .dash-pills > button { flex: 1; }
+  /* Primary action ends up on top once stacked. */
+  .ai-actions { flex-direction: column-reverse; }
+  .ai-actions > button { width: 100%; justify-content: center; }
+}
+
+/* AI provisioning overlay — rain falling into a sea that rises with progress */
+/* Fixed and on top, so drops fall in front of the status text rather than behind a card. */
+.ai-rain { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 3; }
+.ai-drop {
+  position: absolute; top: -14vh; width: 1px; border-radius: 1px;
+  background: linear-gradient(to bottom, transparent, var(--accent));
+  animation-name: ai-rain-fall; animation-timing-function: linear; animation-iteration-count: infinite;
+}
+@keyframes ai-rain-fall {
+  0%   { transform: translateY(0); opacity: 0; }
+  12%  { opacity: 0.55; }
+  85%  { opacity: 0.55; }
+  100% { transform: translateY(125vh); opacity: 0; }
+}
+
+/* Each SSE step surfaces on its own rather than the list snapping to a new height */
+.ai-step { animation: ai-step-in 420ms cubic-bezier(0.4, 0, 0.2, 1) backwards; }
+@keyframes ai-step-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
 /* Responsive Typography */
 @media (max-width: 640px) {
   h1 { font-size: clamp(28px, 6vw, 44px) !important; }

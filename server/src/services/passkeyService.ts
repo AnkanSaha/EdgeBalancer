@@ -15,7 +15,14 @@ const RP_NAME = 'EdgeBalancer';
  */
 export const rpConfig = () => {
   const origin = process.env.CLIENT_URL || 'http://localhost:3000';
-  return { origin, rpID: process.env.WEBAUTHN_RP_ID || new URL(origin).hostname };
+  const { hostname } = new URL(origin);
+  const parts = hostname.split('.');
+
+  // Strip the subdomain so passkeys survive a move between subdomains. Assumes a custom domain,
+  // where the last two labels are the one we own; localhost has no parent to strip.
+  const rpID = process.env.WEBAUTHN_RP_ID || (parts.length > 2 ? parts.slice(-2).join('.') : hostname);
+
+  return { origin, rpID };
 };
 
 const toTransports = (transports: string[]) => transports as AuthenticatorTransportFuture[];
