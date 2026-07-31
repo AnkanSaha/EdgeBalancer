@@ -1,9 +1,10 @@
-import type { IUser } from '../models/User';
+import type { IUser, SecondFactorMethod } from '../models/User';
 import { confirmedDevices, hasTotp } from '../services/totpService';
 import type { AppResponse } from '../types/http';
 import { generateToken } from './jwt';
 
 export const CHALLENGE_COOKIE = 'eb_2fa';
+export const PASSKEY_REG_COOKIE = 'eb_pk_reg';
 
 const SESSION_MAX_AGE = 24 * 60 * 60 * 1000;
 const CHALLENGE_MAX_AGE = 5 * 60 * 1000;
@@ -14,6 +15,15 @@ const cookieOptions = (maxAge: number) => ({
   sameSite: 'strict' as const,
   maxAge,
 });
+
+export const availableMethods = (user: IUser): SecondFactorMethod[] => {
+  const methods: SecondFactorMethod[] = [];
+  if (user.passkeys.length > 0) methods.push('passkey');
+  if (hasTotp(user)) methods.push('totp');
+  return methods;
+};
+
+export const hasSecondFactor = (user: IUser): boolean => availableMethods(user).length > 0;
 
 /** The user object every authenticated response returns. Secrets never appear here. */
 export const toUserPayload = (user: IUser) => ({
@@ -28,6 +38,12 @@ export const toUserPayload = (user: IUser) => ({
     name: device.name,
     createdAt: device.createdAt,
   })),
+  passkeys: user.passkeys.map((passkey) => ({
+    id: passkey._id.toString(),
+    name: passkey.name,
+    createdAt: passkey.createdAt,
+  })),
+  preferredSecondFactor: user.preferredSecondFactor ?? null,
 });
 
 export const issueSessionCookie = (res: AppResponse, user: IUser): void => {
@@ -44,11 +60,21 @@ export const issueSessionCookie = (res: AppResponse, user: IUser): void => {
  * Proves the Google step passed without granting access. Deliberately a different cookie name from
  * the session, and marked with `stage` so `authenticate` rejects it if it is ever moved.
  */
-export const issueChallengeCookie = (res: AppResponse, user: IUser): void => {
+export const issueChallengeCookie = (res: AppResponse, user: IUser, challenge?: string): void => {
   const token = generateToken(
-    { userId: user._id.toString(), email: user.email, stage: 'pending-2fa' },
+    { userId: user._id.toString(), email: user.email, stage: 'pending-2fa', challenge },
     '5m'
   );
 
   res.cookie(CHALLENGE_COOKIE, token, cookieOptions(CHALLENGE_MAX_AGE));
+};
+
+/** Same trick for enrolment: the WebAuthn challenge rides in a signed cookie, not in a store. */
+export const issuePasskeyRegCookie = (res: AppResponse, user: IUser, challenge: string): void => {
+  const token = generateToken(
+    { userId: user._id.toString(), stage: 'passkey-register', challenge },
+    '5m'
+  );
+
+  res.cookie(PASSKEY_REG_COOKIE, token, cookieOptions(CHALLENGE_MAX_AGE));
 };

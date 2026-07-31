@@ -9,7 +9,9 @@ import { Icons } from '@/components/shared/Icons';
 import { OtpInput } from '@/components/auth/OtpInput';
 import toast from 'react-hot-toast';
 import { permissionSummary } from '@/lib/cloudflarePermissions';
-import type { TotpDevice } from '@/types/api';
+import { ConfirmModal } from '@/components/ui/Modal';
+import { isPasskeySupported, registerPasskey } from '@/lib/passkey';
+import type { Credential, SecondFactorMethod } from '@/types/api';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -61,19 +63,10 @@ export default function SettingsPage() {
           title="Settings"
           subtitle="Manage your Cloudflare integration"
         />
-        <div style={{ padding: 'clamp(16px, 4vw, 32px)', maxWidth: 1100, overflow: 'auto', flex: 1 }}>
-          {/* auto-fit collapses to a single column under ~740px without a media query */}
-          <div
-            className="slide-in"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-              gap: 24,
-              alignItems: 'start',
-            }}
-          >
+        <div style={{ padding: 'clamp(16px, 4vw, 32px)', overflow: 'auto', flex: 1 }}>
+          <div className="slide-in settings-grid">
             <CloudflareTab user={user} refreshUser={refreshUser} />
-            <TwoFactorCard user={user} refreshUser={refreshUser} />
+            <TwoFactorSection user={user} refreshUser={refreshUser} />
           </div>
         </div>
       </main>
@@ -81,12 +74,144 @@ export default function SettingsPage() {
   );
 }
 
-function TwoFactorCard({ user, refreshUser }: any) {
-  const devices: TotpDevice[] = user?.totpDevices || [];
-  const [mode, setMode] = useState<'idle' | 'enrolling' | 'removing'>('idle');
+function TwoFactorSection({ user, refreshUser }: any) {
+  const setPreference = async (method: SecondFactorMethod | null) => {
+    try {
+      await api.setSecondFactorPreference({ method });
+      await refreshUser();
+    } catch (error: any) {
+      toast.error(error.message || 'Could not save preference');
+    }
+  };
+
+  return (
+    <div>
+      <div className="kicker" style={{ marginBottom: 8 }}>// account security</div>
+      <h2 style={{ fontSize: 22, margin: 0, letterSpacing: '-0.02em', fontWeight: 500 }}>
+        Two-Factor Authentication
+      </h2>
+      <p style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 8, marginBottom: 20, lineHeight: 1.6 }}>
+        Add a second step after Google sign-in. Enrol as many as you like — there are no recovery codes,
+        so a spare is what keeps you from being locked out.
+      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, alignItems: 'start' }}>
+        <TotpCard user={user} refreshUser={refreshUser} onPrefer={setPreference} />
+        <PasskeyCard user={user} refreshUser={refreshUser} onPrefer={setPreference} />
+      </div>
+    </div>
+  );
+}
+
+function PreferToggle({ method, preferred, onPrefer, disabled }: {
+  method: SecondFactorMethod;
+  preferred: SecondFactorMethod | null;
+  onPrefer: (method: SecondFactorMethod | null) => void;
+  disabled?: boolean;
+}) {
+  const checked = preferred === method;
+
+  return (
+    <label style={{
+      display: 'flex', alignItems: 'center', gap: 10, cursor: disabled ? 'not-allowed' : 'pointer',
+      padding: 12, borderRadius: 'var(--radius)',
+      border: `1px solid ${checked ? 'var(--accent)' : 'var(--line)'}`,
+      background: checked ? 'var(--accent-dim)' : 'transparent',
+      transition: 'border-color 140ms, background 140ms',
+      opacity: disabled ? 0.5 : 1,
+    }}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={() => onPrefer(checked ? null : method)}
+        style={{ accentColor: 'var(--accent)', width: 15, height: 15 }}
+      />
+      <span style={{ fontSize: 13, color: checked ? 'var(--text)' : 'var(--text-3)' }}>
+        Prefer this at sign-in
+      </span>
+    </label>
+  );
+}
+
+function CredentialRow({ credential, active, disabled, onRemove }: {
+  credential: Credential;
+  active?: boolean;
+  disabled?: boolean;
+  onRemove: () => void;
+}) {
+  return (
+    <div style={{
+      padding: 16, background: 'var(--bg-2)',
+      border: `1px solid ${active ? 'var(--accent)' : 'var(--line)'}`,
+      borderRadius: 'var(--radius)',
+      display: 'flex', gap: 12, alignItems: 'center',
+      transition: 'border-color 140ms',
+    }}>
+      <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 8px var(--green)', flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="mono" style={{ fontSize: 13, color: 'var(--text)' }}>{credential.name}</div>
+        <div className="hint">Added {new Date(credential.createdAt).toLocaleDateString()}</div>
+      </div>
+      <button type="button" className="btn btn-ghost btn-sm" disabled={disabled}
+        aria-label={`Remove ${credential.name}`} onClick={onRemove}>
+        <Icons.Trash size={14} />
+      </button>
+    </div>
+  );
+}
+
+function NameStep({ label, placeholder, busy, onSave, onSkip }: {
+  label: string;
+  placeholder: string;
+  busy: boolean;
+  onSave: (name: string) => void;
+  onSkip: () => void;
+}) {
+  const [value, setValue] = useState('');
+
+  return (
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{
+        padding: 16, background: 'var(--bg-2)',
+        border: '1px solid var(--green)', borderRadius: 'var(--radius)',
+        display: 'flex', gap: 12, alignItems: 'center',
+      }}>
+        <Icons.Check size={16} stroke="var(--green)" />
+        <div style={{ fontSize: 13, color: 'var(--text-2)' }}>{label}</div>
+      </div>
+
+      <div className="field">
+        <label className="field-label">Give it a name <span className="hint">(optional)</span></label>
+        <input
+          type="text"
+          className="input"
+          maxLength={30}
+          placeholder={placeholder}
+          value={value}
+          disabled={busy}
+          autoFocus
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && value.trim()) onSave(value.trim()); }}
+        />
+        <div className="hint">Leave it blank and we will name it for you.</div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 12 }}>
+        <button className="btn btn-primary" disabled={busy || !value.trim()} onClick={() => onSave(value.trim())}>
+          <Icons.Check size={14} /> Save name
+        </button>
+        <button className="btn btn-ghost" disabled={busy} onClick={onSkip}>Skip</button>
+      </div>
+    </div>
+  );
+}
+
+function TotpCard({ user, refreshUser, onPrefer }: any) {
+  const devices: Credential[] = user?.totpDevices || [];
+  const [mode, setMode] = useState<'idle' | 'enrolling' | 'naming' | 'removing'>('idle');
   const [enrolment, setEnrolment] = useState<{ deviceId: string; name: string; secret: string; qrDataUrl: string } | null>(null);
-  const [removeTarget, setRemoveTarget] = useState<TotpDevice | null>(null);
-  const [name, setName] = useState('');
+  const [removeTarget, setRemoveTarget] = useState<Credential | null>(null);
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -95,7 +220,6 @@ function TwoFactorCard({ user, refreshUser }: any) {
     setMode('idle');
     setEnrolment(null);
     setRemoveTarget(null);
-    setName('');
     setCode('');
     setCodeError(false);
   };
@@ -103,7 +227,7 @@ function TwoFactorCard({ user, refreshUser }: any) {
   const startEnrolment = async () => {
     setBusy(true);
     try {
-      const response = await api.setupTotp({ name: name.trim() });
+      const response = await api.setupTotp({});
       setEnrolment(response.data);
       setMode('enrolling');
       setCode('');
@@ -121,8 +245,14 @@ function TwoFactorCard({ user, refreshUser }: any) {
     try {
       if (mode === 'enrolling' && enrolment) {
         await api.confirmTotp({ deviceId: enrolment.deviceId, code: value });
-        toast.success('Authenticator app added');
-      } else if (mode === 'removing' && removeTarget) {
+        await refreshUser();
+        // The code expires in 30s, so it is spent immediately and the name is asked for after.
+        setMode('naming');
+        setCode('');
+        return;
+      }
+
+      if (mode === 'removing' && removeTarget) {
         await api.removeTotp({ deviceId: removeTarget.id, code: value });
         toast.success('Authenticator app removed');
       }
@@ -134,6 +264,19 @@ function TwoFactorCard({ user, refreshUser }: any) {
       setCode('');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const saveName = async (value: string) => {
+    setBusy(true);
+    try {
+      await api.renameCredential({ kind: 'totp', id: enrolment!.deviceId, name: value });
+      await refreshUser();
+    } catch (error: any) {
+      toast.error(error.message || 'Could not save the name');
+    } finally {
+      setBusy(false);
+      reset();
     }
   };
 
@@ -150,16 +293,28 @@ function TwoFactorCard({ user, refreshUser }: any) {
       </div>
 
       <div style={{ position: 'relative' }}>
-        <div className="kicker" style={{ marginBottom: 8 }}>// account security</div>
         <h2 style={{ fontSize: 22, margin: 0, letterSpacing: '-0.02em', fontWeight: 500 }}>
-          Two-Factor Authentication
+          TOTP Method
         </h2>
-        <p style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 8, marginBottom: 28, lineHeight: 1.6 }}>
-          Protect sign-in with a time-based code from an authenticator app. Enrol as many apps as you
-          like so losing one device does not lock you out — there are no recovery codes.
+        <p style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 8, marginBottom: 20, lineHeight: 1.6 }}>
+          A 6-digit code from an authenticator app, generated offline.
         </p>
 
-        {mode === 'enrolling' && enrolment ? (
+        {devices.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <PreferToggle method="totp" preferred={user?.preferredSecondFactor ?? null} onPrefer={onPrefer} disabled={busy} />
+          </div>
+        )}
+
+        {mode === 'naming' ? (
+          <NameStep
+            label="Authenticator app verified and enabled."
+            placeholder="e.g. iPhone, Authy, 1Password"
+            busy={busy}
+            onSave={saveName}
+            onSkip={reset}
+          />
+        ) : mode === 'enrolling' && enrolment ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div className="kicker">
               Setting up <span style={{ color: 'var(--accent)' }}>{enrolment.name}</span>
@@ -217,43 +372,27 @@ function TwoFactorCard({ user, refreshUser }: any) {
               }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--text-3)' }} />
                 <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                  Two-factor authentication is off
+                  No authenticator app enrolled
                 </div>
               </div>
             ) : (
               devices.map((device) => (
                 <div key={device.id}>
-                  <div style={{
-                    padding: 16, background: 'var(--bg-2)',
-                    border: `1px solid ${removeTarget?.id === device.id ? 'var(--accent)' : 'var(--line)'}`,
-                    borderRadius: 'var(--radius)',
-                    display: 'flex', gap: 12, alignItems: 'center',
-                    transition: 'border-color 140ms',
-                  }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 8px var(--green)', flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="mono" style={{ fontSize: 13, color: 'var(--text)' }}>{device.name}</div>
-                      <div className="hint">Added {new Date(device.createdAt).toLocaleDateString()}</div>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      disabled={busy}
-                      aria-label={`Remove ${device.name}`}
-                      onClick={() => {
-                        if (removeTarget?.id === device.id) {
-                          reset();
-                          return;
-                        }
-                        setMode('removing');
-                        setRemoveTarget(device);
-                        setCode('');
-                        setCodeError(false);
-                      }}
-                    >
-                      <Icons.Trash size={14} />
-                    </button>
-                  </div>
+                  <CredentialRow
+                    credential={device}
+                    active={removeTarget?.id === device.id}
+                    disabled={busy}
+                    onRemove={() => {
+                      if (removeTarget?.id === device.id) {
+                        reset();
+                        return;
+                      }
+                      setMode('removing');
+                      setRemoveTarget(device);
+                      setCode('');
+                      setCodeError(false);
+                    }}
+                  />
 
                   {mode === 'removing' && removeTarget?.id === device.id && (
                     <div className="fade-in" style={{ paddingTop: 16 }}>
@@ -279,28 +418,11 @@ function TwoFactorCard({ user, refreshUser }: any) {
               </div>
             )}
 
-            <div className="field">
-              <label className="field-label" htmlFor="totp-name">
-                Name this app <span className="req">*</span>
-              </label>
-              <input
-                id="totp-name"
-                type="text"
-                className="input"
-                maxLength={30}
-                placeholder="e.g. iPhone, Authy, 1Password"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={busy}
-              />
-              <div className="hint">Shown in this list, so you can tell which app to remove later.</div>
-            </div>
-
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', paddingTop: 8, flexWrap: 'wrap' }}>
               <button
                 className="btn btn-primary"
                 onClick={startEnrolment}
-                disabled={busy || !name.trim()}
+                disabled={busy}
               >
                 <Icons.Plus size={14} /> Add authenticator app
               </button>
@@ -311,6 +433,143 @@ function TwoFactorCard({ user, refreshUser }: any) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function PasskeyCard({ user, refreshUser, onPrefer }: any) {
+  const passkeys: Credential[] = user?.passkeys || [];
+  const [busy, setBusy] = useState(false);
+  const [namingId, setNamingId] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<Credential | null>(null);
+  const supported = isPasskeySupported();
+
+  const add = async () => {
+    setBusy(true);
+    try {
+      const response = await registerPasskey();
+      await refreshUser();
+      // Named afterwards, so the authenticator prompt is the first thing the user sees.
+      setNamingId(response.data.passkeyId);
+    } catch (error: any) {
+      toast.error(error.message || 'Could not add passkey');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveName = async (value: string) => {
+    setBusy(true);
+    try {
+      await api.renameCredential({ kind: 'passkey', id: namingId!, name: value });
+      await refreshUser();
+    } catch (error: any) {
+      toast.error(error.message || 'Could not save the name');
+    } finally {
+      setBusy(false);
+      setNamingId(null);
+    }
+  };
+
+  const remove = async () => {
+    if (!removeTarget) return;
+    setBusy(true);
+    try {
+      await api.removePasskey({ passkeyId: removeTarget.id });
+      toast.success('Passkey removed');
+      await refreshUser();
+      setRemoveTarget(null);
+    } catch (error: any) {
+      toast.error(error.message || 'Could not remove passkey');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card" style={{ padding: 28, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: 20, right: 20, opacity: 0.06, pointerEvents: 'none' }}>
+        <Icons.Key size={80} />
+      </div>
+
+      <div style={{ position: 'relative' }}>
+        <h2 style={{ fontSize: 22, margin: 0, letterSpacing: '-0.02em', fontWeight: 500 }}>
+          Passkey
+        </h2>
+        <p style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 8, marginBottom: 20, lineHeight: 1.6 }}>
+          A security key, phone, or password manager like Bitwarden. Nothing to type.
+        </p>
+
+        {passkeys.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <PreferToggle method="passkey" preferred={user?.preferredSecondFactor ?? null} onPrefer={onPrefer} disabled={busy} />
+          </div>
+        )}
+
+        {namingId ? (
+          <NameStep
+            label="Passkey registered and enabled."
+            placeholder="e.g. YubiKey, Bitwarden, MacBook"
+            busy={busy}
+            onSave={saveName}
+            onSkip={() => setNamingId(null)}
+          />
+        ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {passkeys.length === 0 ? (
+            <div style={{
+              padding: 16, background: 'var(--bg-2)',
+              border: '1px solid var(--line)', borderRadius: 'var(--radius)',
+              display: 'flex', gap: 12, alignItems: 'center',
+            }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--text-3)' }} />
+              <div style={{ fontSize: 13, color: 'var(--text-2)' }}>No passkey registered</div>
+            </div>
+          ) : (
+            passkeys.map((passkey) => (
+              <CredentialRow
+                key={passkey.id}
+                credential={passkey}
+                disabled={busy}
+                onRemove={() => setRemoveTarget(passkey)}
+              />
+            ))
+          )}
+
+          {passkeys.length === 1 && (
+            <div className="hint" style={{ color: 'var(--accent)' }}>
+              Add a second passkey — with only one registered, losing that device locks you out.
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', paddingTop: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-primary" onClick={add} disabled={busy || !supported}>
+              <Icons.Plus size={14} /> Add passkey
+            </button>
+            <span className="hint">
+              {!supported
+                ? 'This browser does not support passkeys.'
+                : passkeys.length === 1 ? '1 passkey registered' : `${passkeys.length} passkeys registered`}
+            </span>
+          </div>
+        </div>
+        )}
+      </div>
+
+      <ConfirmModal
+        isOpen={!!removeTarget}
+        onClose={() => setRemoveTarget(null)}
+        onConfirm={remove}
+        title="Remove passkey"
+        message={
+          passkeys.length === 1
+            ? `Remove "${removeTarget?.name}"? This is your last passkey.`
+            : `Remove "${removeTarget?.name}"? It will no longer work at sign-in.`
+        }
+        confirmText="Remove"
+        confirmVariant="danger"
+        loading={busy}
+      />
     </div>
   );
 }

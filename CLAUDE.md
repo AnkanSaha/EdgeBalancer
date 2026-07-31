@@ -260,6 +260,8 @@ types/
 | cloudflareAccountIdIv / Tag | String | IV + GCM tag for accountId |
 | cloudflareTokenIv / Tag | String | IV + GCM tag for apiToken |
 | totpDevices | Array\<ITotpDevice\> | unbounded; each `{ name, secret, iv, tag, confirmed, createdAt }`, secret AES-256-GCM encrypted |
+| passkeys | Array\<IPasskey\> | unbounded; each `{ name, credentialId, publicKey, counter, transports, createdAt }` |
+| preferredSecondFactor | String | `totp` \| `passkey` \| null — which method sign-in opens on |
 
 ### LoadBalancer
 | Field | Type | Notes |
@@ -310,8 +312,14 @@ Stores deployment history snapshots (Worker JS + config) per load balancer actio
 | POST | `/2fa/confirm` | `{ deviceId, code }` → activates the device (protected) |
 | POST | `/2fa/remove` | `{ deviceId, code }` → revokes a device (protected) |
 | POST | `/2fa/verify` | `{ code }` → trades the challenge cookie for a session |
+| POST | `/2fa/passkey/register/options` | → WebAuthn creation options (protected) |
+| POST | `/2fa/passkey/register/verify` | `{ name, response }` → stores the passkey (protected) |
+| POST | `/2fa/passkey/auth/options` | → WebAuthn request options (gated by `eb_2fa`) |
+| POST | `/2fa/passkey/auth/verify` | `{ response }` → trades the challenge for a session |
+| POST | `/2fa/passkey/remove` | `{ passkeyId }` (protected) |
+| POST | `/2fa/preference` | `{ method: 'totp' \| 'passkey' \| null }` (protected) |
 
-### Two-Factor Authentication (TOTP)
+### Two-Factor Authentication (TOTP + Passkeys)
 
 Authenticator apps only — no SMS, no email, **no recovery codes**. Redundancy comes from enrolling
 **any number of apps**, each a separate `totpDevices[]` subdocument with its own AES-256-GCM
@@ -338,6 +346,32 @@ key just expires. Drift window is ±1 step. All four routes use the `STRICT` rat
 Client: `components/auth/OtpInput.tsx` is one transparent input over six boxes (paste, backspace,
 `one-time-code` autofill work for free) and auto-submits on the sixth digit — there is no submit
 button anywhere in the 2FA flow.
+
+#### Passkeys (WebAuthn)
+
+A second, parallel method — never a password replacement. Unlimited named passkeys in
+`passkeys[]`, verified through `@simplewebauthn/server` in `services/passkeyService.ts` (the only
+file importing it).
+
+**`authenticatorSelection` deliberately omits `authenticatorAttachment`.** Pinning it to
+`'platform'` — the common tutorial default — silently excludes every USB security key and every
+extension-based manager (Bitwarden, 1Password). Paired with `residentKey: 'discouraged'` (Google
+already identified the user, so no discoverable credential is needed, which keeps limited-slot and
+U2F-era keys working) and `userVerification: 'preferred'` (a PIN-less key still passes).
+
+**Challenges are stateless.** Rather than a Redis entry, the WebAuthn challenge rides inside the
+signed JWT cookie: `eb_2fa` for login (re-issued by `/passkey/auth/options`), `eb_pk_reg` for
+enrolment. Both carry `stage`, which `authenticate` rejects — so neither can be renamed into a
+session.
+
+**`rpID`** comes from the `CLIENT_URL` hostname, since WebAuthn binds to the origin the page runs
+on, not the API's. `WEBAUTHN_RP_ID` overrides it when passkeys should span sibling subdomains.
+
+**Login is symmetric between the two methods.** `POST /auth/google` returns
+`{ twoFactorRequired, methods, preferred }`; the client opens on `preferred`, and both the passkey
+and TOTP screens carry the same **Try another way** control, hidden when only one method exists.
+Removing a passkey needs only the session plus a confirm (standard passkey UX); removing a TOTP app
+still demands a live code, because a code is the only thing that proves possession there.
 
 ### Cloudflare (`/api/cloudflare`)
 | Method | Path | Notes |
@@ -540,6 +574,7 @@ FIREBASE_PRIVATE_KEY=
 REDIS_URL=redis://localhost:6379
 MISTRAL_API_KEY=             # AI provisioning — at least one of these two
 OPENROUTER_API_KEY=          # enables POST /api/ai/generate, else it returns 503
+WEBAUTHN_RP_ID=              # optional — defaults to the CLIENT_URL hostname
 ```
 
 ### Kubernetes

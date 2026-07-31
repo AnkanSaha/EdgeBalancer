@@ -71,6 +71,41 @@ class ApiClient {
     return response.data;
   }
 
+  async passkeyRegisterOptions(): Promise<ApiResponse> {
+    const response = await this.client.post('/auth/2fa/passkey/register/options');
+    return response.data;
+  }
+
+  async passkeyRegisterVerify(data: { response: unknown }): Promise<ApiResponse> {
+    const response = await this.client.post('/auth/2fa/passkey/register/verify', data);
+    return response.data;
+  }
+
+  async passkeyAuthOptions(): Promise<ApiResponse> {
+    const response = await this.client.post('/auth/2fa/passkey/auth/options');
+    return response.data;
+  }
+
+  async passkeyAuthVerify(data: { response: unknown }): Promise<ApiResponse> {
+    const response = await this.client.post('/auth/2fa/passkey/auth/verify', data);
+    return response.data;
+  }
+
+  async removePasskey(data: { passkeyId: string }): Promise<ApiResponse> {
+    const response = await this.client.post('/auth/2fa/passkey/remove', data);
+    return response.data;
+  }
+
+  async renameCredential(data: { kind: 'totp' | 'passkey'; id: string; name: string }): Promise<ApiResponse> {
+    const response = await this.client.post('/auth/2fa/rename', data);
+    return response.data;
+  }
+
+  async setSecondFactorPreference(data: { method: 'totp' | 'passkey' | null }): Promise<ApiResponse> {
+    const response = await this.client.post('/auth/2fa/preference', data);
+    return response.data;
+  }
+
   // Cloudflare endpoints
   async saveCloudflareCredentials(data: any): Promise<ApiResponse> {
     const response = await this.client.post('/cloudflare/credentials', data);

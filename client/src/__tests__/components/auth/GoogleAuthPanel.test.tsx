@@ -1,14 +1,16 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GoogleAuthPanel } from '@/components/auth/GoogleAuthPanel';
 import { useAuth } from '@/contexts/AuthContext';
 import { isFirebaseConfigured } from '@/lib/firebase';
+import toast from 'react-hot-toast';
 
 const push = jest.fn();
 jest.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('@/lib/firebase', () => ({ isFirebaseConfigured: jest.fn() }));
 jest.mock('react-hot-toast', () => ({ __esModule: true, default: { success: jest.fn(), error: jest.fn() } }));
+jest.mock('@/lib/passkey', () => ({ isPasskeySupported: () => true, authenticateWithPasskey: jest.fn() }));
 
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockConfigured = isFirebaseConfigured as jest.MockedFunction<typeof isFirebaseConfigured>;
@@ -16,8 +18,9 @@ const mockConfigured = isFirebaseConfigured as jest.MockedFunction<typeof isFire
 const authState = (over: Partial<ReturnType<typeof useAuth>> = {}) => ({
   user: null,
   loading: false,
-  loginWithGoogle: jest.fn().mockResolvedValue({ totpRequired: false }),
+  loginWithGoogle: jest.fn().mockResolvedValue({ twoFactorRequired: false, methods: [], preferred: null }),
   verifyTotp: jest.fn().mockResolvedValue(undefined),
+  verifyPasskey: jest.fn().mockResolvedValue(undefined),
   logout: jest.fn(),
   refreshUser: jest.fn(),
   ...over,
@@ -43,7 +46,7 @@ describe('GoogleAuthPanel', () => {
   });
 
   it('signs in and redirects to the dashboard', async () => {
-    const loginWithGoogle = jest.fn().mockResolvedValue({ totpRequired: false });
+    const loginWithGoogle = jest.fn().mockResolvedValue({ twoFactorRequired: false, methods: [], preferred: null });
     mockUseAuth.mockReturnValue(authState({ loginWithGoogle }));
 
     render(<GoogleAuthPanel mode="signin" />);
@@ -53,26 +56,75 @@ describe('GoogleAuthPanel', () => {
     expect(push).toHaveBeenCalledWith('/dashboard');
   });
 
-  it('stops at the code screen instead of the dashboard when 2FA is on', async () => {
-    const loginWithGoogle = jest.fn().mockResolvedValue({ totpRequired: true });
-    mockUseAuth.mockReturnValue(authState({ loginWithGoogle }));
+  const challenge = (methods: string[], preferred: string | null) =>
+    jest.fn().mockResolvedValue({ twoFactorRequired: true, methods, preferred });
 
+  const signIn = async () => {
     render(<GoogleAuthPanel mode="signin" />);
     await userEvent.click(screen.getByRole('button', { name: /Continue with Google/i }));
+  };
+
+  it('lands on the code screen when TOTP is preferred, without touching passkeys', async () => {
+    const verifyPasskey = jest.fn();
+    mockUseAuth.mockReturnValue(authState({ loginWithGoogle: challenge(['passkey', 'totp'], 'totp'), verifyPasskey }));
+
+    await signIn();
 
     expect(await screen.findByLabelText('6-digit authentication code')).toBeInTheDocument();
+    expect(verifyPasskey).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('fetches the passkey immediately when it is preferred', async () => {
+    const verifyPasskey = jest.fn().mockResolvedValue(undefined);
+    mockUseAuth.mockReturnValue(authState({ loginWithGoogle: challenge(['passkey', 'totp'], 'passkey'), verifyPasskey }));
+
+    await signIn();
+
+    expect(await screen.findByText(/Fetching Passkey/i)).toBeInTheDocument();
+    await waitFor(() => expect(verifyPasskey).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard'));
+  });
+
+  it('offers "Try another way" from both methods and switches between them', async () => {
+    mockUseAuth.mockReturnValue(authState({ loginWithGoogle: challenge(['passkey', 'totp'], 'totp') }));
+
+    await signIn();
+    await screen.findByLabelText('6-digit authentication code');
+
+    await userEvent.click(screen.getByRole('button', { name: /Try another way/i }));
+    expect(screen.getByRole('button', { name: /Passkey or security key/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Authenticator app code/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Passkey or security key/i }));
+    expect(await screen.findByText(/Fetching Passkey/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Try another way/i })).toBeInTheDocument();
+  });
+
+  it('hides "Try another way" when only one method exists', async () => {
+    mockUseAuth.mockReturnValue(authState({ loginWithGoogle: challenge(['totp'], null) }));
+
+    await signIn();
+    await screen.findByLabelText('6-digit authentication code');
+
+    expect(screen.queryByRole('button', { name: /Try another way/i })).not.toBeInTheDocument();
+  });
+
+  it('falls back to the chooser when the passkey ceremony is cancelled', async () => {
+    const verifyPasskey = jest.fn().mockRejectedValue(new Error('Passkey request was cancelled'));
+    mockUseAuth.mockReturnValue(authState({ loginWithGoogle: challenge(['passkey', 'totp'], 'passkey'), verifyPasskey }));
+
+    await signIn();
+
+    expect(await screen.findByRole('button', { name: /Authenticator app code/i })).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });
 
   it('a complete code verifies and redirects, with no submit button', async () => {
     const verifyTotp = jest.fn().mockResolvedValue(undefined);
-    mockUseAuth.mockReturnValue(authState({
-      loginWithGoogle: jest.fn().mockResolvedValue({ totpRequired: true }),
-      verifyTotp,
-    }));
+    mockUseAuth.mockReturnValue(authState({ loginWithGoogle: challenge(['totp'], 'totp'), verifyTotp }));
 
-    render(<GoogleAuthPanel mode="signin" />);
-    await userEvent.click(screen.getByRole('button', { name: /Continue with Google/i }));
+    await signIn();
 
     const field = await screen.findByLabelText('6-digit authentication code');
     await userEvent.type(field, '123456');

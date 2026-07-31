@@ -111,6 +111,47 @@ describe('TOTP enrolment', () => {
     expect(me.json().data.user.totpDevices[0].name).toBe('1Password');
   });
 
+  it('names the app for you when none is given', async () => {
+    const { cookie } = await createTestUser();
+    const setup = await app.inject({ method: 'POST', url: '/api/auth/2fa/setup', headers: cookie, payload: {} });
+    const { deviceId, secret } = setup.json().data;
+
+    await app.inject({
+      method: 'POST', url: '/api/auth/2fa/confirm', headers: cookie,
+      payload: { deviceId, code: codeFor(secret, STEP_MS) },
+    });
+
+    const me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: cookie });
+    expect(me.json().data.user.totpDevices[0].name).toBe('Authenticator 1');
+  });
+
+  it('renames an enrolled app afterwards', async () => {
+    const { cookie } = await createTestUser();
+    const { deviceId } = await enrol(cookie);
+
+    const res = await app.inject({
+      method: 'POST', url: '/api/auth/2fa/rename', headers: cookie,
+      payload: { kind: 'totp', id: deviceId, name: '  Work phone  ' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.user.totpDevices[0].name).toBe('Work phone');
+  });
+
+  it('rejects a rename with a bad kind, id or blank name', async () => {
+    const { cookie } = await createTestUser();
+    const { deviceId } = await enrol(cookie);
+
+    for (const payload of [
+      { kind: 'sms', id: deviceId, name: 'x' },
+      { kind: 'totp', id: 'nope', name: 'x' },
+      { kind: 'totp', id: deviceId, name: '   ' },
+    ]) {
+      const res = await app.inject({ method: 'POST', url: '/api/auth/2fa/rename', headers: cookie, payload });
+      expect(res.statusCode).toBe(400);
+    }
+  });
+
   it('rejects a blank or oversized name', async () => {
     const { cookie } = await createTestUser();
 
@@ -177,7 +218,8 @@ describe('POST /api/auth/google with two-factor on', () => {
     const res = await app.inject({ method: 'POST', url: '/api/auth/google', payload: { idToken: 'x' } });
 
     expect(res.statusCode).toBe(200);
-    expect(res.json().data.totpRequired).toBe(true);
+    expect(res.json().data.twoFactorRequired).toBe(true);
+    expect(res.json().data.methods).toEqual(['totp']);
     expect(res.json().data.user).toBeUndefined();
 
     const cookies = setCookies(res);

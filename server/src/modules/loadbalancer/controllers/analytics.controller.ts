@@ -53,10 +53,9 @@ export async function getLoadBalancerAnalytics(req: Request, res: Response, next
 
     // Cache the analytics data in Redis for 10 minutes
     try {
-      const setResult = await redis.set(cacheKey, JSON.stringify(analytics), {
+      await redis.set(cacheKey, JSON.stringify(analytics), {
         expiration: { type: 'EX', value: 600 }
       });
-      console.log('Cache set result:', setResult); // should be "OK"
     } catch (err) {
       console.error('Cache set FAILED:', err);
     }

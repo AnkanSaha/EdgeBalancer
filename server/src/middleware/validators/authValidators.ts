@@ -13,7 +13,7 @@ export const googleAuthValidation = [
   }),
 ];
 
-export const totpSetupValidation = [
+export const credentialNameValidation = [
   validateBody((body) => {
     if (body?.name === undefined || body?.name === null) {
       return [];
@@ -21,8 +21,8 @@ export const totpSetupValidation = [
 
     const name = typeof body.name === 'string' ? body.name.trim() : '';
 
-    if (!name) return ['A name for the authenticator app is required'];
-    if (name.length > 30) return ['Authenticator name cannot exceed 30 characters'];
+    if (!name) return ['A name is required'];
+    if (name.length > 30) return ['Name cannot exceed 30 characters'];
 
     return [];
   }),
@@ -42,6 +42,46 @@ export const totpDeviceValidation = [
     if (!/^[a-f\d]{24}$/i.test(String(body?.deviceId || ''))) {
       errors.push('A valid authenticator app id is required');
     }
+
+    return errors;
+  }),
+];
+
+export const preferenceValidation = [
+  validateBody((body) => {
+    const method = body?.method;
+    return method === null || method === 'totp' || method === 'passkey'
+      ? []
+      : ['Preference must be totp, passkey or null'];
+  }),
+];
+
+export const passkeyIdValidation = [
+  validateBody((body) =>
+    /^[a-f\d]{24}$/i.test(String(body?.passkeyId || '')) ? [] : ['A valid passkey id is required']
+  ),
+];
+
+export const passkeyResponseValidation = [
+  validateBody((body) =>
+    body?.response && typeof body.response === 'object' ? [] : ['A passkey response is required']
+  ),
+];
+
+export const renameValidation = [
+  validateBody((body) => {
+    const errors: string[] = [];
+
+    if (body?.kind !== 'totp' && body?.kind !== 'passkey') {
+      errors.push('Kind must be totp or passkey');
+    }
+    if (!/^[a-f\d]{24}$/i.test(String(body?.id || ''))) {
+      errors.push('A valid credential id is required');
+    }
+
+    const name = typeof body?.name === 'string' ? body.name.trim() : '';
+    if (!name) errors.push('A name is required');
+    if (name.length > 30) errors.push('Name cannot exceed 30 characters');
 
     return errors;
   }),

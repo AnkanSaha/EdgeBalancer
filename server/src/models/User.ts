@@ -10,6 +10,18 @@ export interface ITotpDevice {
   createdAt: Date;
 }
 
+export interface IPasskey {
+  _id: Types.ObjectId;
+  name: string;
+  credentialId: string;
+  publicKey: string;
+  counter: number;
+  transports: string[];
+  createdAt: Date;
+}
+
+export type SecondFactorMethod = 'totp' | 'passkey';
+
 export interface IUser extends Document {
   name: string;
   email?: string | null;
@@ -22,6 +34,8 @@ export interface IUser extends Document {
   cloudflareAccountIdTag?: string;
   cloudflareTokenTag?: string;
   totpDevices: Types.DocumentArray<ITotpDevice>;
+  passkeys: Types.DocumentArray<IPasskey>;
+  preferredSecondFactor?: SecondFactorMethod | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,6 +52,23 @@ const TotpDeviceSchema = new Schema<ITotpDevice>(
     iv: { type: String, required: true },
     tag: { type: String, required: true },
     confirmed: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
+
+const PasskeySchema = new Schema<IPasskey>(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: [30, 'Passkey name cannot exceed 30 characters'],
+    },
+    credentialId: { type: String, required: true },
+    publicKey: { type: String, required: true },
+    counter: { type: Number, default: 0 },
+    transports: { type: [String], default: [] },
     createdAt: { type: Date, default: Date.now },
   },
   { _id: true }
@@ -101,6 +132,15 @@ const UserSchema = new Schema<IUser>(
     totpDevices: {
       type: [TotpDeviceSchema],
       default: [],
+    },
+    passkeys: {
+      type: [PasskeySchema],
+      default: [],
+    },
+    preferredSecondFactor: {
+      type: String,
+      enum: ['totp', 'passkey', null],
+      default: null,
     },
   },
   {
