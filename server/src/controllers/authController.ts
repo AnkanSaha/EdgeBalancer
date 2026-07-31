@@ -1,7 +1,14 @@
 import { User } from '../models/User';
 import { generateUsername } from '../utils';
-import { CHALLENGE_COOKIE, issueChallengeCookie, issueSessionCookie, toUserPayload } from '../utils/authSession';
-import { hasTotp } from '../services/totpService';
+import {
+  CHALLENGE_COOKIE,
+  PASSKEY_REG_COOKIE,
+  availableMethods,
+  hasSecondFactor,
+  issueChallengeCookie,
+  issueSessionCookie,
+  toUserPayload,
+} from '../utils/authSession';
 import { verifyFirebaseToken, isFirebaseConfigured } from '../config/firebase';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
@@ -9,6 +16,7 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
   try {
     res.clearCookie('token');
     res.clearCookie(CHALLENGE_COOKIE);
+    res.clearCookie(PASSKEY_REG_COOKIE);
     res.json({
       success: true,
       message: 'Logout successful',
@@ -89,13 +97,17 @@ export const googleAuth = async (req: Request, res: Response, next: NextFunction
     }
 
     // 3. Google proved the identity — with 2FA on, that only earns a challenge, not a session.
-    if (hasTotp(user)) {
+    if (hasSecondFactor(user)) {
       issueChallengeCookie(res, user);
 
       res.json({
         success: true,
-        message: 'Enter the code from your authenticator app',
-        data: { totpRequired: true },
+        message: 'Confirm it is you to finish signing in',
+        data: {
+          twoFactorRequired: true,
+          methods: availableMethods(user),
+          preferred: user.preferredSecondFactor ?? null,
+        },
       });
       return;
     }

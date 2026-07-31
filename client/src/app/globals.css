@@ -297,6 +297,17 @@ details[open] > summary svg { transform: rotate(180deg); }
 .stagger-4 { animation-delay: 0.4s; }
 .stagger-5 { animation-delay: 0.5s; }
 
+/* Settings: a narrow credentials column beside the wider 2FA block */
+.settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .settings-grid { grid-template-columns: 1fr; }
+}
+
 /* Responsive Typography */
 @media (max-width: 640px) {
   h1 { font-size: clamp(28px, 6vw, 44px) !important; }

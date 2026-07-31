@@ -4,8 +4,9 @@ export interface JwtPayload {
   userId: string;
   email?: string | null;
   firebaseUid?: string | null;
-  // Present only on the short-lived two-factor challenge token, which must never authenticate a request.
-  stage?: 'pending-2fa';
+  // Present only on the short-lived two-factor tokens, which must never authenticate a request.
+  stage?: 'pending-2fa' | 'passkey-register';
+  challenge?: string;
 }
 
 const JWT_EXPIRY = '24h';

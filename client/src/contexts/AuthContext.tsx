@@ -3,16 +3,24 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { api } from '@/lib/api';
 import { getFirebaseAuth, googleAuthProvider } from '@/lib/firebase';
-import type { User } from '@/types/api';
+import type { SecondFactorMethod, User } from '@/types/api';
+import { authenticateWithPasskey } from '@/lib/passkey';
 import { signInWithPopup, signOut } from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  loginWithGoogle: () => Promise<{ totpRequired: boolean }>;
+  loginWithGoogle: () => Promise<TwoFactorChallenge>;
   verifyTotp: (code: string) => Promise<void>;
+  verifyPasskey: () => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+}
+
+export interface TwoFactorChallenge {
+  twoFactorRequired: boolean;
+  methods: SecondFactorMethod[];
+  preferred: SecondFactorMethod | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, []);
 
-  const loginWithGoogle = async (): Promise<{ totpRequired: boolean }> => {
+  const loginWithGoogle = async (): Promise<TwoFactorChallenge> => {
     const auth = getFirebaseAuth();
 
     try {
@@ -49,9 +57,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const response = await api.googleAuth({ idToken });
 
-      // With 2FA on, Google only earns a challenge — the session comes from verifyTotp.
-      if (response.data?.totpRequired) {
-        return { totpRequired: true };
+      // With 2FA on, Google only earns a challenge — the session comes from a second factor.
+      if (response.data?.twoFactorRequired) {
+        return {
+          twoFactorRequired: true,
+          methods: response.data.methods || [],
+          preferred: response.data.preferred ?? null,
+        };
       }
 
       if (!response.success || !response.data?.user) {
@@ -59,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setUser(response.data.user);
-      return { totpRequired: false };
+      return { twoFactorRequired: false, methods: [], preferred: null };
     } catch (error) {
       console.error('Google login error:', error);
       throw error;
@@ -78,6 +90,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(response.data.user);
   };
 
+  const verifyPasskey = async () => {
+    const response = await authenticateWithPasskey();
+
+    if (!response.success || !response.data?.user) {
+      throw new Error(response.message || 'Verification failed');
+    }
+
+    setUser(response.data.user);
+  };
+
   const logout = async () => {
     await api.logout();
     setUser(null);
@@ -88,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, loginWithGoogle, verifyTotp, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, loginWithGoogle, verifyTotp, verifyPasskey, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -15,10 +15,14 @@ export interface User {
   cloudflareAccountId?: string; // masked
   cloudflareApiToken?: string; // masked
   totpEnabled?: boolean;
-  totpDevices?: TotpDevice[];
+  totpDevices?: Credential[];
+  passkeys?: Credential[];
+  preferredSecondFactor?: SecondFactorMethod | null;
 }
 
-export interface TotpDevice {
+export type SecondFactorMethod = 'totp' | 'passkey';
+
+export interface Credential {
   id: string;
   name: string;
   createdAt: string;
