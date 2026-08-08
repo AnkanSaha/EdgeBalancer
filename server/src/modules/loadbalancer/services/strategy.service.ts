@@ -25,13 +25,13 @@ export function getStrategyLabel(strategy: string): string {
       return 'IP Hash';
     case 'cookie-sticky':
     case 'sticky-session':
-      return 'Sticky Session';
+      return 'Sticky Sessions';
     case 'weighted-cookie-sticky':
-      return 'Weighted Sticky Session';
+      return 'Weighted Sticky Sessions';
     case 'failover':
       return 'Failover';
     case 'geo-steering':
-      return 'Geo Steering';
+      return 'Geographic Routing';
     default:
       return 'Round Robin';
   }

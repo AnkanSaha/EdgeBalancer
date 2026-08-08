@@ -15,13 +15,13 @@ import type { LoadBalancerStrategy } from '@/types/api';
 import toast from 'react-hot-toast';
 
 const STRATEGIES = [
-  { id: 'round-robin', title: 'Round Robin', desc: 'Rotate requests across origins in edge-local sequence.', icon: 'Refresh' },
-  { id: 'weighted-round-robin', title: 'Weighted Round Robin', desc: 'Bias traffic toward stronger origins with per-server weights.', icon: 'Activity' },
-  { id: 'ip-hash', title: 'IP Hash', desc: 'Send the same client IP back to the same origin whenever possible.', icon: 'Key' },
-  { id: 'cookie-sticky', title: 'Sticky Session', desc: 'Set a cookie so repeat visitors stay on the same origin.', icon: 'Link' },
-  { id: 'weighted-cookie-sticky', title: 'Weighted Sticky', desc: 'Assign first visit by weight, then keep that visitor pinned with a cookie.', icon: 'Layers' },
-  { id: 'failover', title: 'Failover', desc: 'Try origins in order and move to the next one when an origin fails.', icon: 'Shield' },
-  { id: 'geo-steering', title: 'Geo Steering', desc: 'Route users to different servers based on their geographic location (country, region, or continent).', icon: 'Globe' },
+  { id: 'round-robin', title: 'Round Robin', desc: 'Each request goes to the next server in line, then back to the first.', icon: 'Refresh' },
+  { id: 'weighted-round-robin', title: 'Weighted Round Robin', desc: 'Bigger servers get more requests, smaller ones get fewer.', icon: 'Activity' },
+  { id: 'ip-hash', title: 'IP Hash', desc: 'Each visitor always lands on the same server, picked from their IP address.', icon: 'Key' },
+  { id: 'cookie-sticky', title: 'Sticky Sessions', desc: 'A visitor stays on the same server for their whole visit.', icon: 'Link' },
+  { id: 'weighted-cookie-sticky', title: 'Weighted Sticky Sessions', desc: 'Bigger servers get more new visitors, and each visitor then stays put.', icon: 'Layers' },
+  { id: 'failover', title: 'Failover', desc: 'Everything goes to your main server. If it fails, the next one takes over.', icon: 'Shield' },
+  { id: 'geo-steering', title: 'Geographic Routing', desc: 'Visitors are sent to the server closest to where they are.', icon: 'Globe' },
 ];
 
 const STEPS = [
