@@ -49,3 +49,6 @@ opencode.json
 
 # Misc
 *.pem
+
+#commandcode
+.commandcode/
