@@ -198,6 +198,11 @@ class ApiClient {
     return response.data;
   }
 
+  async restartOriginHealth(lbId: string, originIndex: number): Promise<ApiResponse> {
+    const response = await this.client.post(`/loadbalancers/${lbId}/health/restart-origin`, { originIndex });
+    return response.data;
+  }
+
   // Session endpoints
   async getSessions(params?: { cursor?: string; limit?: number; filter?: 'all' | 'active' | 'inactive' }): Promise<ApiResponse> {
     const query = new URLSearchParams();

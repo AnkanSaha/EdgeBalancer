@@ -20,6 +20,10 @@ import { resolveIpOrigins, deleteIpDnsRecord } from '../../../services/workerDns
 import type { IpOriginRecord } from '../../../services/workerDns';
 import { acquireLock, releaseLock, type LockHandle } from '../../../utils/resourceLock';
 import type { RequestCancellation } from '../../../utils/requestCancellation';
+import {
+  createSchedulerForLb,
+} from '../../healthcheck/services/scheduler.service';
+import { upsertHealthCheckJob } from '../../healthcheck/services/queue.service';
 
 export interface CreateLoadBalancerInput {
   name: string;
@@ -30,6 +34,7 @@ export interface CreateLoadBalancerInput {
     url: string;
     weight: number;
     rawIp?: string;
+    healthPath?: string;
     geoCities?: string[];
     geoSubdivisions?: string[];
     geoCountries?: string[];
@@ -41,6 +46,8 @@ export interface CreateLoadBalancerInput {
   exposeRealOrigin?: boolean;
   corsEnabled?: boolean;
   corsOrigins?: string[];
+  healthCheckEnabled?: boolean;
+  healthCheckIntervalSeconds?: number;
   placement?: {
     smartPlacement?: boolean;
     region?: string;
@@ -84,11 +91,15 @@ export async function createLoadBalancerOrchestrator(params: {
     exposeRealOrigin,
     corsEnabled,
     corsOrigins,
+    healthCheckEnabled,
+    healthCheckIntervalSeconds,
     placement,
   } = input;
 
   const nextStrategy = normalizeStrategy(strategy, weightedEnabled || false);
   const nextWeightedEnabled = isWeightedStrategy(nextStrategy);
+  const nextHealthCheckEnabled = healthCheckEnabled === true;
+  const nextHealthInterval = healthCheckIntervalSeconds ?? 30;
 
   try {
     // Step 1: Get Cloudflare credentials
@@ -177,6 +188,9 @@ export async function createLoadBalancerOrchestrator(params: {
       exposeRealOrigin: exposeRealOrigin ?? false,
       corsEnabled: corsEnabled ?? false,
       corsOrigins: corsOrigins ?? [],
+      healthCheckEnabled: nextHealthCheckEnabled,
+      healthCheckIntervalSeconds: nextHealthInterval,
+      healthAutoPaused: false,
       ipOriginRecords,
       placement,
       zoneId,
@@ -184,6 +198,21 @@ export async function createLoadBalancerOrchestrator(params: {
       workerUrl,
     });
     await cancellation.throwIfCancelled();
+
+    // Step 8.5: Create health check scheduler + repeatable job (non-blocking)
+    if (nextHealthCheckEnabled) {
+      try {
+        const scheduler = await createSchedulerForLb(
+          userId,
+          createdLoadBalancer._id.toString(),
+          originsForDb,
+          nextHealthInterval
+        );
+        await upsertHealthCheckJob(createdLoadBalancer._id.toString(), scheduler.intervalSeconds);
+      } catch (healthError: any) {
+        console.error(`Health check setup failed (create): ${healthError.message}`);
+      }
+    }
 
     // Step 9: Save session log (non-blocking — failure must not roll back the LB)
     try {

@@ -10,6 +10,8 @@ import { deleteWorker } from '../../../services/workerDeletion';
 import { getCloudflareCredentialsForUser } from '../services/credentials.service';
 import { deactivateSessionsForLoadBalancer } from '../../../services/sessionService';
 import { deleteIpDnsRecord } from '../../../services/workerDns';
+import { removeSchedulerForLb } from '../../healthcheck/services/scheduler.service';
+import { removeHealthCheckJob } from '../../healthcheck/services/queue.service';
 
 export interface DeleteLoadBalancerResult {
   success: boolean;
@@ -69,6 +71,16 @@ export async function deleteLoadBalancerOrchestrator(params: {
 
   // Delete from database
   await LoadBalancer.findByIdAndDelete(loadBalancerId);
+
+  // Remove health check scheduler and queue job (best-effort — never block deletion)
+  try {
+    await removeSchedulerForLb(loadBalancerId);
+    if (loadBalancer.healthCheckEnabled) {
+      await removeHealthCheckJob(loadBalancerId);
+    }
+  } catch (healthError: any) {
+    console.error(`Health check cleanup failed (delete): ${healthError.message}`);
+  }
 
   // Deactivate related sessions
   try {

@@ -1,5 +1,7 @@
 import { LoadBalancer } from '../../../models/LoadBalancer';
+import { HealthCheckScheduler } from '../../../models/HealthCheckScheduler';
 import { formatLoadBalancer } from '../services/formatter.service';
+import { buildHealthSummary } from '../../healthcheck/services/scheduler.service';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../../../types/http';
 
 export async function listLoadBalancers(req: Request, res: Response, next: NextFunction) {
@@ -25,10 +27,25 @@ export async function listLoadBalancers(req: Request, res: Response, next: NextF
 
     const loadBalancers = await LoadBalancer.find(query).sort({ createdAt: -1 });
 
-    const formattedLBs = loadBalancers.map((lb) => ({
-      ...formatLoadBalancer(lb),
-      originCount: lb.origins.length,
-    }));
+    const schedulers = await HealthCheckScheduler.find({
+      loadBalancerId: { $in: loadBalancers.map((lb) => lb._id) },
+    });
+
+    const schedulerByLbId = new Map(
+      schedulers.map((scheduler) => [scheduler.loadBalancerId.toString(), scheduler])
+    );
+
+    const formattedLBs = loadBalancers.map((lb) => {
+      const scheduler = schedulerByLbId.get(lb._id.toString()) ?? null;
+      const summary = buildHealthSummary(scheduler, lb.origins.length);
+
+      return {
+        ...formatLoadBalancer(lb),
+        originCount: lb.origins.length,
+        disabledOriginCount: summary.disabledOriginCount,
+        provisioningOriginCount: summary.provisioningOriginCount,
+      };
+    });
 
     res.json({
       success: true,

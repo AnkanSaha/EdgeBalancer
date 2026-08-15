@@ -19,6 +19,7 @@ export function snapshotLoadBalancer(loadBalancer: any) {
     origins: loadBalancer.origins.map((origin: any) => ({
       url: origin.url,
       weight: origin.weight,
+      healthPath: origin.healthPath ?? '/',
       geoCities: Array.isArray(origin.geoCities) ? origin.geoCities : [],
       geoSubdivisions: Array.isArray(origin.geoSubdivisions) ? origin.geoSubdivisions : [],
       geoCountries: Array.isArray(origin.geoCountries) ? origin.geoCountries : [],
@@ -30,6 +31,9 @@ export function snapshotLoadBalancer(loadBalancer: any) {
     exposeRealOrigin: loadBalancer.exposeRealOrigin ?? false,
     corsEnabled: loadBalancer.corsEnabled ?? false,
     corsOrigins: Array.isArray(loadBalancer.corsOrigins) ? loadBalancer.corsOrigins : [],
+    healthCheckEnabled: loadBalancer.healthCheckEnabled === true,
+    healthCheckIntervalSeconds: loadBalancer.healthCheckIntervalSeconds ?? 30,
+    healthAutoPaused: loadBalancer.healthAutoPaused === true,
     ipOriginRecords: Array.isArray(loadBalancer.ipOriginRecords) ? loadBalancer.ipOriginRecords : [],
     placement: {
       smartPlacement: loadBalancer.placement?.smartPlacement !== false,
@@ -37,6 +41,7 @@ export function snapshotLoadBalancer(loadBalancer: any) {
     },
     workerUrl: loadBalancer.workerUrl,
     status: loadBalancer.status,
+    pauseMode: loadBalancer.pauseMode,
   };
 }
 
@@ -54,20 +59,23 @@ export function normalizePlacement(placement: any) {
  * Generate configuration signature for change detection
  */
 export function configSignature(params: {
-  origins: Array<{ url: string; weight: number }>;
+  origins: Array<{ url: string; weight: number; healthPath?: string }>;
   strategy: string;
   weightedEnabled: boolean;
   exposeRealOrigin?: boolean;
   corsEnabled?: boolean;
   corsOrigins?: string[];
+  healthCheckEnabled?: boolean;
+  healthCheckIntervalSeconds?: number;
   placement: any;
 }): string {
-  const { origins, strategy, weightedEnabled, exposeRealOrigin, corsEnabled, corsOrigins, placement } = params;
+  const { origins, strategy, weightedEnabled, exposeRealOrigin, corsEnabled, corsOrigins, healthCheckEnabled, healthCheckIntervalSeconds, placement } = params;
 
   return JSON.stringify({
     origins: origins.map((origin) => ({
       url: origin.url.trim(),
       weight: origin.weight,
+      healthPath: (origin as any).healthPath ?? '/',
       geoCities: Array.isArray((origin as any).geoCities)
         ? (origin as any).geoCities.map((value: string) => value.trim().toUpperCase()).filter(Boolean)
         : [],
@@ -87,6 +95,8 @@ export function configSignature(params: {
     exposeRealOrigin: exposeRealOrigin ?? false,
     corsEnabled: corsEnabled ?? false,
     corsOrigins: [...(corsOrigins ?? [])].sort(),
+    healthCheckEnabled: healthCheckEnabled === true,
+    healthCheckIntervalSeconds: healthCheckIntervalSeconds ?? 30,
     placement: normalizePlacement(placement),
   });
 }

@@ -44,6 +44,7 @@ export interface CloudflareZone {
 export interface OriginServer {
   url: string;
   weight: number;
+  healthPath?: string;
   geoCities?: string[];
   geoSubdivisions?: string[];
   geoCountries?: string[];
@@ -87,6 +88,17 @@ export interface LoadBalancer {
   exposeRealOrigin: boolean;
   corsEnabled: boolean;
   corsOrigins: string[];
+  healthCheckEnabled: boolean;
+  healthCheckIntervalSeconds: number | null;
+  disabledOriginCount?: number;
+  provisioningOriginCount?: number;
+  originHealth?: Array<{
+    url: string;
+    status: string;
+    lastCheckedAt: string | null;
+    lastStatusCode: number | null;
+    lastError: string | null;
+  }>;
   ipOriginRecords: IpOriginRecord[];
   placement: PlacementConfig;
   status: string;
@@ -131,6 +143,8 @@ export interface CreateLoadBalancerRequest {
   exposeRealOrigin: boolean;
   corsEnabled: boolean;
   corsOrigins: string[];
+  healthCheckEnabled: boolean;
+  healthCheckIntervalSeconds: number;
   placement: PlacementConfig;
 }
 
