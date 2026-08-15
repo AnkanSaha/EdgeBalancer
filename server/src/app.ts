@@ -10,6 +10,7 @@ import cloudflareRoutes from './routes/cloudflareRoutes';
 import userRoutes from './routes/userRoutes';
 import aiRoutes from './routes/aiRoutes';
 import loadBalancerRoutes from './modules/loadbalancer/loadbalancer.routes';
+import healthCheckRoutes from './modules/healthcheck/healthcheck.routes';
 import sessionRoutes from './modules/session/session.routes';
 
 export const buildServer = async () => {
@@ -86,6 +87,7 @@ export const buildServer = async () => {
   await app.register(cloudflareRoutes, { prefix: '/api/cloudflare' });
   await app.register(userRoutes, { prefix: '/api/user' });
   await app.register(loadBalancerRoutes, { prefix: '/api/loadbalancers' });
+  await app.register(healthCheckRoutes, { prefix: '/api/loadbalancers' });
   await app.register(sessionRoutes, { prefix: '/api/sessions' });
   await app.register(aiRoutes, { prefix: '/api/ai' });
 

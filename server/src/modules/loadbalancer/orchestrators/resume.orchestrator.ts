@@ -4,6 +4,7 @@ import { deployWorker, pruneWorkerHistory } from '../../../services/workerDeploy
 import { generateWorkerCode, WorkerStrategy } from '../../../services/workerGenerator';
 import { getCloudflareCredentialsForUser } from '../services/credentials.service';
 import { toHostname } from '../services/hostname.service';
+import { getSchedulerForLb, getEnabledOrigins } from '../../healthcheck/services/scheduler.service';
 
 export interface ResumeResult {
   success: boolean;
@@ -57,13 +58,26 @@ export async function resumeLoadBalancerOrchestrator(params: {
 
   // Resume Action 2: Redeploy the actual strategy Worker code
   // This is ALWAYS needed for keep-domain, and good practice for release-domain
+  const scheduler = loadBalancer.healthCheckEnabled
+    ? await getSchedulerForLb(loadBalancerId)
+    : null;
+  const originsForWorker = loadBalancer.healthCheckEnabled
+    ? getEnabledOrigins(scheduler, loadBalancer.origins)
+    : loadBalancer.origins.map((origin) => ({
+        url: origin.url,
+        weight: origin.weight,
+        geoCountries: origin.geoCountries,
+        geoContinents: origin.geoContinents,
+      }));
+
+  if (loadBalancer.healthCheckEnabled && originsForWorker.length === 0) {
+    const error = new Error('Restart at least one origin from the edit page before resuming.');
+    (error as any).statusCode = 400;
+    throw error;
+  }
+
   const workerCode = generateWorkerCode({
-    origins: loadBalancer.origins.map((origin) => ({
-      url: origin.url,
-      weight: origin.weight,
-      geoCountries: origin.geoCountries,
-      geoContinents: origin.geoContinents,
-    })),
+    origins: originsForWorker,
     strategy: loadBalancer.strategy as WorkerStrategy,
   });
 
@@ -84,6 +98,7 @@ export async function resumeLoadBalancerOrchestrator(params: {
   // Update from database
   loadBalancer.status = 'active';
   loadBalancer.pauseMode = undefined;
+  loadBalancer.healthAutoPaused = false;
   await loadBalancer.save();
 
   return {

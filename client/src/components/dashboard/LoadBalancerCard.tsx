@@ -79,6 +79,23 @@ export const LoadBalancerCard = ({
         ))}
       </div>
 
+      {lb.healthCheckEnabled && (lb.disabledOriginCount ?? 0) > 0 && (
+        <div style={{
+          marginTop: 10, padding: '8px 12px',
+          borderRadius: 'var(--radius)',
+          background: 'oklch(0.72 0.18 25 / 0.10)',
+          border: '1px solid oklch(0.72 0.18 25 / 0.35)',
+          color: 'var(--red)',
+          fontSize: 12,
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <Icons.Activity size={13} />
+          <span>
+            {lb.disabledOriginCount} of {lb.originCount} origin{(lb.originCount ?? 0) === 1 ? '' : 's'} disabled
+          </span>
+        </div>
+      )}
+
       {/* Analytics row */}
       {analytics === 'loading' ? (
         <div style={{ display: 'flex', gap: 8, paddingTop: 12, borderTop: '1px solid var(--line)' }}>

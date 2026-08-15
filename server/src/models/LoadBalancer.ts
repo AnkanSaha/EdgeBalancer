@@ -4,6 +4,7 @@ import { WORKER_SCRIPT_NAME_REGEX } from '../utils/workerName';
 export interface IOriginServer {
   url: string;
   weight: number;
+  healthPath?: string;
   geoCities?: string[];
   geoSubdivisions?: string[];
   geoCountries?: string[];
@@ -39,6 +40,9 @@ export interface ILoadBalancer extends Document {
   zoneId: string;
   status: 'active' | 'paused' | 'inactive';
   pauseMode?: 'release-domain' | 'keep-domain';
+  healthCheckEnabled: boolean;
+  healthCheckIntervalSeconds: number;
+  healthAutoPaused: boolean;
   workerUrl: string;
   createdAt: Date;
   updatedAt: Date;
@@ -76,6 +80,7 @@ const LoadBalancerSchema = new Schema<ILoadBalancer>(
         {
           url: { type: String, required: true },
           weight: { type: Number, required: true, default: 1, min: 1 },
+          healthPath: { type: String, default: '/' },
           geoCities: { type: [String], default: [] },
           geoSubdivisions: { type: [String], default: [] },
           geoCountries: { type: [String], default: [] },
@@ -141,6 +146,18 @@ const LoadBalancerSchema = new Schema<ILoadBalancer>(
       type: String,
       enum: ['release-domain', 'keep-domain'],
       default: null,
+    },
+    healthCheckEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    healthCheckIntervalSeconds: {
+      type: Number,
+      default: 30,
+    },
+    healthAutoPaused: {
+      type: Boolean,
+      default: false,
     },
     workerUrl: {
       type: String,

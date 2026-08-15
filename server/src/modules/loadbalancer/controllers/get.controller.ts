@@ -3,8 +3,10 @@
  */
 
 import { LoadBalancer } from '../../../models/LoadBalancer';
+import { HealthCheckScheduler } from '../../../models/HealthCheckScheduler';
 import { getValidatedLoadBalancerId } from '../services/validation.service';
 import { formatLoadBalancer } from '../services/formatter.service';
+import { buildHealthSummary } from '../../healthcheck/services/scheduler.service';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../../../types/http';
 
 export async function getLoadBalancer(req: Request, res: Response, next: NextFunction) {
@@ -34,11 +36,19 @@ export async function getLoadBalancer(req: Request, res: Response, next: NextFun
       throw new Error('You do not have permission to access this load balancer');
     }
 
+    const scheduler = await HealthCheckScheduler.findOne({ loadBalancerId: id });
+    const health = buildHealthSummary(scheduler, loadBalancer.origins.length);
+
     res.json({
       success: true,
       message: 'Load balancer retrieved successfully',
       data: {
-        loadBalancer: formatLoadBalancer(loadBalancer),
+        loadBalancer: {
+          ...formatLoadBalancer(loadBalancer),
+          disabledOriginCount: health.disabledOriginCount,
+          provisioningOriginCount: health.provisioningOriginCount,
+          originHealth: health.originHealth,
+        },
       },
     });
   } catch (error) {

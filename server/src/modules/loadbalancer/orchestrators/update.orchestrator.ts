@@ -23,6 +23,17 @@ import { isNameUpdateAttempt } from '../services/validation.service';
 import { formatLoadBalancer } from '../services/formatter.service';
 import { createSession, deactivateSessionsForLoadBalancer } from '../../../services/sessionService';
 import type { RequestCancellation } from '../../../utils/requestCancellation';
+import {
+  getSchedulerForLb,
+  createSchedulerForLb,
+  syncSchedulerOrigins,
+  removeSchedulerForLb,
+  getEnabledOrigins,
+} from '../../healthcheck/services/scheduler.service';
+import {
+  upsertHealthCheckJob,
+  removeHealthCheckJob,
+} from '../../healthcheck/services/queue.service';
 
 export interface UpdateLoadBalancerInput {
   name?: string;
@@ -33,6 +44,7 @@ export interface UpdateLoadBalancerInput {
     url: string;
     weight: number;
     rawIp?: string;
+    healthPath?: string;
     geoCities?: string[];
     geoSubdivisions?: string[];
     geoCountries?: string[];
@@ -44,6 +56,8 @@ export interface UpdateLoadBalancerInput {
   exposeRealOrigin?: boolean;
   corsEnabled?: boolean;
   corsOrigins?: string[];
+  healthCheckEnabled?: boolean;
+  healthCheckIntervalSeconds?: number;
   placement?: {
     smartPlacement?: boolean;
     region?: string;
@@ -102,8 +116,13 @@ export async function updateLoadBalancerOrchestrator(params: {
     exposeRealOrigin,
     corsEnabled,
     corsOrigins,
+    healthCheckEnabled,
+    healthCheckIntervalSeconds,
     placement,
   } = input;
+
+  const nextHealthCheckEnabled = healthCheckEnabled === true;
+  const nextHealthInterval = healthCheckIntervalSeconds ?? loadBalancer.healthCheckIntervalSeconds ?? 30;
 
   // Get credentials
   const { accountId, apiToken } = await getCloudflareCredentialsForUser(userId);
@@ -133,12 +152,16 @@ export async function updateLoadBalancerOrchestrator(params: {
     strategy: nextStrategy,
     weightedEnabled: nextWeightedEnabled,
     exposeRealOrigin: exposeRealOrigin ?? false,
+    healthCheckEnabled: nextHealthCheckEnabled,
+    healthCheckIntervalSeconds: nextHealthInterval,
     placement,
   }) !== configSignature({
     origins: previousSnapshot.origins,
     strategy: previousSnapshot.strategy,
     weightedEnabled: previousSnapshot.weightedEnabled,
     exposeRealOrigin: previousSnapshot.exposeRealOrigin,
+    healthCheckEnabled: previousSnapshot.healthCheckEnabled,
+    healthCheckIntervalSeconds: previousSnapshot.healthCheckIntervalSeconds,
     placement: previousSnapshot.placement,
   });
 
@@ -169,8 +192,34 @@ export async function updateLoadBalancerOrchestrator(params: {
   });
   await cancellation.throwIfCancelled();
 
-  // Always generate worker code using resolved origins (hostnames, not raw IPs)
-  const workerCode = generateWorkerCode({ origins: resolvedOrigins, strategy: nextStrategy, exposeRealOrigin: exposeRealOrigin ?? false, corsEnabled: nextCorsEnabled, corsOrigins: corsOrigins ?? [] });
+  // Always generate worker code using resolved origins (hostnames, not raw IPs).
+  // When health checks are enabled, a disabled origin is not part of the next Worker.
+  const previousScheduler = nextHealthCheckEnabled
+    ? await getSchedulerForLb(loadBalancerId)
+    : null;
+  const originsForWorker = nextHealthCheckEnabled
+    ? getEnabledOrigins(previousScheduler, resolvedOrigins)
+    : resolvedOrigins;
+
+  let workerCode: string;
+  let nextStatus: 'active' | 'paused' | 'inactive' = 'active';
+  let nextPauseMode: 'release-domain' | 'keep-domain' | undefined;
+  let nextHealthAutoPaused = false;
+
+  if (nextHealthCheckEnabled && originsForWorker.length === 0) {
+    workerCode = generateWorkerCode({ origins: [], strategy: 'paused' });
+    nextStatus = 'paused';
+    nextPauseMode = 'keep-domain';
+    nextHealthAutoPaused = true;
+  } else {
+    workerCode = generateWorkerCode({
+      origins: originsForWorker,
+      strategy: nextStrategy,
+      exposeRealOrigin: exposeRealOrigin ?? false,
+      corsEnabled: nextCorsEnabled,
+      corsOrigins: corsOrigins ?? [],
+    });
+  }
 
   // No changes detected
   if (!hostnameChanged && !workerNeedsRedeploy) {
@@ -274,7 +323,11 @@ export async function updateLoadBalancerOrchestrator(params: {
           ipOriginRecords: nextIpOriginRecords,
           placement,
           workerUrl: `https://${nextHostname}`,
-          status: 'active',
+          status: nextStatus,
+          pauseMode: nextPauseMode,
+          healthCheckEnabled: nextHealthCheckEnabled,
+          healthCheckIntervalSeconds: nextHealthInterval,
+          healthAutoPaused: nextHealthAutoPaused,
         },
       },
       {
@@ -319,6 +372,27 @@ export async function updateLoadBalancerOrchestrator(params: {
       await Promise.allSettled(
         obsoleteDnsRecords.map(r => deleteIpDnsRecord({ apiToken, zoneId, recordId: r.dnsRecordId }))
       );
+    }
+
+    // Step 6.5: Reconcile health scheduler + queue (non-blocking)
+    try {
+      if (nextHealthCheckEnabled) {
+        const scheduler = await getSchedulerForLb(loadBalancerId);
+        if (scheduler) {
+          await syncSchedulerOrigins(scheduler, originsForDb, nextHealthInterval);
+        } else {
+          const created = await createSchedulerForLb(userId, loadBalancerId, originsForDb, nextHealthInterval);
+          await upsertHealthCheckJob(loadBalancerId, created.intervalSeconds);
+        }
+        await upsertHealthCheckJob(loadBalancerId, nextHealthInterval);
+      } else {
+        await removeSchedulerForLb(loadBalancerId);
+        if (previousSnapshot.healthCheckEnabled) {
+          await removeHealthCheckJob(loadBalancerId);
+        }
+      }
+    } catch (healthError: any) {
+      console.error(`Health check reconcile failed (update): ${healthError.message}`);
     }
 
     // Step 7: Deactivate old session(s) and save new session log
@@ -415,6 +489,10 @@ export async function updateLoadBalancerOrchestrator(params: {
               placement: previousSnapshot.placement,
               workerUrl: previousSnapshot.workerUrl,
               status: previousSnapshot.status,
+              pauseMode: previousSnapshot.pauseMode,
+              healthCheckEnabled: previousSnapshot.healthCheckEnabled,
+              healthCheckIntervalSeconds: previousSnapshot.healthCheckIntervalSeconds,
+              healthAutoPaused: previousSnapshot.healthAutoPaused,
             },
           },
           {

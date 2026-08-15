@@ -31,6 +31,7 @@ const STEPS = [
   { n: 4, label: 'Origins' },
   { n: 5, label: 'Strategy' },
   { n: 6, label: 'Placement' },
+  { n: 7, label: 'Health Checks' },
 ];
 
 interface StepIndicatorProps {
@@ -107,11 +108,13 @@ export default function CreateLoadBalancerPage() {
     name: '',
     zoneId: '',
     subdomain: '',
-    origins: [{ id: 1, url: '', weight: 100, rawIp: undefined as string | undefined, geoCities: [], geoSubdivisions: [], geoCountries: [], geoContinents: [], isFallback: false }],
+    origins: [{ id: 1, url: '', weight: 100, rawIp: undefined as string | undefined, healthPath: '/', geoCities: [], geoSubdivisions: [], geoCountries: [], geoContinents: [], isFallback: false }],
     strategy: 'round-robin',
     exposeRealOrigin: false,
     corsEnabled: false,
     corsOrigins: [] as string[],
+    healthCheckEnabled: false,
+    healthCheckIntervalSeconds: 30,
     smartPlacement: true,
     placementHint: '',
   });
@@ -161,7 +164,7 @@ export default function CreateLoadBalancerPage() {
   };
 
   const addOrigin = () => {
-    setForm(f => ({ ...f, origins: [...f.origins, { id: Date.now(), url: '', weight: 100, rawIp: undefined as string | undefined, geoCities: [], geoSubdivisions: [], geoCountries: [], geoContinents: [], isFallback: false }] }));
+    setForm(f => ({ ...f, origins: [...f.origins, { id: Date.now(), url: '', weight: 100, rawIp: undefined as string | undefined, healthPath: '/', geoCities: [], geoSubdivisions: [], geoCountries: [], geoContinents: [], isFallback: false }] }));
   };
 
   const isRawIpUrl = (url: string): boolean => {
@@ -230,6 +233,7 @@ export default function CreateLoadBalancerPage() {
           return {
             url: finalUrl,
             weight: o.weight,
+            healthPath: form.healthCheckEnabled ? (o.healthPath?.trim() || '/') : undefined,
             ...(o.rawIp ? { rawIp: o.rawIp } : {}),
             geoCities: o.geoCities || [],
             geoSubdivisions: o.geoSubdivisions || [],
@@ -243,6 +247,8 @@ export default function CreateLoadBalancerPage() {
         exposeRealOrigin: form.exposeRealOrigin,
         corsEnabled: form.corsEnabled,
         corsOrigins: form.corsOrigins,
+        healthCheckEnabled: form.healthCheckEnabled,
+        healthCheckIntervalSeconds: form.healthCheckIntervalSeconds,
         placement: {
           smartPlacement: form.smartPlacement,
           ...(placementHint ? { region: placementHint } : {}),
@@ -533,6 +539,19 @@ export default function CreateLoadBalancerPage() {
                       <Icons.Trash size={14} />
                     </button>
                   </div>
+
+                  {form.healthCheckEnabled && (
+                    <div className="field" style={{ marginLeft: 64 }}>
+                      <label className="field-label" style={{ fontSize: 11, marginBottom: 6 }}>Health path</label>
+                      <input
+                        className="input input-mono"
+                        placeholder="/health"
+                        value={s.healthPath}
+                        onChange={e => updateOrigin(s.id, { healthPath: e.target.value })}
+                        style={{ fontSize: 12 }}
+                      />
+                    </div>
+                  )}
 
                   {s.rawIp && (() => {
                     const hostname = (() => { try { return new URL(s.url).hostname; } catch { return s.url; } })();
@@ -1057,6 +1076,64 @@ export default function CreateLoadBalancerPage() {
                     : 'Required. Choose a cloud region where your origin servers are located, or enter a custom hint.'}
                 </div>
               </div>
+            </div>
+          </FieldBlock>
+
+          <FieldBlock n={7} title="Health Checks"
+            subtitle="Continuously probe each origin and stop sending traffic to failed backends">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <label style={{
+                display: 'flex', gap: 14, padding: 16,
+                border: `1px solid ${form.healthCheckEnabled ? 'var(--accent)' : 'var(--line)'}`,
+                background: form.healthCheckEnabled ? 'var(--accent-dim)' : 'var(--bg-2)',
+                borderRadius: 'var(--radius)', cursor: 'pointer',
+              }} onClick={() => setActiveStep(7)}>
+                <div style={{
+                  width: 36, height: 20, flexShrink: 0,
+                  borderRadius: 999,
+                  background: form.healthCheckEnabled ? 'var(--accent)' : 'var(--bg-3)',
+                  position: 'relative', transition: 'background 160ms',
+                }}>
+                  <div style={{
+                    position: 'absolute', top: 2, left: form.healthCheckEnabled ? 18 : 2,
+                    width: 16, height: 16, borderRadius: '50%',
+                    background: 'var(--bg)', transition: 'left 160ms',
+                  }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>Enable Health Checks</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
+                    Disabled by default. When enabled, each origin is probed on the interval below.
+                  </div>
+                </div>
+                <input
+                  type="checkbox" checked={form.healthCheckEnabled}
+                  onChange={e => update('healthCheckEnabled', e.target.checked)}
+                  style={{ display: 'none' }}
+                />
+              </label>
+
+              {form.healthCheckEnabled && (
+                <div className="field" style={{ maxWidth: 320 }}>
+                  <label className="field-label">Check interval</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      className="input input-mono"
+                      type="number" min={5} max={3600}
+                      value={form.healthCheckIntervalSeconds}
+                      onChange={e => {
+                        const n = Number.parseInt(e.target.value, 10);
+                        update('healthCheckIntervalSeconds', Number.isNaN(n) ? 30 : Math.max(5, Math.min(3600, n)));
+                      }}
+                      style={{ flex: 1 }}
+                    />
+                    <span style={{ fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>seconds</span>
+                  </div>
+                  <div className="hint" style={{ marginTop: 6 }}>
+                    After 3 consecutive failures with 2s, 4s, 8s backoff, the origin is disabled.
+                  </div>
+                </div>
+              )}
             </div>
           </FieldBlock>
 

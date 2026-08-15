@@ -25,6 +25,8 @@ export function formatLoadBalancer(lb: any) {
     exposeRealOrigin: lb.exposeRealOrigin ?? false,
     corsEnabled: lb.corsEnabled ?? false,
     corsOrigins: Array.isArray(lb.corsOrigins) ? lb.corsOrigins : [],
+    healthCheckEnabled: lb.healthCheckEnabled === true,
+    healthCheckIntervalSeconds: lb.healthCheckIntervalSeconds ?? null,
     ipOriginRecords: Array.isArray(lb.ipOriginRecords) ? lb.ipOriginRecords : [],
     placement: lb.placement,
     status: lb.status,

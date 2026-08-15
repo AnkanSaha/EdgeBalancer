@@ -5,6 +5,11 @@
 import dotenv from 'dotenv';
 import { connectDatabase, disconnectDatabase } from './utils/database';
 import { getRedisClient, closeRedisClient } from './utils/redisClient';
+import {
+  startHealthCheckWorker,
+  resyncHealthCheckJobs,
+  closeHealthCheckQueue,
+} from './modules/healthcheck/services/queue.service';
 import { buildServer } from './app';
 import type { FastifyInstance } from 'fastify';
 
@@ -53,6 +58,7 @@ async function gracefulShutdown(signal: string) {
     }
 
     // Disconnect from MongoDB and Redis
+    await closeHealthCheckQueue();
     await disconnectDatabase();
     await closeRedisClient();
 
@@ -74,6 +80,8 @@ async function bootstrap() {
     // Connect to database and Redis first
     await connectDatabase();
     await getRedisClient();
+    await startHealthCheckWorker();
+    await resyncHealthCheckJobs();
 
     // Then build and start server
     app = await buildServer();

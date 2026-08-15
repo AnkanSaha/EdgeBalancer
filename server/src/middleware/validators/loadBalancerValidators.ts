@@ -111,6 +111,14 @@ export const validateCreateLoadBalancerBody: ValidationFunction = (body) => {
         }
       }
 
+      if (origin?.healthPath !== undefined) {
+        if (typeof origin.healthPath !== 'string' || !/^\//.test(origin.healthPath)) {
+          errors.push('healthPath must start with "/"');
+        } else if (origin.healthPath.length > 512) {
+          errors.push('healthPath must not exceed 512 characters');
+        }
+      }
+
       if (origin?.isFallback !== undefined && typeof origin.isFallback !== 'boolean') {
         errors.push('isFallback must be a boolean');
       }
@@ -163,6 +171,22 @@ export const validateCreateLoadBalancerBody: ValidationFunction = (body) => {
           errors.push(`corsOrigins[${i}] must be a valid origin (e.g. https://example.com)`);
         }
       });
+    }
+  }
+
+  const healthCheckEnabled = body?.healthCheckEnabled;
+  if (healthCheckEnabled !== undefined && typeof healthCheckEnabled !== 'boolean') {
+    errors.push('healthCheckEnabled must be a boolean');
+  }
+
+  const healthCheckIntervalSeconds = body?.healthCheckIntervalSeconds;
+  if (healthCheckIntervalSeconds !== undefined) {
+    if (
+      !Number.isInteger(healthCheckIntervalSeconds) ||
+      healthCheckIntervalSeconds < 5 ||
+      healthCheckIntervalSeconds > 3600
+    ) {
+      errors.push('healthCheckIntervalSeconds must be an integer between 5 and 3600');
     }
   }
 
