@@ -3,23 +3,23 @@
 export const FlowDiagram = () => {
   return (
     <div style={{
-      position: 'relative', aspectRatio: '1/1', maxWidth: 480,
+      position: 'relative', aspectRatio: '1/1', maxWidth: 'min(1100px, 100%)',
       background: 'var(--bg-1)', border: '1px solid var(--line)',
-      borderRadius: 'var(--radius-lg)', padding: 24, overflow: 'hidden',
+      borderRadius: 'var(--radius-lg)', padding: 40, overflow: 'hidden',
     }}>
       <div style={{
         display: 'flex', justifyContent: 'space-between',
-        fontFamily: 'var(--mono)', fontSize: 10,
+        fontFamily: 'var(--mono)', fontSize: 12,
         color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em',
       }}>
         <span>edge.topology</span>
         <span style={{ color: 'var(--accent)' }}>● live</span>
       </div>
 
-      <svg viewBox="0 0 400 360" style={{ width: '100%', height: 'calc(100% - 24px)', marginTop: 8 }}>
+      <svg viewBox="0 0 400 360" style={{ width: '100%', height: 'calc(100% - 28px)', marginTop: 10 }}>
         <defs>
           <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feGaussianBlur stdDeviation="5" result="blur" />
             <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
         </defs>
@@ -27,8 +27,8 @@ export const FlowDiagram = () => {
         {/* Clients */}
         {[60, 130, 200, 270].map((y, i) => (
           <g key={i}>
-            <circle cx="40" cy={y} r="5" fill="var(--bg-2)" stroke="var(--text-3)" />
-            <text x="10" y={y + 4} fontSize="8" fontFamily="var(--mono)" fill="var(--text-3)">
+            <circle cx="46" cy={y} r="8" fill="var(--bg-2)" stroke="var(--text-3)" strokeWidth="1.5" />
+            <text x="14" y={y + 5} fontSize="11" fontFamily="var(--mono)" fill="var(--text-3)">
               {['US', 'EU', 'APAC', 'SA'][i]}
             </text>
           </g>
@@ -38,22 +38,22 @@ export const FlowDiagram = () => {
         {[60, 130, 200, 270].map((y, i) => (
           <path
             key={i}
-            d={`M 45 ${y} Q 110 ${y}, 130 180 T 180 180`}
-            stroke="var(--accent)" strokeWidth="1" fill="none" opacity="0.5"
-            strokeDasharray="4 4"
+            d={`M 54 ${y} Q 110 ${y}, 134 180 T 180 180`}
+            stroke="var(--accent)" strokeWidth="2" fill="none" opacity="0.55"
+            strokeDasharray="6 6"
             style={{ animation: `flow ${2 + i * 0.3}s linear infinite` }}
           />
         ))}
 
         {/* Worker (center) */}
         <g filter="url(#glow)">
-          <path d="M 200 140 L 240 160 L 240 200 L 200 220 L 160 200 L 160 160 Z"
-            fill="var(--accent-dim)" stroke="var(--accent)" strokeWidth="1.5" />
-          <circle cx="200" cy="180" r="6" fill="var(--accent)" />
+          <path d="M 200 138 L 244 160 L 244 200 L 200 222 L 156 200 L 156 160 Z"
+            fill="var(--accent-dim)" stroke="var(--accent)" strokeWidth="2" />
+          <circle cx="200" cy="180" r="10" fill="var(--accent)" />
         </g>
-        <text x="200" y="245" fontSize="9" fontFamily="var(--mono)"
+        <text x="200" y="250" fontSize="12" fontFamily="var(--mono)"
           fill="var(--text-2)" textAnchor="middle">cloudflare.worker</text>
-        <text x="200" y="257" fontSize="8" fontFamily="var(--mono)"
+        <text x="200" y="264" fontSize="11" fontFamily="var(--mono)"
           fill="var(--text-3)" textAnchor="middle">production-api</text>
 
         {/* Flow lines to origins */}
@@ -65,26 +65,27 @@ export const FlowDiagram = () => {
         ].map((o, i) => (
           <g key={i}>
             <path
-              d={`M 220 180 Q 290 180, 310 ${o.y} T 340 ${o.y}`}
+              d={`M 224 180 Q 290 180, 312 ${o.y} T 342 ${o.y}`}
               stroke={o.ok ? 'var(--accent)' : 'var(--red)'}
-              strokeWidth="1" fill="none" opacity="0.5"
-              strokeDasharray="4 4"
+              strokeWidth="2" fill="none" opacity="0.55"
+              strokeDasharray="6 6"
               style={{ animation: `flow ${2.2 + i * 0.25}s linear infinite` }}
             />
-            <rect x="340" y={o.y - 10} width="50" height="20" rx="3"
-              fill="var(--bg-2)" stroke={o.ok ? 'var(--line-2)' : 'var(--red)'} />
-            <circle cx="350" cy={o.y} r="3" fill={o.ok ? 'var(--green)' : 'var(--red)'} />
-            <text x="360" y={o.y + 3} fontSize="8" fontFamily="var(--mono)" fill="var(--text-2)">
+            <rect x="336" y={o.y - 13} width="58" height="26" rx="4"
+              fill="var(--bg-2)" stroke={o.ok ? 'var(--line-2)' : 'var(--red)'} strokeWidth="1.5" />
+            <circle cx="365" cy={o.y} r="5" fill={o.ok ? 'var(--green)' : 'var(--red)'} />
+            <text x="365" y={o.y + 4} fontSize="11" fontFamily="var(--mono)"
+              fill="var(--text-2)" textAnchor="middle">
               {o.weight}
             </text>
           </g>
         ))}
 
         {/* Labels */}
-        <text x="40" y="330" fontSize="9" fontFamily="var(--mono)"
-          fill="var(--text-3)" textAnchor="start">clients</text>
-        <text x="365" y="330" fontSize="9" fontFamily="var(--mono)"
-          fill="var(--text-3)" textAnchor="middle">origins</text>
+        <text x="46" y="330" fontSize="12" fontFamily="var(--mono)"
+          fill="var(--text-3)" textAnchor="start" fontWeight="600">clients</text>
+        <text x="365" y="330" fontSize="12" fontFamily="var(--mono)"
+          fill="var(--text-3)" textAnchor="middle" fontWeight="600">origins</text>
       </svg>
     </div>
   );

@@ -34,6 +34,10 @@ export default function LandingPage() {
 
   return (
     <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
+      <style>{`
+        .hero-vh { min-height: 100vh; }
+        @media (max-width: 1024px) { .hero-vh { min-height: auto !important; } }
+      `}</style>
       <div className="grid-bg" />
       <div className="topo" />
 
@@ -61,26 +65,26 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section style={{
+      <section className="hero-grid hero-vh" style={{
         position: 'relative', zIndex: 5,
-        maxWidth: 1200, margin: '0 auto',
+        maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
         padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px) clamp(40px, 5vw, 64px)',
         display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'clamp(32px, 5vw, 64px)', alignItems: 'center',
-      }} className="hero-grid">
+      }}>
         <div>
           <div className="feature-card animate-slide-up" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 10,
-            padding: '6px 12px', borderRadius: 999,
-            fontFamily: 'var(--mono)', fontSize: 'clamp(10px, 2vw, 11px)', color: 'var(--text-2)',
+            display: 'inline-flex', alignItems: 'center', gap: 16,
+            padding: '10px 22px', borderRadius: 999,
+            fontFamily: 'var(--mono)', fontSize: 'clamp(12px, 2.4vw, 15px)', color: 'var(--text-2)',
             marginBottom: 'clamp(16px, 3vw, 24px)',
           }}>
-            <span style={{ position: 'relative', width: 6, height: 6, flexShrink: 0 }}>
+            <span style={{ position: 'relative', width: 10, height: 10, flexShrink: 0 }}>
               <span className="animate-ping" style={{
                 position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--accent)',
               }} />
               <span style={{
                 position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--accent)',
-                boxShadow: '0 0 8px var(--accent)',
+                boxShadow: '0 0 14px var(--accent)',
               }} />
             </span>
             A gateway for Cloudflare Workers
@@ -113,19 +117,66 @@ export default function LandingPage() {
           }}>
             <div><span style={{ color: 'var(--accent)' }}>330+</span> PoPs</div>
             <div><span style={{ color: 'var(--accent)' }}>~14ms</span> p50 rtt</div>
-            <div><span style={{ color: 'var(--accent)' }}>99.99%</span> uptime sla</div>
           </div>
         </div>
 
-        <div className="animate-fade-in stagger-3">
+        <div className="animate-fade-in stagger-3" style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
           <FlowDiagram />
+        </div>
+      </section>
+
+      {/* Who this is for */}
+      <section id="who" style={{
+        position: 'relative', zIndex: 5,
+        maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
+        padding: 'clamp(40px, 5vw, 56px) clamp(16px, 4vw, 48px) clamp(32px, 4vw, 48px)',
+        borderBottom: '1px solid var(--line)',
+      }}>
+        <div className="kicker" style={{ marginBottom: 'clamp(12px, 2vw, 16px)', fontSize: 'clamp(9px, 2vw, 11px)' }}>// who this is for</div>
+        <h2 style={{
+          fontSize: 'clamp(24px, 3.5vw, 34px)', margin: 0, letterSpacing: '-0.025em',
+          fontWeight: 600, lineHeight: 1.05, maxWidth: 680,
+        }}>
+          Running real backends on always-free tiers? A load balancer shouldn't cost a base fee.
+        </h2>
+        <p style={{
+          fontSize: 'clamp(14px, 2.2vw, 16px)', color: 'var(--text-2)', maxWidth: 960,
+          marginTop: 'clamp(16px, 2.5vw, 24px)', lineHeight: 1.6,
+        }}>
+          EdgeBalancer is for solo developers and small startups who already run 2+ origin
+          servers on free tiers — two Oracle Always Free VMs, a couple of Cloudflare Workers,
+          Railway hobby instances — and need real load-balancing behavior: health checks,
+          failover, geo-steering, sticky sessions — without paying{' '}
+          <span className="mono" style={{ color: 'var(--red)' }}>$22+/month for an AWS ALB</span>
+          {' '}that bills by the hour even at zero traffic, or{' '}
+          <span className="mono" style={{ color: 'var(--red)' }}>$5/month for Cloudflare Load Balancing</span>.
+        </p>
+        <p style={{
+          fontSize: 'clamp(13px, 2vw, 14px)', color: 'var(--text-3)', maxWidth: 960,
+          marginTop: 'clamp(12px, 2vw, 16px)', lineHeight: 1.6,
+        }}>
+          Point a Worker at your origins and we deploy the routing rules for you. The Worker
+          runs in your Cloudflare account, so under 100k requests/day it is{' '}
+          <span className="mono" style={{ color: 'var(--green)' }}>$0/month</span>.
+          No servers to manage. No base fee. No idle rent.
+        </p>
+        <div style={{
+          marginTop: 'clamp(24px, 3vw, 32px)', display: 'flex',
+          gap: 'clamp(12px, 2vw, 16px)', flexWrap: 'wrap', justifyContent: 'flex-end',
+        }}>
+          <button className="btn btn-primary btn-sm" onClick={() => router.push('/register')}>
+            Deploy your first balancer <Icons.Arrow size={14} />
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => router.push('/login')}>
+            Watch a demo
+          </button>
         </div>
       </section>
 
       {/* Feature strip */}
       <section style={{
         position: 'relative', zIndex: 5,
-        maxWidth: 1200, margin: '0 auto', padding: 'clamp(32px, 5vw, 48px) clamp(16px, 4vw, 48px) clamp(40px, 5vw, 64px)',
+        maxWidth: 'min(1800px, 100vw)', margin: '0 auto', padding: 'clamp(32px, 5vw, 48px) clamp(16px, 4vw, 48px) clamp(40px, 5vw, 64px)',
       }}>
         <div className="kicker" style={{ marginBottom: 'clamp(16px, 3vw, 24px)', fontSize: 'clamp(9px, 2vw, 11px)' }}>// How the gateway works</div>
         <div style={{
@@ -157,7 +208,7 @@ export default function LandingPage() {
       {/* Use Cases */}
       <section style={{
         position: 'relative', zIndex: 5,
-        maxWidth: 1200, margin: '0 auto',
+        maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
         padding: 'clamp(48px, 6vw, 80px) clamp(16px, 4vw, 48px)',
       }}>
         <div className="kicker" style={{ marginBottom: 12 }}>// use cases</div>
@@ -282,7 +333,7 @@ export default function LandingPage() {
       {/* Why Workers — solo dev pitch */}
       <section style={{
         position: 'relative', zIndex: 5,
-        maxWidth: 1200, margin: '0 auto', padding: '48px 48px 48px',
+        maxWidth: 'min(1800px, 100vw)', margin: '0 auto', padding: '48px 48px 48px',
       }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 48, alignItems: 'start' }} className="two-col">
           <div>
@@ -320,7 +371,7 @@ export default function LandingPage() {
       {/* Cost comparison */}
       <section id="pricing" style={{
         position: 'relative', zIndex: 5,
-        maxWidth: 1200, margin: '0 auto', padding: '32px 48px 96px',
+        maxWidth: 'min(1800px, 100vw)', margin: '0 auto', padding: '32px 48px 96px',
       }}>
         <div className="kicker" style={{ marginBottom: 12 }}>// the math</div>
         <h2 style={{ fontSize: 'clamp(26px, 3vw, 36px)', margin: 0, letterSpacing: '-0.02em', fontWeight: 600 }}>
@@ -464,7 +515,7 @@ export default function LandingPage() {
       {/* Strategies Section */}
       <section id="strategies" style={{
         position: 'relative', zIndex: 5,
-        maxWidth: 1200, margin: '0 auto', padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px)',
+        maxWidth: 'min(1800px, 100vw)', margin: '0 auto', padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px)',
       }}>
         <div className="kicker" style={{ marginBottom: 12 }}>// routing strategies</div>
         <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', margin: 0, letterSpacing: '-0.03em', fontWeight: 600, marginBottom: 16 }}>
@@ -713,7 +764,7 @@ export default function LandingPage() {
         <div>© 2026 EdgeBalancer Inc.</div>
         <div style={{ display: 'flex', gap: 24 }} className="hide-sm">
           <span>Status: <span style={{ color: 'var(--green)' }}>● operational</span></span>
-          <span>SOC2 Type II</span>
+          <a href="https://github.com/nexoral/EdgeBalancer/blob/main/SECURITY.md" className="nav-link" style={{ fontSize: 'clamp(11px, 2vw, 12px)' }}>Security</a>
           <span>Terms</span>
           <span>Privacy</span>
         </div>
