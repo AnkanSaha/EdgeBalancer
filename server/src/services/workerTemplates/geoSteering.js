@@ -3,7 +3,7 @@ let roundRobinCursor = 0;
 const config = __CONFIG__;
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     if (!config.origins.length) {
       return new Response("No origin servers available", { status: 502 });
     }
@@ -11,6 +11,9 @@ export default {
     if (config.corsEnabled && request.method === "OPTIONS") {
       return buildCorsPreflightResponse(request);
     }
+
+    const limited = await enforceRateLimit(request, env);
+    if (limited) return limited;
 
     const candidates = selectGeoSteeredOrigins(config.origins, request);
 
@@ -24,6 +27,20 @@ export default {
     return new Response("Origin server unavailable", { status: 502 });
   }
 };
+
+async function enforceRateLimit(request, env) {
+  if (!config.rateLimitEnabled) return null;
+  if (!env.EDGEBALANCER_RATE_LIMITER) return null; // fail open if the binding is absent
+  const ip = request.headers.get("cf-connecting-ip") || "0.0.0.0";
+  const { success } = await env.EDGEBALANCER_RATE_LIMITER.limit({ key: ip });
+  if (!success) {
+    return new Response("Rate limit exceeded", {
+      status: 429,
+      headers: { "Retry-After": "60", "Content-Type": "text/plain" },
+    });
+  }
+  return null;
+}
 
 function selectGeoSteeredOrigins(origins, request) {
   const cf = request.cf || {};

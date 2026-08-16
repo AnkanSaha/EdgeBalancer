@@ -31,6 +31,8 @@ export function snapshotLoadBalancer(loadBalancer: any) {
     exposeRealOrigin: loadBalancer.exposeRealOrigin ?? false,
     corsEnabled: loadBalancer.corsEnabled ?? false,
     corsOrigins: Array.isArray(loadBalancer.corsOrigins) ? loadBalancer.corsOrigins : [],
+    rateLimitEnabled: loadBalancer.rateLimitEnabled === true,
+    rateLimitRequestsPerMinute: loadBalancer.rateLimitRequestsPerMinute ?? null,
     healthCheckEnabled: loadBalancer.healthCheckEnabled === true,
     healthCheckIntervalSeconds: loadBalancer.healthCheckIntervalSeconds ?? 30,
     healthAutoPaused: loadBalancer.healthAutoPaused === true,
@@ -65,11 +67,13 @@ export function configSignature(params: {
   exposeRealOrigin?: boolean;
   corsEnabled?: boolean;
   corsOrigins?: string[];
+  rateLimitEnabled?: boolean;
+  rateLimitRequestsPerMinute?: number | null;
   healthCheckEnabled?: boolean;
   healthCheckIntervalSeconds?: number;
   placement: any;
 }): string {
-  const { origins, strategy, weightedEnabled, exposeRealOrigin, corsEnabled, corsOrigins, healthCheckEnabled, healthCheckIntervalSeconds, placement } = params;
+  const { origins, strategy, weightedEnabled, exposeRealOrigin, corsEnabled, corsOrigins, rateLimitEnabled, rateLimitRequestsPerMinute, healthCheckEnabled, healthCheckIntervalSeconds, placement } = params;
 
   return JSON.stringify({
     origins: origins.map((origin) => ({
@@ -95,6 +99,8 @@ export function configSignature(params: {
     exposeRealOrigin: exposeRealOrigin ?? false,
     corsEnabled: corsEnabled ?? false,
     corsOrigins: [...(corsOrigins ?? [])].sort(),
+    rateLimitEnabled: rateLimitEnabled === true,
+    rateLimitRequestsPerMinute: rateLimitRequestsPerMinute ?? null,
     healthCheckEnabled: healthCheckEnabled === true,
     healthCheckIntervalSeconds: healthCheckIntervalSeconds ?? 30,
     placement: normalizePlacement(placement),

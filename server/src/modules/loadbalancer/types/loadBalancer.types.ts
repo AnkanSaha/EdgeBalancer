@@ -32,6 +32,8 @@ export interface LoadBalancerSnapshot {
   strategy: LoadBalancerStrategy;
   weightedEnabled: boolean;
   exposeRealOrigin: boolean;
+  rateLimitEnabled: boolean;
+  rateLimitRequestsPerMinute: number | null;
   placement: LoadBalancerPlacement;
   workerUrl: string;
   status: string;
@@ -50,6 +52,8 @@ export interface FormattedLoadBalancer {
   strategyValue: LoadBalancerStrategy;
   weightedEnabled: boolean;
   exposeRealOrigin: boolean;
+  rateLimitEnabled: boolean;
+  rateLimitRequestsPerMinute: number | null;
   placement: LoadBalancerPlacement;
   status: string;
   workerUrl: string;

@@ -52,6 +52,9 @@ DEFAULTS — the tool schemas give the field formats; these are the choices they
 - placement: required — use {"smartPlacement": false} unless the user asks for smart placement.
 - pause mode: ask nothing, pick keep-domain unless the user clearly wants the domain released.
 - geo-steering: every origin needs at least one geo field, or isFallback: true.
+- rate limiting: off unless the user asks for it. A value like "30 req/min" means rateLimitEnabled: true and
+  rateLimitRequestsPerMinute: 30. Only per-minute windows are supported; if the user asks for per-hour,
+  per-day or another window, say only requests-per-minute is available.
 
 FINAL ANSWER
 One or two plain sentences stating what was created or changed, including the hostname.

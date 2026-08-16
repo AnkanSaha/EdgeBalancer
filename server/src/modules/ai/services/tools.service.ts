@@ -55,6 +55,8 @@ const CONFIG_PROPERTIES = {
   exposeRealOrigin: { type: 'boolean' },
   corsEnabled: { type: 'boolean' },
   corsOrigins: { type: 'array', items: { type: 'string' } },
+  rateLimitEnabled: { type: 'boolean', description: 'true to enforce requests-per-minute rate limiting per client IP' },
+  rateLimitRequestsPerMinute: { type: 'integer', minimum: 1, maximum: 100000, description: 'requests allowed per minute per client IP; required when rateLimitEnabled is true' },
   placement: {
     type: 'object',
     properties: {
@@ -206,6 +208,8 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
         exposeRealOrigin: config.exposeRealOrigin ?? existing.exposeRealOrigin,
         corsEnabled: config.corsEnabled ?? existing.corsEnabled,
         corsOrigins: config.corsOrigins ?? existing.corsOrigins,
+        rateLimitEnabled: config.rateLimitEnabled ?? existing.rateLimitEnabled,
+        rateLimitRequestsPerMinute: config.rateLimitRequestsPerMinute ?? existing.rateLimitRequestsPerMinute,
         placement: config.placement ?? existing.placement ?? { smartPlacement: false },
       };
 

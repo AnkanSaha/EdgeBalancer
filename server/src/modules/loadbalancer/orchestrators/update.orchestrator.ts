@@ -58,6 +58,8 @@ export interface UpdateLoadBalancerInput {
   corsOrigins?: string[];
   healthCheckEnabled?: boolean;
   healthCheckIntervalSeconds?: number;
+  rateLimitEnabled?: boolean;
+  rateLimitRequestsPerMinute?: number;
   placement?: {
     smartPlacement?: boolean;
     region?: string;
@@ -118,11 +120,20 @@ export async function updateLoadBalancerOrchestrator(params: {
     corsOrigins,
     healthCheckEnabled,
     healthCheckIntervalSeconds,
+    rateLimitEnabled,
+    rateLimitRequestsPerMinute,
     placement,
   } = input;
 
   const nextHealthCheckEnabled = healthCheckEnabled === true;
   const nextHealthInterval = healthCheckIntervalSeconds ?? loadBalancer.healthCheckIntervalSeconds ?? 30;
+  const nextRateLimitEnabled = rateLimitEnabled ?? loadBalancer.rateLimitEnabled === true;
+  const nextRateLimitPerMinute = nextRateLimitEnabled
+    ? (rateLimitRequestsPerMinute ?? loadBalancer.rateLimitRequestsPerMinute ?? null)
+    : null;
+  const rateLimit = nextRateLimitEnabled && nextRateLimitPerMinute !== null
+    ? { enabled: true, requestsPerMinute: nextRateLimitPerMinute }
+    : undefined;
 
   // Get credentials
   const { accountId, apiToken } = await getCloudflareCredentialsForUser(userId);
@@ -152,6 +163,8 @@ export async function updateLoadBalancerOrchestrator(params: {
     strategy: nextStrategy,
     weightedEnabled: nextWeightedEnabled,
     exposeRealOrigin: exposeRealOrigin ?? false,
+    rateLimitEnabled: nextRateLimitEnabled,
+    rateLimitRequestsPerMinute: nextRateLimitPerMinute,
     healthCheckEnabled: nextHealthCheckEnabled,
     healthCheckIntervalSeconds: nextHealthInterval,
     placement,
@@ -160,6 +173,8 @@ export async function updateLoadBalancerOrchestrator(params: {
     strategy: previousSnapshot.strategy,
     weightedEnabled: previousSnapshot.weightedEnabled,
     exposeRealOrigin: previousSnapshot.exposeRealOrigin,
+    rateLimitEnabled: previousSnapshot.rateLimitEnabled,
+    rateLimitRequestsPerMinute: previousSnapshot.rateLimitRequestsPerMinute,
     healthCheckEnabled: previousSnapshot.healthCheckEnabled,
     healthCheckIntervalSeconds: previousSnapshot.healthCheckIntervalSeconds,
     placement: previousSnapshot.placement,
@@ -218,6 +233,7 @@ export async function updateLoadBalancerOrchestrator(params: {
       exposeRealOrigin: exposeRealOrigin ?? false,
       corsEnabled: nextCorsEnabled,
       corsOrigins: corsOrigins ?? [],
+      rateLimit,
     });
   }
 
@@ -265,6 +281,7 @@ export async function updateLoadBalancerOrchestrator(params: {
         scriptName: loadBalancer.scriptName,
         workerCode,
         placement: placement || { smartPlacement: false },
+        rateLimit,
       });
 
       await cancellation.throwIfCancelled();
@@ -328,6 +345,8 @@ export async function updateLoadBalancerOrchestrator(params: {
           healthCheckEnabled: nextHealthCheckEnabled,
           healthCheckIntervalSeconds: nextHealthInterval,
           healthAutoPaused: nextHealthAutoPaused,
+          rateLimitEnabled: nextRateLimitEnabled,
+          rateLimitRequestsPerMinute: nextRateLimitPerMinute,
         },
       },
       {
@@ -493,6 +512,8 @@ export async function updateLoadBalancerOrchestrator(params: {
               healthCheckEnabled: previousSnapshot.healthCheckEnabled,
               healthCheckIntervalSeconds: previousSnapshot.healthCheckIntervalSeconds,
               healthAutoPaused: previousSnapshot.healthAutoPaused,
+              rateLimitEnabled: previousSnapshot.rateLimitEnabled,
+              rateLimitRequestsPerMinute: previousSnapshot.rateLimitRequestsPerMinute,
             },
           },
           {

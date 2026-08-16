@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import FormData from 'form-data';
 import axios from 'axios';
 import { retryWithBackoff } from '../utils/retry';
@@ -7,12 +8,18 @@ export interface PlacementConfig {
   region?: string;
 }
 
+export interface RateLimitConfig {
+  enabled: boolean;
+  requestsPerMinute: number;
+}
+
 export interface DeployWorkerParams {
   accountId: string;
   apiToken: string;
   scriptName: string;
   workerCode: string;
   placement: PlacementConfig;
+  rateLimit?: RateLimitConfig;
 }
 
 interface DeploymentVersion {
@@ -32,11 +39,21 @@ interface WorkerVersionSummary {
 
 const CLOUDFLARE_API_BASE = 'https://api.cloudflare.com/client/v4';
 
-const buildWorkerMetadata = (placement: PlacementConfig) => {
+const rateLimitNamespaceId = (scriptName: string): string => {
+  // namespace_id must be a positive integer string unique within the account. scriptName is already
+  // unique per account via the {userId, scriptName} compound index, so hashing it gives a stable,
+  // collision-free id without a shared counter.
+  const digest = createHash('sha1').update(scriptName).digest('hex').slice(0, 7);
+  return String(parseInt(digest, 16));
+};
+
+const buildWorkerMetadata = (scriptName: string, placement: PlacementConfig, rateLimit?: RateLimitConfig) => {
   const metadata: any = {
-    compatibility_date: '2025-01-01',
+    compatibility_date: '2025-10-01',
     main_module: 'worker.js',
   };
+
+  const bindings: any[] = [];
 
   // Add placement configuration
   if (placement.region) {
@@ -44,13 +61,11 @@ const buildWorkerMetadata = (placement: PlacementConfig) => {
     metadata.placement = {
       mode: 'smart',
     };
-    metadata.bindings = [
-      {
-        type: 'plain_text',
-        name: 'PLACEMENT_HINT',
-        text: placement.region,
-      }
-    ];
+    bindings.push({
+      type: 'plain_text',
+      name: 'PLACEMENT_HINT',
+      text: placement.region,
+    });
   } else if (placement.smartPlacement !== false) {
     // Smart placement is default
     metadata.placement = {
@@ -58,13 +73,31 @@ const buildWorkerMetadata = (placement: PlacementConfig) => {
     };
   }
 
+  if (rateLimit?.enabled) {
+    // The REST API expresses rate-limit bindings inside `bindings[]` with type "ratelimit".
+    // The wrangler.toml `ratelimits` top-level key is a config-file shape, not an API shape.
+    bindings.push({
+      type: 'ratelimit',
+      name: 'EDGEBALANCER_RATE_LIMITER',
+      namespace_id: rateLimitNamespaceId(scriptName),
+      simple: {
+        limit: rateLimit.requestsPerMinute,
+        period: 60,
+      },
+    });
+  }
+
+  if (bindings.length > 0) {
+    metadata.bindings = bindings;
+  }
+
   return metadata;
 };
 
-const buildWorkerFormData = (workerCode: string, placement: PlacementConfig) => {
+const buildWorkerFormData = (scriptName: string, workerCode: string, placement: PlacementConfig, rateLimit?: RateLimitConfig) => {
   const formData = new FormData();
 
-  formData.append('metadata', JSON.stringify(buildWorkerMetadata(placement)), {
+  formData.append('metadata', JSON.stringify(buildWorkerMetadata(scriptName, placement, rateLimit)), {
     contentType: 'application/json',
   });
 
@@ -77,8 +110,8 @@ const buildWorkerFormData = (workerCode: string, placement: PlacementConfig) => 
 };
 
 export const deployWorker = async (params: DeployWorkerParams): Promise<void> => {
-  const { accountId, apiToken, scriptName, workerCode, placement } = params;
-  const formData = buildWorkerFormData(workerCode, placement);
+  const { accountId, apiToken, scriptName, workerCode, placement, rateLimit } = params;
+  const formData = buildWorkerFormData(scriptName, workerCode, placement, rateLimit);
 
   try {
     const response = await retryWithBackoff(
@@ -110,8 +143,8 @@ export const deployWorker = async (params: DeployWorkerParams): Promise<void> =>
 };
 
 export const uploadWorkerVersion = async (params: DeployWorkerParams): Promise<string> => {
-  const { accountId, apiToken, scriptName, workerCode, placement } = params;
-  const formData = buildWorkerFormData(workerCode, placement);
+  const { accountId, apiToken, scriptName, workerCode, placement, rateLimit } = params;
+  const formData = buildWorkerFormData(scriptName, workerCode, placement, rateLimit);
 
   try {
     const response = await retryWithBackoff(

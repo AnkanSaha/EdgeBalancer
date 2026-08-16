@@ -32,6 +32,7 @@ const STEPS = [
   { n: 5, label: 'Strategy' },
   { n: 6, label: 'Placement' },
   { n: 7, label: 'Health Checks' },
+  { n: 8, label: 'Rate Limiting' },
 ];
 
 interface StepIndicatorProps {
@@ -115,6 +116,8 @@ export default function CreateLoadBalancerPage() {
     corsOrigins: [] as string[],
     healthCheckEnabled: false,
     healthCheckIntervalSeconds: 30,
+    rateLimitEnabled: false,
+    rateLimitRequestsPerMinute: 60,
     smartPlacement: true,
     placementHint: '',
   });
@@ -249,6 +252,8 @@ export default function CreateLoadBalancerPage() {
         corsOrigins: form.corsOrigins,
         healthCheckEnabled: form.healthCheckEnabled,
         healthCheckIntervalSeconds: form.healthCheckIntervalSeconds,
+        rateLimitEnabled: form.rateLimitEnabled,
+        rateLimitRequestsPerMinute: form.rateLimitEnabled ? form.rateLimitRequestsPerMinute : null,
         placement: {
           smartPlacement: form.smartPlacement,
           ...(placementHint ? { region: placementHint } : {}),
@@ -1131,6 +1136,64 @@ export default function CreateLoadBalancerPage() {
                   </div>
                   <div className="hint" style={{ marginTop: 6 }}>
                     After 3 consecutive failures with 2s, 4s, 8s backoff, the origin is disabled.
+                  </div>
+                </div>
+              )}
+            </div>
+          </FieldBlock>
+
+          <FieldBlock n={8} title="Rate Limiting"
+            subtitle="Reject excess requests from a single visitor before they reach your origins">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <label style={{
+                display: 'flex', gap: 14, padding: 16,
+                border: `1px solid ${form.rateLimitEnabled ? 'var(--accent)' : 'var(--line)'}`,
+                background: form.rateLimitEnabled ? 'var(--accent-dim)' : 'var(--bg-2)',
+                borderRadius: 'var(--radius)', cursor: 'pointer',
+              }} onClick={() => setActiveStep(8)}>
+                <div style={{
+                  width: 36, height: 20, flexShrink: 0,
+                  borderRadius: 999,
+                  background: form.rateLimitEnabled ? 'var(--accent)' : 'var(--bg-3)',
+                  position: 'relative', transition: 'background 160ms',
+                }}>
+                  <div style={{
+                    position: 'absolute', top: 2, left: form.rateLimitEnabled ? 18 : 2,
+                    width: 16, height: 16, borderRadius: '50%',
+                    background: 'var(--bg)', transition: 'left 160ms',
+                  }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>Enable Rate Limiting</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
+                    Disabled by default. When enabled, each visitor IP is capped at the limit below per minute.
+                  </div>
+                </div>
+                <input
+                  type="checkbox" checked={form.rateLimitEnabled}
+                  onChange={e => update('rateLimitEnabled', e.target.checked)}
+                  style={{ display: 'none' }}
+                />
+              </label>
+
+              {form.rateLimitEnabled && (
+                <div className="field" style={{ maxWidth: 320 }}>
+                  <label className="field-label">Requests per minute</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      className="input input-mono"
+                      type="number" min={1} max={100000}
+                      value={form.rateLimitRequestsPerMinute}
+                      onChange={e => {
+                        const n = Number.parseInt(e.target.value, 10);
+                        update('rateLimitRequestsPerMinute', Number.isNaN(n) ? 60 : Math.max(1, Math.min(100000, n)));
+                      }}
+                      style={{ flex: 1 }}
+                    />
+                    <span style={{ fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>req / min</span>
+                  </div>
+                  <div className="hint" style={{ marginTop: 6 }}>
+                    Requests are counted per Cloudflare edge location, per visitor IP. Best for abuse prevention.
                   </div>
                 </div>
               )}

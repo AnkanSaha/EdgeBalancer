@@ -29,6 +29,10 @@ export interface WorkerConfig {
   exposeRealOrigin?: boolean;
   corsEnabled?: boolean;
   corsOrigins?: string[];
+  rateLimit?: {
+    enabled: boolean;
+    requestsPerMinute: number;
+  };
 }
 
 const TEMPLATE_MAP: Record<WorkerStrategy, string> = {
@@ -72,6 +76,8 @@ export const generateWorkerCode = (config: WorkerConfig): string => {
     exposeRealOrigin: config.exposeRealOrigin ?? false,
     corsEnabled: config.corsEnabled ?? false,
     corsOrigins: config.corsOrigins ?? [],
+    rateLimitEnabled: config.rateLimit?.enabled ?? false,
+    rateLimitRequestsPerMinute: config.rateLimit?.requestsPerMinute ?? null,
   };
 
   return template.replace('__CONFIG__', JSON.stringify(workerConfig, null, 2));
