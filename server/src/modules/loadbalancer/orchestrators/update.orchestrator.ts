@@ -222,12 +222,12 @@ export async function updateLoadBalancerOrchestrator(params: {
   let nextHealthAutoPaused = false;
 
   if (nextHealthCheckEnabled && originsForWorker.length === 0) {
-    workerCode = generateWorkerCode({ origins: [], strategy: 'paused' });
+    workerCode = await generateWorkerCode({ origins: [], strategy: 'paused' });
     nextStatus = 'paused';
     nextPauseMode = 'keep-domain';
     nextHealthAutoPaused = true;
   } else {
-    workerCode = generateWorkerCode({
+    workerCode = await generateWorkerCode({
       origins: originsForWorker,
       strategy: nextStrategy,
       exposeRealOrigin: exposeRealOrigin ?? false,

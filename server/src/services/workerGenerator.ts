@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import path from 'path';
 import { createHash } from 'crypto';
+import { minify } from 'terser';
 import { normalizeWorkerScriptName } from '../utils/workerName';
 
 export interface OriginServer {
@@ -67,7 +68,7 @@ const toWorkerOrigin = (origin: OriginServer, index: number) => ({
   isFallback: origin.isFallback === true,
 });
 
-export const generateWorkerCode = (config: WorkerConfig): string => {
+export const generateWorkerCode = async (config: WorkerConfig): Promise<string> => {
   const template = getTemplateContents(config.strategy);
   const workerConfig = {
     origins: config.origins.map(toWorkerOrigin),
@@ -80,7 +81,19 @@ export const generateWorkerCode = (config: WorkerConfig): string => {
     rateLimitRequestsPerMinute: config.rateLimit?.requestsPerMinute ?? null,
   };
 
-  return template.replace('__CONFIG__', JSON.stringify(workerConfig, null, 2));
+  const workerCode = template.replace('__CONFIG__', JSON.stringify(workerConfig, null, 2));
+
+  const minified = await minify(workerCode, {
+    module: true,
+    compress: {
+      reduce_vars: false, // keep config as a single variable, don't inline into each access site
+      passes: 2,
+    },
+    mangle: { reserved: ['config'] },
+    format: { comments: false },
+  });
+
+  return minified.code ?? workerCode;
 };
 
 export const generateScriptName = (name: string): string => {

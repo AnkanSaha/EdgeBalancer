@@ -54,7 +54,7 @@ export async function pauseLoadBalancerOrchestrator(params: {
     });
   } else {
     // Mode 2: Deploy "Paused" Worker script (Soft Stop / Maintenance Mode)
-    const pausedCode = generateWorkerCode({
+    const pausedCode = await generateWorkerCode({
       origins: [],
       strategy: 'paused',
     });

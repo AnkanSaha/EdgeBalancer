@@ -76,7 +76,7 @@ export async function resumeLoadBalancerOrchestrator(params: {
     throw error;
   }
 
-  const workerCode = generateWorkerCode({
+  const workerCode = await generateWorkerCode({
     origins: originsForWorker,
     strategy: loadBalancer.strategy as WorkerStrategy,
   });

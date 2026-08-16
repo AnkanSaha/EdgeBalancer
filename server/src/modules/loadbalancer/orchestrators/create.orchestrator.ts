@@ -143,7 +143,7 @@ export async function createLoadBalancerOrchestrator(params: {
     await cancellation.throwIfCancelled();
 
     // Step 4: Generate Worker code using resolved origins (hostnames, not raw IPs)
-    workerCode = generateWorkerCode({
+    workerCode = await generateWorkerCode({
       origins: resolved.resolvedOrigins,
       strategy: nextStrategy,
       exposeRealOrigin: exposeRealOrigin ?? false,

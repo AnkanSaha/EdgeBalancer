@@ -478,7 +478,7 @@ export const createLoadBalancer = async (req: Request, res: Response, next: Next
     await cancellation.throwIfCancelled();
 
     // Generate Worker code
-    const workerCode = generateWorkerCode({
+    const workerCode = await generateWorkerCode({
       origins,
       strategy: nextStrategy,
     });
@@ -693,7 +693,7 @@ export const updateLoadBalancer = async (req: Request, res: Response, next: Next
 
     try {
       if (configChanged) {
-        const workerCode = generateWorkerCode({
+        const workerCode = await generateWorkerCode({
           origins,
           strategy: nextStrategy,
         });
