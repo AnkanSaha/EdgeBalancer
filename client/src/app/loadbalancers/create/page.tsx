@@ -539,7 +539,7 @@ export default function CreateLoadBalancerPage() {
                           onBlur={(e) => {
                             const n = Number.parseInt(e.target.value, 10);
                             const valid = Number.isNaN(n) || n < 1 ? 1 : Math.min(99, n);
-                            setForm(f => redistributeWeights(f.origins.map(o => o.id === s.id ? { ...o, weight: valid } : o)));
+                            setForm(f => ({ ...f, origins: redistributeWeights(f.origins.map(o => o.id === s.id ? { ...o, weight: valid } : o)) }));
                           }}
                           style={{ paddingRight: 32 }}
                         />
