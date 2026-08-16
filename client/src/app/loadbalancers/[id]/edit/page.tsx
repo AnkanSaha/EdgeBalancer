@@ -172,8 +172,18 @@ export default function EditLoadBalancerPage() {
     update('corsOrigins', form.corsOrigins.filter(o => o !== origin));
   };
 
+  const redistributeWeights = (origins: typeof form.origins) => {
+    const n = origins.length;
+    const share = Math.floor(100 / n);
+    const remainder = 100 - share * n;
+    return origins.map((o, i) => ({ ...o, weight: i < remainder ? share + 1 : share }));
+  };
+
   const addOrigin = () => {
-    setForm(f => ({ ...f, origins: [...f.origins, { id: Date.now(), url: '', weight: 100, rawIp: undefined as string | undefined, healthPath: '/', geoCities: [], geoSubdivisions: [], geoCountries: [], geoContinents: [], isFallback: false }] }));
+    setForm(f => {
+      const newOrigins = [...f.origins, { id: Date.now(), url: '', weight: 1, rawIp: undefined as string | undefined, healthPath: '/', geoCities: [], geoSubdivisions: [], geoCountries: [], geoContinents: [], isFallback: false }];
+      return { ...f, origins: redistributeWeights(newOrigins) };
+    });
   };
 
   const isRawIpUrl = (url: string): boolean => {
@@ -228,7 +238,10 @@ export default function EditLoadBalancerPage() {
   };
 
   const removeOrigin = (id: number) => {
-    setForm(f => ({ ...f, origins: f.origins.length > 1 ? f.origins.filter(s => s.id !== id) : f.origins }));
+    setForm(f => {
+      if (f.origins.length <= 1) return f;
+      return { ...f, origins: redistributeWeights(f.origins.filter(s => s.id !== id)) };
+    });
   };
 
   const updateOrigin = (id: number, patch: any) => {
@@ -530,12 +543,17 @@ export default function EditLoadBalancerPage() {
                       <div style={{ position: 'relative' }}>
                         <input
                           className="input input-mono"
-                          type="number" min={1} max={100}
+                          type="number" step="1" inputMode="numeric"
                           value={s.weight}
                           onChange={(e) => {
-                            const nextWeight = Number.parseInt(e.target.value, 10);
-                            const safeWeight = Number.isNaN(nextWeight) ? 1 : Math.max(1, Math.min(100, nextWeight));
-                            updateOrigin(s.id, { weight: safeWeight });
+                            if (e.target.value.includes('.')) return;
+                            const n = Number.parseInt(e.target.value, 10);
+                            updateOrigin(s.id, { weight: Number.isNaN(n) ? '' : n });
+                          }}
+                          onBlur={(e) => {
+                            const n = Number.parseInt(e.target.value, 10);
+                            const valid = Number.isNaN(n) || n < 1 ? 1 : Math.min(99, n);
+                            setForm(f => redistributeWeights(f.origins.map(o => o.id === s.id ? { ...o, weight: valid } : o)));
                           }}
                           style={{ paddingRight: 32 }}
                         />
@@ -1215,11 +1233,16 @@ export default function EditLoadBalancerPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <input
                       className="input input-mono"
-                      type="number" min={5} max={3600}
+                      type="number" step="1" inputMode="numeric" min={5} max={3600}
                       value={form.healthCheckIntervalSeconds}
                       onChange={e => {
+                        if (e.target.value.includes('.')) return;
                         const n = Number.parseInt(e.target.value, 10);
-                        update('healthCheckIntervalSeconds', Number.isNaN(n) ? 30 : Math.max(5, Math.min(3600, n)));
+                        update('healthCheckIntervalSeconds', Number.isNaN(n) ? '' : n);
+                      }}
+                      onBlur={e => {
+                        const n = Number.parseInt(e.target.value, 10);
+                        update('healthCheckIntervalSeconds', Number.isNaN(n) || n < 5 ? 5 : Math.min(3600, n));
                       }}
                       style={{ flex: 1 }}
                     />
@@ -1273,11 +1296,16 @@ export default function EditLoadBalancerPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <input
                       className="input input-mono"
-                      type="number" min={1} max={100000}
+                      type="number" step="1" inputMode="numeric" min={1} max={100000}
                       value={form.rateLimitRequestsPerMinute}
                       onChange={e => {
+                        if (e.target.value.includes('.')) return;
                         const n = Number.parseInt(e.target.value, 10);
-                        update('rateLimitRequestsPerMinute', Number.isNaN(n) ? 60 : Math.max(1, Math.min(100000, n)));
+                        update('rateLimitRequestsPerMinute', Number.isNaN(n) ? '' : n);
+                      }}
+                      onBlur={e => {
+                        const n = Number.parseInt(e.target.value, 10);
+                        update('rateLimitRequestsPerMinute', Number.isNaN(n) || n < 1 ? 1 : Math.min(100000, n));
                       }}
                       style={{ flex: 1 }}
                     />
