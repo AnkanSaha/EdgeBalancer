@@ -42,13 +42,13 @@ export async function reconcileHealthOrchestrator(params: {
     let workerCode: string;
 
     if (enabledOrigins.length === 0) {
-      workerCode = generateWorkerCode({ origins: [], strategy: 'paused' });
+      workerCode = await generateWorkerCode({ origins: [], strategy: 'paused' });
       lb.status = 'paused';
       lb.pauseMode = 'keep-domain';
       lb.healthAutoPaused = true;
       console.warn(`Health check auto-paused load balancer ${loadBalancerId}: all origins disabled`);
     } else {
-      workerCode = generateWorkerCode({
+      workerCode = await generateWorkerCode({
         origins: enabledOrigins,
         strategy: lb.strategy as WorkerStrategy,
         exposeRealOrigin: lb.exposeRealOrigin ?? false,
