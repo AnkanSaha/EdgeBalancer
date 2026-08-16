@@ -43,6 +43,8 @@ export interface ILoadBalancer extends Document {
   healthCheckEnabled: boolean;
   healthCheckIntervalSeconds: number;
   healthAutoPaused: boolean;
+  rateLimitEnabled: boolean;
+  rateLimitRequestsPerMinute: number | null;
   workerUrl: string;
   createdAt: Date;
   updatedAt: Date;
@@ -158,6 +160,16 @@ const LoadBalancerSchema = new Schema<ILoadBalancer>(
     healthAutoPaused: {
       type: Boolean,
       default: false,
+    },
+    rateLimitEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    rateLimitRequestsPerMinute: {
+      type: Number,
+      default: null,
+      min: 1,
+      max: 100000,
     },
     workerUrl: {
       type: String,

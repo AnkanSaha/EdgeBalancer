@@ -396,6 +396,9 @@ details[open] > summary svg { transform: rotate(180deg); }
   .hero-grid { grid-template-columns: 1fr !important; padding: 48px 24px !important; }
 }
 
+/* Hero min-height is owned by the co-located <style> in app/page.tsx:
+   full 100vh on desktop (>=1024px), natural/auto on tablet & phone. */
+
 /* Responsive Spacing */
 @media (max-width: 640px) {
   .gap-2 { gap: 4px !important; }

@@ -88,6 +88,8 @@ export interface LoadBalancer {
   exposeRealOrigin: boolean;
   corsEnabled: boolean;
   corsOrigins: string[];
+  rateLimitEnabled: boolean;
+  rateLimitRequestsPerMinute: number | null;
   healthCheckEnabled: boolean;
   healthCheckIntervalSeconds: number | null;
   disabledOriginCount?: number;
@@ -143,6 +145,8 @@ export interface CreateLoadBalancerRequest {
   exposeRealOrigin: boolean;
   corsEnabled: boolean;
   corsOrigins: string[];
+  rateLimitEnabled: boolean;
+  rateLimitRequestsPerMinute: number | null;
   healthCheckEnabled: boolean;
   healthCheckIntervalSeconds: number;
   placement: PlacementConfig;

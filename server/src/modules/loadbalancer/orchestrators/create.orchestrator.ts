@@ -48,6 +48,8 @@ export interface CreateLoadBalancerInput {
   corsOrigins?: string[];
   healthCheckEnabled?: boolean;
   healthCheckIntervalSeconds?: number;
+  rateLimitEnabled?: boolean;
+  rateLimitRequestsPerMinute?: number;
   placement?: {
     smartPlacement?: boolean;
     region?: string;
@@ -93,6 +95,8 @@ export async function createLoadBalancerOrchestrator(params: {
     corsOrigins,
     healthCheckEnabled,
     healthCheckIntervalSeconds,
+    rateLimitEnabled,
+    rateLimitRequestsPerMinute,
     placement,
   } = input;
 
@@ -100,6 +104,11 @@ export async function createLoadBalancerOrchestrator(params: {
   const nextWeightedEnabled = isWeightedStrategy(nextStrategy);
   const nextHealthCheckEnabled = healthCheckEnabled === true;
   const nextHealthInterval = healthCheckIntervalSeconds ?? 30;
+  const nextRateLimitEnabled = rateLimitEnabled === true;
+  const nextRateLimitPerMinute = nextRateLimitEnabled ? (rateLimitRequestsPerMinute ?? null) : null;
+  const rateLimit = nextRateLimitEnabled && nextRateLimitPerMinute !== null
+    ? { enabled: true, requestsPerMinute: nextRateLimitPerMinute }
+    : undefined;
 
   try {
     // Step 1: Get Cloudflare credentials
@@ -140,6 +149,7 @@ export async function createLoadBalancerOrchestrator(params: {
       exposeRealOrigin: exposeRealOrigin ?? false,
       corsEnabled: corsEnabled ?? false,
       corsOrigins: corsOrigins ?? [],
+      rateLimit,
     });
 
     // Step 5: Deploy Worker to Cloudflare
@@ -149,6 +159,7 @@ export async function createLoadBalancerOrchestrator(params: {
       scriptName,
       workerCode,
       placement: placement || { smartPlacement: false },
+      rateLimit,
     });
     await cancellation.throwIfCancelled();
 
@@ -191,6 +202,8 @@ export async function createLoadBalancerOrchestrator(params: {
       healthCheckEnabled: nextHealthCheckEnabled,
       healthCheckIntervalSeconds: nextHealthInterval,
       healthAutoPaused: false,
+      rateLimitEnabled: nextRateLimitEnabled,
+      rateLimitRequestsPerMinute: nextRateLimitPerMinute,
       ipOriginRecords,
       placement,
       zoneId,

@@ -190,6 +190,24 @@ export const validateCreateLoadBalancerBody: ValidationFunction = (body) => {
     }
   }
 
+  const rateLimitEnabled = body?.rateLimitEnabled;
+  if (rateLimitEnabled !== undefined && typeof rateLimitEnabled !== 'boolean') {
+    errors.push('rateLimitEnabled must be a boolean');
+  }
+
+  const rateLimitRequestsPerMinute = body?.rateLimitRequestsPerMinute;
+  if (rateLimitEnabled === true) {
+    if (
+      !Number.isInteger(rateLimitRequestsPerMinute) ||
+      rateLimitRequestsPerMinute < 1 ||
+      rateLimitRequestsPerMinute > 100000
+    ) {
+      errors.push('rateLimitRequestsPerMinute must be an integer between 1 and 100000 when rate limiting is enabled');
+    }
+  } else if (rateLimitRequestsPerMinute !== undefined && !Number.isInteger(rateLimitRequestsPerMinute)) {
+    errors.push('rateLimitRequestsPerMinute must be an integer');
+  }
+
   if (!placement || typeof placement !== 'object' || Array.isArray(placement)) {
     errors.push('Placement configuration is required');
   } else {
