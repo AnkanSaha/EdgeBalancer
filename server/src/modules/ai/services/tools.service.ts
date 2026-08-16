@@ -33,6 +33,7 @@ const ORIGIN_SCHEMA = {
   properties: {
     url: { type: 'string', description: 'Origin URL, must start with http:// or https://' },
     weight: { type: 'integer', minimum: 1, maximum: 100, description: 'Relative weight, 1 unless the user wants a weighted split' },
+    healthPath: { type: 'string', description: 'health checks only: path to probe, default "/"' },
     geoCities: { type: 'array', items: { type: 'string' }, description: 'geo-steering only: uppercase city names' },
     geoSubdivisions: { type: 'array', items: { type: 'string' }, description: 'geo-steering only: ISO 3166-2 subdivision codes' },
     geoCountries: { type: 'array', items: { type: 'string' }, description: 'geo-steering only: 2-letter uppercase ISO country codes' },
@@ -57,6 +58,8 @@ const CONFIG_PROPERTIES = {
   corsOrigins: { type: 'array', items: { type: 'string' } },
   rateLimitEnabled: { type: 'boolean', description: 'true to enforce requests-per-minute rate limiting per client IP' },
   rateLimitRequestsPerMinute: { type: 'integer', minimum: 1, maximum: 100000, description: 'requests allowed per minute per client IP; required when rateLimitEnabled is true' },
+  healthCheckEnabled: { type: 'boolean', description: 'true to probe each origin and stop routing to failed backends' },
+  healthCheckIntervalSeconds: { type: 'integer', minimum: 5, maximum: 3600, description: 'health checks only: probe interval in seconds; required when healthCheckEnabled is true, default 30' },
   placement: {
     type: 'object',
     properties: {
@@ -210,6 +213,8 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
         corsOrigins: config.corsOrigins ?? existing.corsOrigins,
         rateLimitEnabled: config.rateLimitEnabled ?? existing.rateLimitEnabled,
         rateLimitRequestsPerMinute: config.rateLimitRequestsPerMinute ?? existing.rateLimitRequestsPerMinute,
+        healthCheckEnabled: config.healthCheckEnabled ?? existing.healthCheckEnabled,
+        healthCheckIntervalSeconds: config.healthCheckIntervalSeconds ?? existing.healthCheckIntervalSeconds,
         placement: config.placement ?? existing.placement ?? { smartPlacement: false },
       };
 
