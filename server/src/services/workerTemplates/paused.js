@@ -18,6 +18,18 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
+    // Rate limit even the maintenance page to prevent abuse
+    if (env.EDGEBALANCER_RATE_LIMITER) {
+      const ip = request.headers.get("cf-connecting-ip") || "0.0.0.0";
+      const { success } = await env.EDGEBALANCER_RATE_LIMITER.limit({ key: ip });
+      if (!success) {
+        return new Response("Rate limit exceeded", {
+          status: 429,
+          headers: { "Retry-After": "60", "Content-Type": "text/plain" },
+        });
+      }
+    }
+
     const html = `
       <!DOCTYPE html>
       <html lang="en">
