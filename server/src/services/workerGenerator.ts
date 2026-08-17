@@ -68,7 +68,7 @@ const toWorkerOrigin = (origin: OriginServer, index: number) => ({
   isFallback: origin.isFallback === true,
 });
 
-export const generateWorkerCode = async (config: WorkerConfig): Promise<string> => {
+export const generateWorkerCode = async (config: WorkerConfig, options?: { skipObfuscation?: boolean }): Promise<string> => {
   const template = getTemplateContents(config.strategy);
   const workerConfig = {
     origins: config.origins.map(toWorkerOrigin),
@@ -82,6 +82,10 @@ export const generateWorkerCode = async (config: WorkerConfig): Promise<string> 
   };
 
   const workerCode = template.replace('__CONFIG__', JSON.stringify(workerConfig, null, 2));
+
+  if (options?.skipObfuscation) {
+    return workerCode;
+  }
 
   const obfuscationResult = JavaScriptObfuscator.obfuscate(workerCode, {
     compact: true,
