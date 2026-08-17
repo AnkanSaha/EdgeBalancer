@@ -21,28 +21,30 @@ const extractConfig = (code: string) => {
   return eval(`(${code.slice(jsonStart, end)})`);
 };
 
+const OPTS = { skipObfuscation: true };
+
 describe('generateWorkerCode — exposeRealOrigin', () => {
   it('injects exposeRealOrigin: true when explicitly set', async () => {
-    const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', exposeRealOrigin: true });
+    const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', exposeRealOrigin: true }, OPTS);
     const config = extractConfig(code);
     expect(config.exposeRealOrigin).toBe(true);
   });
 
   it('injects exposeRealOrigin: false when explicitly set', async () => {
-    const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', exposeRealOrigin: false });
+    const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', exposeRealOrigin: false }, OPTS);
     const config = extractConfig(code);
     expect(config.exposeRealOrigin).toBe(false);
   });
 
   it('defaults exposeRealOrigin to false when omitted', async () => {
-    const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin' });
+    const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin' }, OPTS);
     const config = extractConfig(code);
     expect(config.exposeRealOrigin).toBe(false);
   });
 
   it('exposeRealOrigin: true and false produce different worker code', async () => {
-    const withTrue = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', exposeRealOrigin: true });
-    const withFalse = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', exposeRealOrigin: false });
+    const withTrue = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', exposeRealOrigin: true }, OPTS);
+    const withFalse = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', exposeRealOrigin: false }, OPTS);
     expect(withTrue).not.toBe(withFalse);
   });
 
@@ -58,7 +60,7 @@ describe('generateWorkerCode — exposeRealOrigin', () => {
     ] as const;
 
     for (const strategy of strategies) {
-      const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy, exposeRealOrigin: true });
+      const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy, exposeRealOrigin: true }, OPTS);
       const config = extractConfig(code);
       expect(config.exposeRealOrigin).toBe(true);
     }
@@ -69,26 +71,26 @@ describe('generateWorkerCode — exposeRealOrigin', () => {
 
 describe('generateWorkerCode — CORS', () => {
   it('injects corsEnabled: true when explicitly set', async () => {
-    const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', corsEnabled: true });
+    const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', corsEnabled: true }, OPTS);
     const config = extractConfig(code);
     expect(config.corsEnabled).toBe(true);
   });
 
   it('injects corsEnabled: false when explicitly set', async () => {
-    const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', corsEnabled: false });
+    const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', corsEnabled: false }, OPTS);
     const config = extractConfig(code);
     expect(config.corsEnabled).toBe(false);
   });
 
   it('defaults corsEnabled to false when omitted', async () => {
-    const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin' });
+    const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin' }, OPTS);
     const config = extractConfig(code);
     expect(config.corsEnabled).toBe(false);
   });
 
   it('embeds corsOrigins array in the config', async () => {
     const corsOrigins = ['https://a.com', 'https://b.com'];
-    const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', corsEnabled: true, corsOrigins });
+    const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', corsEnabled: true, corsOrigins }, OPTS);
     const config = extractConfig(code);
     expect(config.corsOrigins).toEqual(corsOrigins);
   });
