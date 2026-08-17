@@ -18,7 +18,7 @@ function memoryRateRecordAndCheck(ip, now, limit) {
   const allowed = recent.length < limit;
   recent.push(now);
   memoryRateWindows.set(key, recent);
-  if (memoryRateWindows.size > 5000) {
+  if (memoryRateWindows.size > 1000) {
     for (const [k, v] of memoryRateWindows) {
       if (v[v.length - 1] < cutoff) memoryRateWindows.delete(k);
     }

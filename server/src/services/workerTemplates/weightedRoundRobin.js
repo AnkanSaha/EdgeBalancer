@@ -72,7 +72,7 @@ function memoryRateRecordAndCheck(ip, now, limit) {
   const allowed = recent.length < limit;
   recent.push(now);
   memoryRateWindows.set(key, recent);
-  if (memoryRateWindows.size > 5000) {
+  if (memoryRateWindows.size > 1000) {
     for (const [k, v] of memoryRateWindows) {
       if (v[v.length - 1] < cutoff) memoryRateWindows.delete(k);
     }
@@ -152,7 +152,7 @@ async function enforcePathRateLimit(request, env) {
   if (recent.length >= limit) return rateLimitedResponse(60);
   recent.push(now);
   pathRateWindows.set(key, recent);
-  if (pathRateWindows.size > 5000) {
+  if (pathRateWindows.size > 1000) {
     for (const [k, v] of pathRateWindows) {
       if (v[v.length - 1] < cutoff) pathRateWindows.delete(k);
     }
