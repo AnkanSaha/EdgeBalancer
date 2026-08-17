@@ -1,8 +1,9 @@
 import { MetadataRoute } from "next";
+import { blogPosts } from "@/lib/blogData";
 
-const BASE_URL = "https://edge.nexoral.in";
+const SITE_URL = "https://edge.nexoral.in";
 
-const publicRoutes: {
+const staticPages: {
   path: string;
   changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
   priority: number;
@@ -11,6 +12,7 @@ const publicRoutes: {
   { path: "/strategies", changeFrequency: "monthly", priority: 0.9 },
   { path: "/pricing", changeFrequency: "monthly", priority: 0.9 },
   { path: "/faq", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/blog", changeFrequency: "weekly", priority: 0.8 },
   { path: "/contact", changeFrequency: "monthly", priority: 0.6 },
   { path: "/privacy", changeFrequency: "yearly", priority: 0.4 },
   { path: "/terms", changeFrequency: "yearly", priority: 0.4 },
@@ -19,12 +21,23 @@ const publicRoutes: {
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date();
+  const now = new Date();
 
-  return publicRoutes.map(({ path, changeFrequency, priority }) => ({
-    url: `${BASE_URL}${path}`,
-    lastModified,
+  // Static pages
+  const staticEntries = staticPages.map(({ path, changeFrequency, priority }) => ({
+    url: `${SITE_URL}${path}`,
+    lastModified: now,
     changeFrequency,
     priority,
   }));
+
+  // Blog posts
+  const blogEntries = blogPosts.map((post) => ({
+    url: `${SITE_URL}/blog/${post.slug}`,
+    lastModified: new Date(post.updated || post.date),
+    changeFrequency: "monthly" as const,
+    priority: 0.7,
+  }));
+
+  return [...staticEntries, ...blogEntries];
 }
