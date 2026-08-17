@@ -10,7 +10,6 @@ import { Icons } from '@/components/shared/Icons';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { PauseModal } from '@/components/loadbalancers/PauseModal';
 import { DeploymentOverlay, DeploymentSuccessModal } from '@/components/loadbalancers/DeploymentExperience';
-import { RainLayer } from '@/components/shared/RainLayer';
 import { AiPromptCard, AiProgressOverlay, applyAiEvent, initialAiRunState, type AiRunState } from '@/components/dashboard/AiBuilder';
 import { streamAiGeneration } from '@/lib/aiStream';
 import type { LoadBalancer, LoadBalancerAnalytics } from '@/types/api';
@@ -271,7 +270,6 @@ export default function DashboardPage() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', flexDirection: 'column' }}>
-      <RainLayer />
 
       <div className="app-shell">
         <Sidebar
@@ -279,6 +277,9 @@ export default function DashboardPage() {
           onNav={handleNav}
           onLogout={handleLogout}
           userEmail={user?.email}
+          hasCloudflareCredentials={user?.hasCloudflareCredentials}
+          cloudflareOAuthConnected={user?.cloudflareOAuthConnected}
+          isReady={!!user?.hasCloudflareCredentials}
         />
         <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Topbar

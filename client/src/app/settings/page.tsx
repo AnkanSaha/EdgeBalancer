@@ -55,6 +55,9 @@ export default function SettingsPage() {
         }}
         onLogout={handleLogout}
         userEmail={user?.email}
+        hasCloudflareCredentials={user?.hasCloudflareCredentials}
+        cloudflareOAuthConnected={user?.cloudflareOAuthConnected}
+        isReady={!!user?.hasCloudflareCredentials}
       />
       <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <Topbar

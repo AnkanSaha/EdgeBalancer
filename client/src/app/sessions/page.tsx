@@ -153,12 +153,15 @@ export default function SessionsPage() {
           onNav={handleNav}
           onLogout={handleLogout}
           userEmail={user?.email}
+          hasCloudflareCredentials={user?.hasCloudflareCredentials}
+          cloudflareOAuthConnected={user?.cloudflareOAuthConnected}
+          isReady={!!user?.hasCloudflareCredentials}
         />
         <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Topbar
-            crumbs={['Dashboard', 'Sessions']}
-            title="Sessions"
-            subtitle="History of load balancer deployments and edits"
+            crumbs={['Dashboard', 'LB History']}
+            title="LB History"
+            subtitle="Every time you create or edit a load balancer, a snapshot is saved here"
           />
           <div style={{ padding: 'clamp(16px, 4vw, 32px)', overflow: 'auto', flex: 1 }}>
             {/* Filter row */}
