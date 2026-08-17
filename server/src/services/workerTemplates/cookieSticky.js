@@ -327,9 +327,10 @@ function buildCorsPreflightResponse(request) {
   const headers = new Headers();
   if (allowedOrigin) {
     headers.set("Access-Control-Allow-Origin", allowedOrigin);
-    headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+    headers.set("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, DELETE, PATCH, OPTIONS, CONNECT, TRACE");
     headers.set("Access-Control-Allow-Headers",
-      request.headers.get("Access-Control-Request-Headers") || "Content-Type, Authorization");
+      request.headers.get("Access-Control-Request-Headers") || "*");
+    headers.set("Access-Control-Expose-Headers", "*");
     headers.set("Access-Control-Allow-Credentials", "true");
     headers.set("Access-Control-Max-Age", "86400");
     headers.set("Vary", "Origin");

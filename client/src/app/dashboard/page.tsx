@@ -290,9 +290,11 @@ export default function DashboardPage() {
                 <button className="btn btn-ghost btn-sm" onClick={() => { fetchLoadBalancers(); fetchAnalytics(); }}>
                   <Icons.Refresh size={14} /> <span className="hide-sm">Refresh</span>
                 </button>
-                <button className="btn btn-primary btn-sm hide-sm" onClick={() => router.push('/loadbalancers/create')}>
-                  <Icons.Plus size={14} /> <span className="hide-md">Create Load Balancer</span><span className="hide-md-inverse">New</span>
-                </button>
+                {hasBalancers && (
+                  <button className="btn btn-primary btn-sm hide-sm" onClick={() => router.push('/loadbalancers/create')}>
+                    <Icons.Plus size={14} /> <span className="hide-md">Create Load Balancer</span><span className="hide-md-inverse">New</span>
+                  </button>
+                )}
               </>
             }
           />

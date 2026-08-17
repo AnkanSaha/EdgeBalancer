@@ -16,7 +16,7 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
 
   const items = [
     { id: 'balancers', icon: 'Layers', label: 'Load Balancers' },
-    { id: 'sessions', icon: 'History', label: 'Sessions' },
+    { id: 'sessions', icon: 'History', label: 'LB History' },
   ];
 
   const bottom = [
