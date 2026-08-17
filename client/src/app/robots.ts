@@ -11,6 +11,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/dashboard", "/settings", "/loadbalancers", "/onboarding", "/sessions"],
       },
     ],
-    sitemap: `${BASE_URL}/sitemap/sitemap.xml`,
+    sitemap: `${BASE_URL}/sitemap.xml`,
   };
 }
