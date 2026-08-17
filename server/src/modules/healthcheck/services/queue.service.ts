@@ -1,5 +1,6 @@
 import { Queue, Worker, type Job } from 'bullmq';
 import { HealthCheckScheduler } from '../../../models/HealthCheckScheduler';
+import { onRedisReconnect } from '../../../utils/redisClient';
 import { processHealthCheckJob } from './worker.service';
 
 const QUEUE_NAME = 'health-checks';
@@ -49,6 +50,11 @@ export async function startHealthCheckWorker(): Promise<void> {
 
   worker.on('ready', () => {
     console.log(`Health check worker started (queue: ${QUEUE_NAME})`);
+  });
+
+  onRedisReconnect(async () => {
+    console.log('Redis reconnected — resyncing health check schedulers');
+    await resyncHealthCheckJobs();
   });
 }
 

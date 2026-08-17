@@ -2,6 +2,11 @@ import { createClient, RedisClientType } from 'redis';
 
 let client: RedisClientType | null = null;
 let everConnected = false;
+const onReconnectCallbacks: Array<() => Promise<void>> = [];
+
+export function onRedisReconnect(callback: () => Promise<void>): void {
+  onReconnectCallbacks.push(callback);
+}
 
 export async function getRedisClient(): Promise<RedisClientType> {
   if (!client) {
@@ -23,6 +28,16 @@ export async function getRedisClient(): Promise<RedisClientType> {
     }) as RedisClientType;
     client.on('error', (err) => console.error('Redis error:', err.message));
     client.on('ready', () => { everConnected = true; });
+    client.on('reconnecting', async () => {
+      console.log('Redis reconnecting — running recovery callbacks');
+      for (const cb of onReconnectCallbacks) {
+        try {
+          await cb();
+        } catch (err: any) {
+          console.error('Redis reconnect callback failed:', err.message);
+        }
+      }
+    });
     await client.connect();
     console.log('Redis connected');
   }
