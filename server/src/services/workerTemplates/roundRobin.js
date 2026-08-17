@@ -20,16 +20,81 @@ export default {
   }
 };
 
+// ─── Rate limiting ladder: in-memory → colo cache → platform binding ─────────
+const RATE_WINDOW_MS = 60000;
+const memoryRateWindows = new Map();
+
+function rateLimitedResponse(retryAfter) {
+  return new Response("Rate limit exceeded", {
+    status: 429,
+    headers: { "Retry-After": String(retryAfter), "Content-Type": "text/plain" },
+  });
+}
+
+function memoryRateRecordAndCheck(ip, now, limit) {
+  const cutoff = now - RATE_WINDOW_MS;
+  const key = `rl:${ip}`;
+  const recent = (memoryRateWindows.get(key) || []).filter((t) => t >= cutoff);
+  const allowed = recent.length < limit;
+  recent.push(now);
+  memoryRateWindows.set(key, recent);
+  if (memoryRateWindows.size > 5000) {
+    for (const [k, v] of memoryRateWindows) {
+      if (v[v.length - 1] < cutoff) memoryRateWindows.delete(k);
+    }
+  }
+  return allowed;
+}
+
+async function cacheRateRecordAndCheck(ip, now, limit) {
+  try {
+    const key = "https://edgebalancer.local/ratelimit/" + encodeURIComponent(ip);
+    const cutoff = now - RATE_WINDOW_MS;
+    let recent = [];
+    const cached = await caches.default.match(key);
+    if (cached) {
+      try {
+        const parsed = await cached.json();
+        if (Array.isArray(parsed.timestamps)) recent = parsed.timestamps;
+      } catch {}
+    }
+    recent = recent.filter((t) => t >= cutoff);
+    const allowed = recent.length < limit;
+    recent.push(now);
+    await caches.default.put(
+      key,
+      new Response(JSON.stringify({ timestamps: recent }), {
+        headers: { "Cache-Control": "max-age=60" },
+      })
+    );
+    return allowed;
+  } catch (error) {
+    return true; // fail open if the cache is unavailable
+  }
+}
+
 async function enforceRateLimit(request, env) {
   if (!config.rateLimitEnabled) return null;
-  if (!env.EDGEBALANCER_RATE_LIMITER) return null; // fail open if the binding is absent
+  const limit = config.rateLimitRequestsPerMinute || 60;
   const ip = request.headers.get("cf-connecting-ip") || "0.0.0.0";
-  const { success } = await env.EDGEBALANCER_RATE_LIMITER.limit({ key: ip });
-  if (!success) {
-    return new Response("Rate limit exceeded", {
-      status: 429,
-      headers: { "Retry-After": "60", "Content-Type": "text/plain" },
-    });
+  const now = Date.now();
+
+  // Layer 1: per-isolate in-memory sliding window (synchronous, race-free)
+  if (!memoryRateRecordAndCheck(ip, now, limit)) return rateLimitedResponse(60);
+
+  // Layer 2: per-colo Cache API window (shared across isolates in this colo)
+  const cacheAllowed = await cacheRateRecordAndCheck(ip, now, limit);
+  if (!cacheAllowed) return rateLimitedResponse(60);
+
+  // Layer 3: platform binding (authoritative when healthy)
+  if (!env.EDGEBALANCER_RATE_LIMITER) return null; // fail open if the binding is absent
+  const result = await env.EDGEBALANCER_RATE_LIMITER.limit({ key: ip });
+  if (!result.success) {
+    const retryAfter =
+      Number.isFinite(result.reset_in_seconds) && result.reset_in_seconds > 0
+        ? Math.max(1, Math.round(result.reset_in_seconds))
+        : 60;
+    return rateLimitedResponse(retryAfter);
   }
   return null;
 }

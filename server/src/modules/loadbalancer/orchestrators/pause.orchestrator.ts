@@ -54,14 +54,15 @@ export async function pauseLoadBalancerOrchestrator(params: {
     });
   } else {
     // Mode 2: Deploy "Paused" Worker script (Soft Stop / Maintenance Mode)
-    const pausedCode = await generateWorkerCode({
-      origins: [],
-      strategy: 'paused',
-    });
-
     const rateLimit = loadBalancer.rateLimitEnabled && loadBalancer.rateLimitRequestsPerMinute
       ? { enabled: true, requestsPerMinute: loadBalancer.rateLimitRequestsPerMinute }
       : undefined;
+
+    const pausedCode = await generateWorkerCode({
+      origins: [],
+      strategy: 'paused',
+      rateLimit,
+    });
 
     await deployWorker({
       accountId,

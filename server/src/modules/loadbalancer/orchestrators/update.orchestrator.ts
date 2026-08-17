@@ -222,7 +222,7 @@ export async function updateLoadBalancerOrchestrator(params: {
   let nextHealthAutoPaused = false;
 
   if (nextHealthCheckEnabled && originsForWorker.length === 0) {
-    workerCode = await generateWorkerCode({ origins: [], strategy: 'paused' });
+    workerCode = await generateWorkerCode({ origins: [], strategy: 'paused', rateLimit });
     nextStatus = 'paused';
     nextPauseMode = 'keep-domain';
     nextHealthAutoPaused = true;

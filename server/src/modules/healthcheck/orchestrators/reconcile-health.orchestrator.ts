@@ -44,10 +44,13 @@ export async function reconcileHealthOrchestrator(params: {
     }
 
     const { accountId, apiToken } = await getCloudflareCredentialsForUser(lb.userId.toString());
+    const rateLimit = lb.rateLimitEnabled && lb.rateLimitRequestsPerMinute
+      ? { enabled: true, requestsPerMinute: lb.rateLimitRequestsPerMinute }
+      : undefined;
     let workerCode: string;
 
     if (enabledOrigins.length === 0) {
-      workerCode = await generateWorkerCode({ origins: [], strategy: 'paused' });
+      workerCode = await generateWorkerCode({ origins: [], strategy: 'paused', rateLimit });
       lb.status = 'paused';
       lb.pauseMode = 'keep-domain';
       lb.healthAutoPaused = true;
@@ -59,6 +62,7 @@ export async function reconcileHealthOrchestrator(params: {
         exposeRealOrigin: lb.exposeRealOrigin ?? false,
         corsEnabled: lb.corsEnabled ?? false,
         corsOrigins: lb.corsOrigins ?? [],
+        rateLimit,
       });
 
       if (lb.status === 'paused' && lb.healthAutoPaused) {
@@ -77,6 +81,7 @@ export async function reconcileHealthOrchestrator(params: {
         scriptName: lb.scriptName,
         workerCode,
         placement: lb.placement,
+        rateLimit,
       });
 
       console.log(
