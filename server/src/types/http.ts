@@ -149,6 +149,11 @@ export class AppResponse {
   get writableEnded() {
     return this.reply.raw.writableEnded;
   }
+
+  redirect(url: string, statusCode: number = 302) {
+    this.reply.code(statusCode).redirect(url);
+    return this;
+  }
 }
 
 export const createRequestAdapter = (request: FastifyRequest): AppRequest => {

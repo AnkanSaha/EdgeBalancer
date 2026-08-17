@@ -1,6 +1,7 @@
 import { User } from '../models/User';
 import { encrypt, decrypt, maskToken, maskAccountId } from '../utils';
 import { CloudflareClient } from './cloudflareClient';
+import { refreshOAuthToken, isOAuthTokenExpired } from './oauth.service';
 
 export interface CredentialsValidationResult {
   valid: boolean;
@@ -75,11 +76,27 @@ export const getCloudflareCredentials = async (userId: string): Promise<{
   apiToken: string;
 } | null> => {
   const user = await User.findById(userId);
-  if (!user || !user.cloudflareAccountId || !user.cloudflareApiToken) {
+  if (!user || !user.cloudflareAccountId) {
     return null;
   }
 
-  // Decrypt credentials
+  // OAuth path
+  if (user.cloudflareOAuthConnected && user.cloudflareOAuthToken) {
+    let accessToken: string;
+    if (isOAuthTokenExpired(user.cloudflareTokenExpiresAt)) {
+      accessToken = await refreshOAuthToken(userId);
+    } else {
+      accessToken = decrypt(user.cloudflareOAuthToken, user.cloudflareOAuthTokenIv!, user.cloudflareOAuthTokenTag!);
+    }
+    const accountId = decrypt(user.cloudflareAccountId, user.cloudflareAccountIdIv!, user.cloudflareAccountIdTag!);
+    return { accountId, apiToken: accessToken };
+  }
+
+  // Manual token path
+  if (!user.cloudflareApiToken) {
+    return null;
+  }
+
   const accountId = decrypt(user.cloudflareAccountId, user.cloudflareAccountIdIv!, user.cloudflareAccountIdTag!);
   const apiToken = decrypt(user.cloudflareApiToken, user.cloudflareTokenIv!, user.cloudflareTokenTag!);
 
@@ -89,25 +106,45 @@ export const getCloudflareCredentials = async (userId: string): Promise<{
 export const getMaskedCredentials = async (userId: string): Promise<{
   accountId: string | null;
   apiToken: string | null;
+  connectedVia?: 'oauth' | 'manual';
 } | null> => {
   const user = await User.findById(userId);
   if (!user) {
     return null;
   }
 
-  if (!user.cloudflareAccountId || !user.cloudflareApiToken) {
+  if (!user.cloudflareAccountId) {
     return {
       accountId: null,
       apiToken: null,
     };
   }
 
-  // Decrypt and mask
-  const accountId = decrypt(user.cloudflareAccountId, user.cloudflareAccountIdIv!, user.cloudflareAccountIdTag!);
+  const accountId = maskAccountId(decrypt(user.cloudflareAccountId, user.cloudflareAccountIdIv!, user.cloudflareAccountIdTag!));
+
+  // OAuth path
+  if (user.cloudflareOAuthConnected && user.cloudflareOAuthToken) {
+    const accessToken = decrypt(user.cloudflareOAuthToken, user.cloudflareOAuthTokenIv!, user.cloudflareOAuthTokenTag!);
+    return {
+      accountId,
+      apiToken: maskToken(accessToken),
+      connectedVia: 'oauth',
+    };
+  }
+
+  // Manual token path
+  if (!user.cloudflareApiToken) {
+    return {
+      accountId: null,
+      apiToken: null,
+    };
+  }
+
   const apiToken = decrypt(user.cloudflareApiToken, user.cloudflareTokenIv!, user.cloudflareTokenTag!);
 
   return {
-    accountId: maskAccountId(accountId),
+    accountId,
     apiToken: maskToken(apiToken),
+    connectedVia: 'manual',
   };
 };
