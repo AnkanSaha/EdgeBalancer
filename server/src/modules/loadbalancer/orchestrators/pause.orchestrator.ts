@@ -59,12 +59,17 @@ export async function pauseLoadBalancerOrchestrator(params: {
       strategy: 'paused',
     });
 
+    const rateLimit = loadBalancer.rateLimitEnabled && loadBalancer.rateLimitRequestsPerMinute
+      ? { enabled: true, requestsPerMinute: loadBalancer.rateLimitRequestsPerMinute }
+      : undefined;
+
     await deployWorker({
       accountId,
       apiToken,
       scriptName: loadBalancer.scriptName,
       workerCode: pausedCode,
       placement: loadBalancer.placement,
+      rateLimit,
     });
 
     // Prune history to keep things clean

@@ -76,9 +76,17 @@ export async function resumeLoadBalancerOrchestrator(params: {
     throw error;
   }
 
+  const rateLimit = loadBalancer.rateLimitEnabled && loadBalancer.rateLimitRequestsPerMinute
+    ? { enabled: true, requestsPerMinute: loadBalancer.rateLimitRequestsPerMinute }
+    : undefined;
+
   const workerCode = await generateWorkerCode({
     origins: originsForWorker,
     strategy: loadBalancer.strategy as WorkerStrategy,
+    exposeRealOrigin: loadBalancer.exposeRealOrigin ?? false,
+    corsEnabled: loadBalancer.corsEnabled ?? false,
+    corsOrigins: loadBalancer.corsOrigins ?? [],
+    rateLimit,
   });
 
   await deployWorker({
@@ -87,6 +95,7 @@ export async function resumeLoadBalancerOrchestrator(params: {
     scriptName: loadBalancer.scriptName,
     workerCode,
     placement: loadBalancer.placement,
+    rateLimit,
   });
 
   await pruneWorkerHistory({

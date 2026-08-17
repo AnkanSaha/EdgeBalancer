@@ -74,17 +74,20 @@ const buildWorkerMetadata = (scriptName: string, placement: PlacementConfig, rat
   }
 
   if (rateLimit?.enabled) {
-    // The REST API expresses rate-limit bindings inside `bindings[]` with type "ratelimit".
-    // The wrangler.toml `ratelimits` top-level key is a config-file shape, not an API shape.
-    bindings.push({
-      type: 'ratelimit',
-      name: 'EDGEBALANCER_RATE_LIMITER',
-      namespace_id: rateLimitNamespaceId(scriptName),
-      simple: {
-        limit: rateLimit.requestsPerMinute,
-        period: 60,
+    // Rate limiting is a top-level `ratelimits` field in the API metadata (matches wrangler.toml's
+    // [[ratelimits]] key). It must NOT go inside bindings[] — the API does not recognise a
+    // "ratelimit" binding type and silently drops the simple config, causing Cloudflare's
+    // default (very low) limit to apply instead of the user's configured value.
+    metadata.ratelimits = [
+      {
+        name: 'EDGEBALANCER_RATE_LIMITER',
+        namespace_id: rateLimitNamespaceId(scriptName),
+        simple: {
+          limit: rateLimit.requestsPerMinute,
+          period: 60,
+        },
       },
-    });
+    ];
   }
 
   if (bindings.length > 0) {
