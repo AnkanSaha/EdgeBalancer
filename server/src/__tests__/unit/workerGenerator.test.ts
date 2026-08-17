@@ -3,12 +3,11 @@ import { generateWorkerCode } from '../../services/workerGenerator';
 const BASE_ORIGINS = [{ url: 'https://origin.example.com', weight: 100 }];
 
 const extractConfig = (code: string) => {
-  // After minification the code looks like: const config={"origins":[{...}],...};export default{...
-  // A regex fails on nested braces, so track brace depth instead.
-  const marker = 'config=';
-  const start = code.indexOf(marker);
-  if (start === -1) throw new Error('Config block not found in generated code');
-  const jsonStart = code.indexOf('{', start);
+  // The template has "const config = __CONFIG__;" — handle spaces around the equals sign.
+  const marker = /config\s*=\s*/;
+  const match = code.match(marker);
+  if (!match || match.index === undefined) throw new Error('Config block not found in generated code');
+  const jsonStart = code.indexOf('{', match.index + match[0].length - 1);
   let depth = 0;
   let end = jsonStart;
   for (let i = jsonStart; i < code.length; i++) {
@@ -16,9 +15,7 @@ const extractConfig = (code: string) => {
     if (code[i] === '}') depth--;
     if (depth === 0) { end = i + 1; break; }
   }
-  // Minified output is a JS object literal (unquoted keys, booleans as !0/!1),
-  // not JSON, so evaluate it rather than JSON.parse.
-  return eval(`(${code.slice(jsonStart, end)})`);
+  return JSON.parse(code.slice(jsonStart, end));
 };
 
 const OPTS = { skipObfuscation: true };
@@ -96,8 +93,8 @@ describe('generateWorkerCode — CORS', () => {
   });
 
   it('corsEnabled: true and corsEnabled: false produce different worker code', async () => {
-    const withTrue  = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', corsEnabled: true });
-    const withFalse = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', corsEnabled: false });
+    const withTrue  = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', corsEnabled: true }, OPTS);
+    const withFalse = await generateWorkerCode({ origins: BASE_ORIGINS, strategy: 'round-robin', corsEnabled: false }, OPTS);
     expect(withTrue).not.toBe(withFalse);
   });
 
@@ -113,7 +110,7 @@ describe('generateWorkerCode — CORS', () => {
     ] as const;
 
     for (const strategy of strategies) {
-      const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy, corsEnabled: true });
+      const code = await generateWorkerCode({ origins: BASE_ORIGINS, strategy, corsEnabled: true }, OPTS);
       const config = extractConfig(code);
       expect(config.corsEnabled).toBe(true);
     }
