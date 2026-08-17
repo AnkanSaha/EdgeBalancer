@@ -7,7 +7,7 @@ import { Icons } from '@/components/shared/Icons';
 
 export function Nav() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   return (
     <nav style={{
@@ -25,19 +25,22 @@ export function Nav() {
         <div className="hide-sm" style={{ display: 'flex', gap: 'clamp(12px, 2vw, 20px)', marginRight: 'clamp(8px, 2vw, 16px)', fontSize: 'clamp(12px, 2vw, 13px)', color: 'var(--text-2)' }}>
           <a href="/strategies" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>Strategies</a>
           <a href="/pricing" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>Pricing</a>
+          <a href="/blog" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>Blog</a>
           <a href="/faq" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>FAQ</a>
         </div>
-        {user ? (
-          <button className="btn btn-primary btn-sm" onClick={() => router.push('/dashboard')} style={{ fontSize: 'clamp(12px, 2vw, 13px)' }}>
-            Dashboard <Icons.Arrow size={14} />
-          </button>
-        ) : (
-          <>
-            <button className="btn btn-ghost btn-sm" onClick={() => router.push('/login')} style={{ fontSize: 'clamp(12px, 2vw, 13px)' }}>Sign in</button>
-            <button className="btn btn-primary btn-sm" onClick={() => router.push('/register')} style={{ fontSize: 'clamp(12px, 2vw, 13px)' }}>
-              Get started <Icons.Arrow size={14} />
+        {!loading && (
+          user ? (
+            <button className="btn btn-primary btn-sm" onClick={() => router.push('/dashboard')} style={{ fontSize: 'clamp(12px, 2vw, 13px)' }}>
+              Dashboard <Icons.Arrow size={14} />
             </button>
-          </>
+          ) : (
+            <>
+              <button className="btn btn-ghost btn-sm" onClick={() => router.push('/login')} style={{ fontSize: 'clamp(12px, 2vw, 13px)' }}>Sign in</button>
+              <button className="btn btn-primary btn-sm" onClick={() => router.push('/register')} style={{ fontSize: 'clamp(12px, 2vw, 13px)' }}>
+                Get started <Icons.Arrow size={14} />
+              </button>
+            </>
+          )
         )}
       </div>
     </nav>

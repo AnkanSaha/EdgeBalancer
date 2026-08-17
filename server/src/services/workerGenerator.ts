@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import path from 'path';
 import { createHash } from 'crypto';
-import { minify } from 'terser';
+import JavaScriptObfuscator from 'javascript-obfuscator';
 import { normalizeWorkerScriptName } from '../utils/workerName';
 
 export interface OriginServer {
@@ -83,17 +83,20 @@ export const generateWorkerCode = async (config: WorkerConfig): Promise<string> 
 
   const workerCode = template.replace('__CONFIG__', JSON.stringify(workerConfig, null, 2));
 
-  const minified = await minify(workerCode, {
-    module: true,
-    compress: {
-      reduce_vars: false, // keep config as a single variable, don't inline into each access site
-      passes: 2,
-    },
-    mangle: { reserved: ['config'] },
-    format: { comments: false },
+  const obfuscationResult = JavaScriptObfuscator.obfuscate(workerCode, {
+    compact: true,
+    stringArray: true,
+    stringArrayEncoding: ['base64'],
+    stringArrayThreshold: 0.75,
+    renameProperties: false, // Required for CF Workers API bindings (env.KV, env.DB)
+    controlFlowFlattening: false, // Too heavy for CF Workers 30ms CPU limit
+    deadCodeInjection: false, // Keeps bundle size small (CF has 1MB-10MB limit)
+    selfDefending: false, // Must be false — breaks in V8 isolate strict mode
+    debugProtection: false, // Must be false — would consume CPU time
+    target: 'browser', // Best compatibility for V8 isolates
   });
 
-  return minified.code ?? workerCode;
+  return obfuscationResult.getObfuscatedCode();
 };
 
 export const generateScriptName = (name: string): string => {

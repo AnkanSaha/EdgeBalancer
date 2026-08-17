@@ -12,11 +12,13 @@ interface CTAButtonProps {
 
 /**
  * Client component for CTA buttons that change based on auth state.
- * Shows "Dashboard" when logged in, "Start free" / "Get started" when not.
+ * Shows nothing while loading, "Dashboard" when logged in, "Start free" when not.
  */
 export function CTAButton({ className = 'btn btn-primary', size = 'lg', style }: CTAButtonProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) return null;
 
   if (user) {
     return (
@@ -35,9 +37,9 @@ export function CTAButton({ className = 'btn btn-primary', size = 'lg', style }:
 
 export function SecondaryCTA({ style }: { style?: React.CSSProperties }) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
-  if (user) return null;
+  if (loading || user) return null;
 
   return (
     <button className="btn btn-ghost btn-sm" onClick={() => router.push('/login')} style={style}>
