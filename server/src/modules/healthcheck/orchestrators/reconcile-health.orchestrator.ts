@@ -4,6 +4,10 @@ import { deployWorker, pruneWorkerHistory } from '../../../services/workerDeploy
 import { generateWorkerCode, type WorkerStrategy } from '../../../services/workerGenerator';
 import { getCloudflareCredentialsForUser } from '../../loadbalancer/services/credentials.service';
 import { acquireLock, releaseLock } from '../../../utils/resourceLock';
+import { acquireSemaphore } from '../../../utils/redisSemaphore';
+
+const CF_DEPLOY_CONCURRENCY = Number(process.env.HEALTH_CHECK_CF_CONCURRENCY || 10);
+const CF_DEPLOY_LOCK_TTL_SECONDS = 300;
 
 const workerOrigins = (lb: any, scheduler: any) =>
   lb.origins
@@ -20,12 +24,13 @@ const workerOrigins = (lb: any, scheduler: any) =>
 
 export async function reconcileHealthOrchestrator(params: {
   loadBalancerId: string;
+  loadBalancer?: any;
 }): Promise<void> {
   const { loadBalancerId } = params;
   const lock = await acquireLock(`lb:health:reconcile:${loadBalancerId}`, 60);
 
   try {
-    const lb = await LoadBalancer.findById(loadBalancerId);
+    const lb = params.loadBalancer ?? await LoadBalancer.findById(loadBalancerId);
     const scheduler = await HealthCheckScheduler.findOne({ loadBalancerId });
 
     if (!lb || !scheduler || scheduler.enabled !== true) {
@@ -64,23 +69,28 @@ export async function reconcileHealthOrchestrator(params: {
       }
     }
 
-    await deployWorker({
-      accountId,
-      apiToken,
-      scriptName: lb.scriptName,
-      workerCode,
-      placement: lb.placement,
-    });
+    const cfSlot = await acquireSemaphore('cf-deploy', CF_DEPLOY_CONCURRENCY, CF_DEPLOY_LOCK_TTL_SECONDS);
+    try {
+      await deployWorker({
+        accountId,
+        apiToken,
+        scriptName: lb.scriptName,
+        workerCode,
+        placement: lb.placement,
+      });
 
-    console.log(
-      `Health check redeployed worker for ${loadBalancerId} with ${enabledOrigins.length} enabled origin(s)`
-    );
+      console.log(
+        `Health check redeployed worker for ${loadBalancerId} with ${enabledOrigins.length} enabled origin(s)`
+      );
 
-    await pruneWorkerHistory({
-      accountId,
-      apiToken,
-      scriptName: lb.scriptName,
-    });
+      await pruneWorkerHistory({
+        accountId,
+        apiToken,
+        scriptName: lb.scriptName,
+      });
+    } finally {
+      await cfSlot?.release();
+    }
 
     await lb.save();
   } finally {

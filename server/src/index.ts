@@ -8,6 +8,7 @@ import { getRedisClient, closeRedisClient } from './utils/redisClient';
 import {
   startHealthCheckWorker,
   resyncHealthCheckJobs,
+  sweepOrphanedSchedulers,
   closeHealthCheckQueue,
 } from './modules/healthcheck/services/queue.service';
 import { buildServer } from './app';
@@ -82,6 +83,7 @@ async function bootstrap() {
     await getRedisClient();
     await startHealthCheckWorker();
     await resyncHealthCheckJobs();
+    await sweepOrphanedSchedulers();
 
     // Then build and start server
     app = await buildServer();
