@@ -87,6 +87,8 @@ export async function resumeLoadBalancerOrchestrator(params: {
     corsEnabled: loadBalancer.corsEnabled ?? false,
     corsOrigins: loadBalancer.corsOrigins ?? [],
     rateLimit,
+    pathRoutes: loadBalancer.pathRoutes ?? [],
+    pathRateLimits: loadBalancer.pathRateLimits ?? [],
   });
 
   await deployWorker({

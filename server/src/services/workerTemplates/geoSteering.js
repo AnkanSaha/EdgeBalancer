@@ -2,6 +2,31 @@ let roundRobinCursor = 0;
 
 const config = __CONFIG__;
 
+// ─── Path pattern matching ────────────────────────────────────────────
+function matchPathPattern(pattern, pathname) {
+  const p = pattern.endsWith('/*') ? pattern : pattern.replace(/\/+$/, '');
+  if (p === pathname) return true;
+  if (p.endsWith('/*')) {
+    const prefix = p.slice(0, -2);
+    return pathname === prefix || pathname.startsWith(prefix + '/');
+  }
+  return false;
+}
+
+function findMatchingRoute(pathname) {
+  for (const route of config.pathRoutes) {
+    if (matchPathPattern(route.path, pathname)) return route;
+  }
+  return null;
+}
+
+function findMatchingPathRateLimit(pathname) {
+  for (const rl of config.pathRateLimits) {
+    if (matchPathPattern(rl.path, pathname)) return rl;
+  }
+  return null;
+}
+
 export default {
   async fetch(request, env) {
     if (!config.origins.length) {
@@ -15,16 +40,19 @@ export default {
     const limited = await enforceRateLimit(request, env);
     if (limited) return limited;
 
-    const candidates = selectGeoSteeredOrigins(config.origins, request);
+    const pathLimited = await enforcePathRateLimit(request, env);
+    if (pathLimited) return pathLimited;
 
-    for (const origin of candidates) {
-      const response = await proxyToOrigin(origin, request);
-      if (response.status < 500) {
-        return response;
-      }
+    const url = new URL(request.url);
+    const pathRoute = findMatchingRoute(url.pathname);
+    let origin;
+    if (pathRoute) {
+      origin = config.origins[pathRoute.originIndex];
+    } else {
+      const geoOrigins = selectGeoSteeredOrigins(request);
+      origin = rotateOrigins(geoOrigins);
     }
-
-    return new Response("Origin server unavailable", { status: 502 });
+    return proxyToOrigin(origin, request);
   }
 };
 
@@ -104,6 +132,66 @@ async function enforceRateLimit(request, env) {
         : 60;
     return rateLimitedResponse(retryAfter);
   }
+  return null;
+}
+
+// ─── Path-based rate limiting ─────────────────────────────────────────
+const pathRateWindows = new Map();
+
+async function enforcePathRateLimit(request, env) {
+  if (!config.pathRateLimits || !config.pathRateLimits.length) return null;
+  const url = new URL(request.url);
+  const match = findMatchingPathRateLimit(url.pathname);
+  if (!match) return null;
+  const ip = request.headers.get("cf-connecting-ip") || "0.0.0.0";
+  const now = Date.now();
+  const limit = match.requestsPerMinute;
+  const key = `prl:${match.path}:${ip}`;
+  const cutoff = now - RATE_WINDOW_MS;
+
+  // Layer 1: memory
+  const recent = (pathRateWindows.get(key) || []).filter(function(t) { return t >= cutoff; });
+  if (recent.length >= limit) return rateLimitedResponse(60);
+  recent.push(now);
+  pathRateWindows.set(key, recent);
+  if (pathRateWindows.size > 5000) {
+    for (const [k, v] of pathRateWindows) {
+      if (v[v.length - 1] < cutoff) pathRateWindows.delete(k);
+    }
+  }
+
+  // Layer 2: colo cache
+  try {
+    const cacheKey = "https://edgebalancer.local/pathratelimit/" + encodeURIComponent(key);
+    let cached = [];
+    const cachedResp = await caches.default.match(cacheKey);
+    if (cachedResp) {
+      try {
+        const parsed = await cachedResp.json();
+        if (Array.isArray(parsed.timestamps)) cached = parsed.timestamps;
+      } catch {}
+    }
+    cached = cached.filter(function(t) { return t >= cutoff; });
+    if (cached.length >= limit) return rateLimitedResponse(60);
+    cached.push(now);
+    await caches.default.put(
+      cacheKey,
+      new Response(JSON.stringify({ timestamps: cached }), {
+        headers: { "Cache-Control": "max-age=60" },
+      })
+    );
+  } catch (e) { /* fail open */ }
+
+  // Layer 3: platform binding
+  if (!env.EDGEBALANCER_RATE_LIMITER) return null;
+  try {
+    const result = await env.EDGEBALANCER_RATE_LIMITER.limit({ key: key });
+    if (!result.success) {
+      const retryAfter = Number.isFinite(result.reset_in_seconds) && result.reset_in_seconds > 0
+        ? Math.max(1, Math.round(result.reset_in_seconds)) : 60;
+      return rateLimitedResponse(retryAfter);
+    }
+  } catch (e) { /* fail open */ }
   return null;
 }
 

@@ -73,10 +73,14 @@ export default function EditLoadBalancerPage() {
     healthCheckIntervalSeconds: 30,
     rateLimitEnabled: false,
     rateLimitRequestsPerMinute: 60,
+    pathRoutes: [] as Array<{ path: string; originIndex: number; priority: number }>,
+    pathRateLimits: [] as Array<{ path: string; requestsPerMinute: number; priority: number }>,
     smartPlacement: true,
     placementHint: '',
   });
   const [corsInput, setCorsInput] = useState('');
+  const [pathRoutingExpanded, setPathRoutingExpanded] = useState(false);
+  const [pathRateLimitExpanded, setPathRateLimitExpanded] = useState(false);
   const [originViewMode, setOriginViewMode] = useState<Record<number, 'domain' | 'loading' | 'ip'>>({});
   const [originIpCache, setOriginIpCache] = useState<Record<string, string>>({});
   const [restartingOrigin, setRestartingOrigin] = useState<number | null>(null);
@@ -124,6 +128,8 @@ export default function EditLoadBalancerPage() {
           healthCheckIntervalSeconds: lb.healthCheckIntervalSeconds ?? 30,
           rateLimitEnabled: lb.rateLimitEnabled ?? false,
           rateLimitRequestsPerMinute: lb.rateLimitRequestsPerMinute ?? 60,
+          pathRoutes: (lb.pathRoutes || []).map((r: any) => ({ path: r.path, originIndex: r.originIndex, priority: r.priority })),
+          pathRateLimits: (lb.pathRateLimits || []).map((r: any) => ({ path: r.path, requestsPerMinute: r.requestsPerMinute, priority: r.priority })),
           smartPlacement: lb.placement?.smartPlacement !== false,
           placementHint: lb.placement?.region || '',
         });
@@ -293,6 +299,8 @@ export default function EditLoadBalancerPage() {
         healthCheckIntervalSeconds: form.healthCheckIntervalSeconds,
         rateLimitEnabled: form.rateLimitEnabled,
         rateLimitRequestsPerMinute: form.rateLimitEnabled ? form.rateLimitRequestsPerMinute : null,
+        pathRoutes: form.pathRoutes.length > 0 ? form.pathRoutes : undefined,
+        pathRateLimits: form.pathRateLimits.length > 0 ? form.pathRateLimits : undefined,
         placement: {
           smartPlacement: form.smartPlacement,
           ...(placementHint ? { region: placementHint } : {}),
@@ -1318,6 +1326,178 @@ export default function EditLoadBalancerPage() {
               )}
             </div>
           </FieldBlock>
+
+          {/* Path-Based Routing (Optional) */}
+          <div style={{
+            border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)',
+            overflow: 'hidden',
+          }}>
+            <button
+              type="button"
+              onClick={() => setPathRoutingExpanded(!pathRoutingExpanded)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                width: '100%', padding: '14px 20px', background: 'var(--bg-1)',
+                border: 'none', cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Path-Based Routing</div>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+                  Optional — route specific URL paths to dedicated origins
+                </div>
+              </div>
+              <span style={{ fontSize: 18, color: 'var(--text-3)', transition: 'transform 0.2s', transform: pathRoutingExpanded ? 'rotate(180deg)' : 'none' }}>▾</span>
+            </button>
+            {pathRoutingExpanded && (
+              <div style={{ padding: '0 20px 16px', borderTop: '1px solid var(--line)' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', margin: '12px 0' }}>
+                  Route specific URL paths to dedicated origins. Requests not matching any rule use the default strategy.
+                </div>
+                {form.pathRoutes.map((route, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                    <input
+                      className="input input-mono"
+                      placeholder="/api/*"
+                      value={route.path}
+                      onChange={e => {
+                        const next = [...form.pathRoutes];
+                        next[i] = { ...next[i], path: e.target.value };
+                        update('pathRoutes', next);
+                      }}
+                      style={{ flex: 2 }}
+                    />
+                    <select
+                      className="input"
+                      value={route.originIndex}
+                      onChange={e => {
+                        const next = [...form.pathRoutes];
+                        next[i] = { ...next[i], originIndex: Number(e.target.value) };
+                        update('pathRoutes', next);
+                      }}
+                      style={{ flex: 2 }}
+                    >
+                      {form.origins.map((o, idx) => (
+                        <option key={idx} value={idx}>Origin {idx + 1}: {o.url || '(empty)'}</option>
+                      ))}
+                    </select>
+                    <input
+                      className="input"
+                      type="number" min={1} placeholder="Priority"
+                      value={route.priority}
+                      onChange={e => {
+                        const next = [...form.pathRoutes];
+                        next[i] = { ...next[i], priority: Number(e.target.value) || 1 };
+                        update('pathRoutes', next);
+                      }}
+                      style={{ width: 80 }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => update('pathRoutes', form.pathRoutes.filter((_, j) => j !== i))}
+                      style={{ padding: '4px 8px', color: 'var(--red)' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => update('pathRoutes', [...form.pathRoutes, { path: '', originIndex: 0, priority: form.pathRoutes.length + 1 }])}
+                  style={{ fontSize: 13, marginTop: 4 }}
+                >
+                  + Add path rule
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Path-Based Rate Limiting (Optional) */}
+          <div style={{
+            border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)',
+            overflow: 'hidden',
+          }}>
+            <button
+              type="button"
+              onClick={() => setPathRateLimitExpanded(!pathRateLimitExpanded)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                width: '100%', padding: '14px 20px', background: 'var(--bg-1)',
+                border: 'none', cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Path-Based Rate Limiting</div>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+                  Optional — apply per-path rate limits independent of the global limit
+                </div>
+              </div>
+              <span style={{ fontSize: 18, color: 'var(--text-3)', transition: 'transform 0.2s', transform: pathRateLimitExpanded ? 'rotate(180deg)' : 'none' }}>▾</span>
+            </button>
+            {pathRateLimitExpanded && (
+              <div style={{ padding: '0 20px 16px', borderTop: '1px solid var(--line)' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', margin: '12px 0' }}>
+                  Apply per-path rate limits. Unmatched paths use the global rate limit if enabled.
+                </div>
+                {form.pathRateLimits.map((rl, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                    <input
+                      className="input input-mono"
+                      placeholder="/login/*"
+                      value={rl.path}
+                      onChange={e => {
+                        const next = [...form.pathRateLimits];
+                        next[i] = { ...next[i], path: e.target.value };
+                        update('pathRateLimits', next);
+                      }}
+                      style={{ flex: 2 }}
+                    />
+                    <input
+                      className="input"
+                      type="number" min={1} max={100000} placeholder="60"
+                      value={rl.requestsPerMinute}
+                      onChange={e => {
+                        const next = [...form.pathRateLimits];
+                        next[i] = { ...next[i], requestsPerMinute: Number(e.target.value) || 60 };
+                        update('pathRateLimits', next);
+                      }}
+                      style={{ width: 100 }}
+                    />
+                    <span style={{ fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>req/min</span>
+                    <input
+                      className="input"
+                      type="number" min={1} placeholder="Priority"
+                      value={rl.priority}
+                      onChange={e => {
+                        const next = [...form.pathRateLimits];
+                        next[i] = { ...next[i], priority: Number(e.target.value) || 1 };
+                        update('pathRateLimits', next);
+                      }}
+                      style={{ width: 80 }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => update('pathRateLimits', form.pathRateLimits.filter((_, j) => j !== i))}
+                      style={{ padding: '4px 8px', color: 'var(--red)' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => update('pathRateLimits', [...form.pathRateLimits, { path: '', requestsPerMinute: 60, priority: form.pathRateLimits.length + 1 }])}
+                  style={{ fontSize: 13, marginTop: 4 }}
+                >
+                  + Add rate limit rule
+                </button>
+              </div>
+            )}
+          </div>
 
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',

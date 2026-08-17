@@ -50,7 +50,7 @@ export async function reconcileHealthOrchestrator(params: {
     let workerCode: string;
 
     if (enabledOrigins.length === 0) {
-      workerCode = await generateWorkerCode({ origins: [], strategy: 'paused', rateLimit });
+      workerCode = await generateWorkerCode({ origins: [], strategy: 'paused', rateLimit, pathRoutes: [], pathRateLimits: [] });
       lb.status = 'paused';
       lb.pauseMode = 'keep-domain';
       lb.healthAutoPaused = true;
@@ -63,6 +63,8 @@ export async function reconcileHealthOrchestrator(params: {
         corsEnabled: lb.corsEnabled ?? false,
         corsOrigins: lb.corsOrigins ?? [],
         rateLimit,
+        pathRoutes: lb.pathRoutes ?? [],
+        pathRateLimits: lb.pathRateLimits ?? [],
       });
 
       if (lb.status === 'paused' && lb.healthAutoPaused) {

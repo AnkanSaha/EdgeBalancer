@@ -23,6 +23,18 @@ export interface IPlacementConfig {
   region?: string;
 }
 
+export interface IPathRoute {
+  path: string;
+  originIndex: number;
+  priority: number;
+}
+
+export interface IPathRateLimit {
+  path: string;
+  requestsPerMinute: number;
+  priority: number;
+}
+
 export interface ILoadBalancer extends Document {
   userId: mongoose.Types.ObjectId;
   name: string;
@@ -45,6 +57,8 @@ export interface ILoadBalancer extends Document {
   healthAutoPaused: boolean;
   rateLimitEnabled: boolean;
   rateLimitRequestsPerMinute: number | null;
+  pathRoutes: IPathRoute[];
+  pathRateLimits: IPathRateLimit[];
   workerUrl: string;
   createdAt: Date;
   updatedAt: Date;
@@ -170,6 +184,26 @@ const LoadBalancerSchema = new Schema<ILoadBalancer>(
       default: null,
       min: 1,
       max: 100000,
+    },
+    pathRoutes: {
+      type: [
+        {
+          path: { type: String, required: true },
+          originIndex: { type: Number, required: true, min: 0 },
+          priority: { type: Number, required: true, min: 1 },
+        },
+      ],
+      default: [],
+    },
+    pathRateLimits: {
+      type: [
+        {
+          path: { type: String, required: true },
+          requestsPerMinute: { type: Number, required: true, min: 1, max: 100000 },
+          priority: { type: Number, required: true, min: 1 },
+        },
+      ],
+      default: [],
     },
     workerUrl: {
       type: String,

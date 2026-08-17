@@ -60,6 +60,8 @@ export interface UpdateLoadBalancerInput {
   healthCheckIntervalSeconds?: number;
   rateLimitEnabled?: boolean;
   rateLimitRequestsPerMinute?: number;
+  pathRoutes?: Array<{ path: string; originIndex: number; priority: number }>;
+  pathRateLimits?: Array<{ path: string; requestsPerMinute: number; priority: number }>;
   placement?: {
     smartPlacement?: boolean;
     region?: string;
@@ -122,6 +124,8 @@ export async function updateLoadBalancerOrchestrator(params: {
     healthCheckIntervalSeconds,
     rateLimitEnabled,
     rateLimitRequestsPerMinute,
+    pathRoutes,
+    pathRateLimits,
     placement,
   } = input;
 
@@ -165,6 +169,8 @@ export async function updateLoadBalancerOrchestrator(params: {
     exposeRealOrigin: exposeRealOrigin ?? false,
     rateLimitEnabled: nextRateLimitEnabled,
     rateLimitRequestsPerMinute: nextRateLimitPerMinute,
+    pathRoutes: pathRoutes ?? [],
+    pathRateLimits: pathRateLimits ?? [],
     healthCheckEnabled: nextHealthCheckEnabled,
     healthCheckIntervalSeconds: nextHealthInterval,
     placement,
@@ -175,6 +181,8 @@ export async function updateLoadBalancerOrchestrator(params: {
     exposeRealOrigin: previousSnapshot.exposeRealOrigin,
     rateLimitEnabled: previousSnapshot.rateLimitEnabled,
     rateLimitRequestsPerMinute: previousSnapshot.rateLimitRequestsPerMinute,
+    pathRoutes: previousSnapshot.pathRoutes ?? [],
+    pathRateLimits: previousSnapshot.pathRateLimits ?? [],
     healthCheckEnabled: previousSnapshot.healthCheckEnabled,
     healthCheckIntervalSeconds: previousSnapshot.healthCheckIntervalSeconds,
     placement: previousSnapshot.placement,
@@ -222,7 +230,7 @@ export async function updateLoadBalancerOrchestrator(params: {
   let nextHealthAutoPaused = false;
 
   if (nextHealthCheckEnabled && originsForWorker.length === 0) {
-    workerCode = await generateWorkerCode({ origins: [], strategy: 'paused', rateLimit });
+    workerCode = await generateWorkerCode({ origins: [], strategy: 'paused', rateLimit, pathRoutes: [], pathRateLimits: [] });
     nextStatus = 'paused';
     nextPauseMode = 'keep-domain';
     nextHealthAutoPaused = true;
@@ -234,6 +242,8 @@ export async function updateLoadBalancerOrchestrator(params: {
       corsEnabled: nextCorsEnabled,
       corsOrigins: corsOrigins ?? [],
       rateLimit,
+      pathRoutes: pathRoutes ?? [],
+      pathRateLimits: pathRateLimits ?? [],
     });
   }
 
@@ -347,6 +357,8 @@ export async function updateLoadBalancerOrchestrator(params: {
           healthAutoPaused: nextHealthAutoPaused,
           rateLimitEnabled: nextRateLimitEnabled,
           rateLimitRequestsPerMinute: nextRateLimitPerMinute,
+          pathRoutes: pathRoutes ?? [],
+          pathRateLimits: pathRateLimits ?? [],
         },
       },
       {
@@ -514,6 +526,8 @@ export async function updateLoadBalancerOrchestrator(params: {
               healthAutoPaused: previousSnapshot.healthAutoPaused,
               rateLimitEnabled: previousSnapshot.rateLimitEnabled,
               rateLimitRequestsPerMinute: previousSnapshot.rateLimitRequestsPerMinute,
+              pathRoutes: previousSnapshot.pathRoutes,
+              pathRateLimits: previousSnapshot.pathRateLimits,
             },
           },
           {

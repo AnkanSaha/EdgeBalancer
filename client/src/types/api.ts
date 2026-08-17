@@ -64,6 +64,18 @@ export interface PlacementConfig {
   region?: string;
 }
 
+export interface PathRoute {
+  path: string;
+  originIndex: number;
+  priority: number;
+}
+
+export interface PathRateLimit {
+  path: string;
+  requestsPerMinute: number;
+  priority: number;
+}
+
 export type LoadBalancerStrategy =
   | 'round-robin'
   | 'weighted-round-robin'
@@ -91,6 +103,8 @@ export interface LoadBalancer {
   corsOrigins: string[];
   rateLimitEnabled: boolean;
   rateLimitRequestsPerMinute: number | null;
+  pathRoutes: PathRoute[];
+  pathRateLimits: PathRateLimit[];
   healthCheckEnabled: boolean;
   healthCheckIntervalSeconds: number | null;
   disabledOriginCount?: number;
@@ -148,6 +162,8 @@ export interface CreateLoadBalancerRequest {
   corsOrigins: string[];
   rateLimitEnabled: boolean;
   rateLimitRequestsPerMinute: number | null;
+  pathRoutes?: PathRoute[];
+  pathRateLimits?: PathRateLimit[];
   healthCheckEnabled: boolean;
   healthCheckIntervalSeconds: number;
   placement: PlacementConfig;

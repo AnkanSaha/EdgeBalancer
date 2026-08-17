@@ -50,6 +50,8 @@ export interface CreateLoadBalancerInput {
   healthCheckIntervalSeconds?: number;
   rateLimitEnabled?: boolean;
   rateLimitRequestsPerMinute?: number;
+  pathRoutes?: Array<{ path: string; originIndex: number; priority: number }>;
+  pathRateLimits?: Array<{ path: string; requestsPerMinute: number; priority: number }>;
   placement?: {
     smartPlacement?: boolean;
     region?: string;
@@ -97,6 +99,8 @@ export async function createLoadBalancerOrchestrator(params: {
     healthCheckIntervalSeconds,
     rateLimitEnabled,
     rateLimitRequestsPerMinute,
+    pathRoutes,
+    pathRateLimits,
     placement,
   } = input;
 
@@ -150,6 +154,8 @@ export async function createLoadBalancerOrchestrator(params: {
       corsEnabled: corsEnabled ?? false,
       corsOrigins: corsOrigins ?? [],
       rateLimit,
+      pathRoutes: pathRoutes ?? [],
+      pathRateLimits: pathRateLimits ?? [],
     });
 
     // Step 5: Deploy Worker to Cloudflare
@@ -204,6 +210,8 @@ export async function createLoadBalancerOrchestrator(params: {
       healthAutoPaused: false,
       rateLimitEnabled: nextRateLimitEnabled,
       rateLimitRequestsPerMinute: nextRateLimitPerMinute,
+      pathRoutes: pathRoutes ?? [],
+      pathRateLimits: pathRateLimits ?? [],
       ipOriginRecords,
       placement,
       zoneId,

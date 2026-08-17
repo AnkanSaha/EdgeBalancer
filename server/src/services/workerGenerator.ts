@@ -14,6 +14,18 @@ export interface OriginServer {
   isFallback?: boolean;
 }
 
+export interface PathRoute {
+  path: string;
+  originIndex: number;
+  priority: number;
+}
+
+export interface PathRateLimit {
+  path: string;
+  requestsPerMinute: number;
+  priority: number;
+}
+
 export type WorkerStrategy =
   | 'round-robin'
   | 'weighted-round-robin'
@@ -34,6 +46,8 @@ export interface WorkerConfig {
     enabled: boolean;
     requestsPerMinute: number;
   };
+  pathRoutes?: PathRoute[];
+  pathRateLimits?: PathRateLimit[];
 }
 
 const TEMPLATE_MAP: Record<WorkerStrategy, string> = {
@@ -79,6 +93,8 @@ export const generateWorkerCode = async (config: WorkerConfig, options?: { skipO
     corsOrigins: config.corsOrigins ?? [],
     rateLimitEnabled: config.rateLimit?.enabled ?? false,
     rateLimitRequestsPerMinute: config.rateLimit?.requestsPerMinute ?? null,
+    pathRoutes: (config.pathRoutes ?? []).sort((a, b) => a.priority - b.priority),
+    pathRateLimits: (config.pathRateLimits ?? []).sort((a, b) => a.priority - b.priority),
   };
 
   const workerCode = template.replace('__CONFIG__', JSON.stringify(workerConfig, null, 2));

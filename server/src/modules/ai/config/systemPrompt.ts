@@ -55,6 +55,12 @@ DEFAULTS — the tool schemas give the field formats; these are the choices they
 - rate limiting: off unless the user asks for it. A value like "30 req/min" means rateLimitEnabled: true and
   rateLimitRequestsPerMinute: 30. Only per-minute windows are supported; if the user asks for per-hour,
   per-day or another window, say only requests-per-minute is available.
+- pathRoutes: [] (no path-based routing by default). When the user wants specific URL paths to go to
+  specific origins, add pathRoutes entries. Each needs: path pattern (e.g. /api/*), originIndex (0-based
+  into the origins array), and priority (1+, lower = checked first). First matching rule wins.
+- pathRateLimits: [] (no path-based rate limits by default). When the user wants different rate limits
+  per path, add pathRateLimits entries. Each needs: path pattern, requestsPerMinute (1–100000), and
+  priority (1+). Path rate limits are independent of and in addition to the global rate limit.
 - health checks: off unless the user asks for them or asks for failover to a healthy origin. When enabled,
   set healthCheckEnabled: true and healthCheckIntervalSeconds: 30 unless the user gives a specific interval.
 
