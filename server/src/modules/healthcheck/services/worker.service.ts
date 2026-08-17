@@ -1,4 +1,3 @@
-import { LoadBalancer } from '../../../models/LoadBalancer';
 import { HealthCheckScheduler } from '../../../models/HealthCheckScheduler';
 import { probeOrigin, isHealthyStatus } from './probe.service';
 import { reconcileHealthOrchestrator } from '../orchestrators/reconcile-health.orchestrator';
@@ -21,10 +20,9 @@ const pool = async <T>(items: T[], limit: number, fn: (item: T) => Promise<void>
 };
 
 export async function processHealthCheckJob(loadBalancerId: string): Promise<void> {
-  const loadBalancer = await LoadBalancer.findById(loadBalancerId);
   const scheduler = await HealthCheckScheduler.findOne({ loadBalancerId });
 
-  if (!loadBalancer || !scheduler || scheduler.enabled !== true) {
+  if (!scheduler || scheduler.enabled !== true) {
     return;
   }
 
@@ -42,6 +40,7 @@ export async function processHealthCheckJob(loadBalancerId: string): Promise<voi
   }
 
   let reconciled = false;
+  let stateChanged = false;
 
   await pool(checkable, 5, async ({ index, previousStatus }) => {
     const origin = scheduler.origins[index];
@@ -60,6 +59,7 @@ export async function processHealthCheckJob(loadBalancerId: string): Promise<voi
         origin.disabledAt = null;
         reconciled = true;
       }
+      if (previousStatus !== 'healthy') stateChanged = true;
       console.log(
         `Health check passed for ${loadBalancerId} origin ${origin.url} (${result.statusCode})`
       );
@@ -68,6 +68,7 @@ export async function processHealthCheckJob(loadBalancerId: string): Promise<voi
 
     origin.status = 'unhealthy';
     origin.attempts = (origin.attempts ?? 0) + 1;
+    stateChanged = true;
 
     if (origin.attempts >= 3) {
       origin.status = 'disabled';
@@ -85,11 +86,16 @@ export async function processHealthCheckJob(loadBalancerId: string): Promise<voi
     }
   });
 
-  await scheduler.save();
+  if (stateChanged) {
+    await scheduler.save();
+  }
 
   if (reconciled) {
+    const { LoadBalancer } = await import('../../../models/LoadBalancer');
+    const loadBalancer = await LoadBalancer.findById(loadBalancerId);
+    if (!loadBalancer) return;
     try {
-      await reconcileHealthOrchestrator({ loadBalancerId });
+      await reconcileHealthOrchestrator({ loadBalancerId, loadBalancer });
     } catch (error: any) {
       console.error(`Health reconcile failed for ${loadBalancerId}: ${error.message}`);
     }

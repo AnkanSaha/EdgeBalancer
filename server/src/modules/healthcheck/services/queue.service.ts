@@ -3,7 +3,6 @@ import { HealthCheckScheduler } from '../../../models/HealthCheckScheduler';
 import { processHealthCheckJob } from './worker.service';
 
 const QUEUE_NAME = 'health-checks';
-const WORKER_NAME = 'health-check-worker';
 
 let queue: Queue | null = null;
 let worker: Worker | null = null;
@@ -39,9 +38,8 @@ export async function startHealthCheckWorker(): Promise<void> {
       await processHealthCheckJob(job.data.loadBalancerId);
     },
     {
-      name: WORKER_NAME,
       connection,
-      concurrency: Number(process.env.HEALTH_CHECK_CONCURRENCY || 10),
+      concurrency: Number(process.env.HEALTH_CHECK_CONCURRENCY || 50),
     }
   );
 
@@ -55,22 +53,18 @@ export async function startHealthCheckWorker(): Promise<void> {
 }
 
 export async function resyncHealthCheckJobs(): Promise<void> {
-  const schedulers = await HealthCheckScheduler.find({ enabled: true }).select({
-    loadBalancerId: 1,
-    intervalSeconds: 1,
-  });
+  const schedulers = await HealthCheckScheduler.find({ enabled: true })
+    .select({ loadBalancerId: 1, intervalSeconds: 1 })
+    .lean();
 
-  for (const scheduler of schedulers) {
-    try {
-      await upsertHealthCheckJob(
-        scheduler.loadBalancerId.toString(),
-        scheduler.intervalSeconds
-      );
-    } catch (error: any) {
-      console.error(
-        `Health check resync failed for ${scheduler.loadBalancerId}: ${error.message}`
-      );
-    }
+  const CHUNK = 50;
+  for (let i = 0; i < schedulers.length; i += CHUNK) {
+    const chunk = schedulers.slice(i, i + CHUNK);
+    await Promise.allSettled(
+      chunk.map(s =>
+        upsertHealthCheckJob(s.loadBalancerId.toString(), s.intervalSeconds)
+      )
+    );
   }
 
   if (schedulers.length > 0) {
@@ -115,6 +109,32 @@ export async function enqueueImmediateHealthCheck(loadBalancerId: string): Promi
     { loadBalancerId },
     { jobId: `lb-immediate:${loadBalancerId}:${Date.now()}`, removeOnComplete: true, removeOnFail: true }
   );
+}
+
+export async function sweepOrphanedSchedulers(): Promise<number> {
+  const orphans = await HealthCheckScheduler.aggregate([
+    {
+      $lookup: {
+        from: 'loadbalancers',
+        localField: 'loadBalancerId',
+        foreignField: '_id',
+        as: 'lb',
+      },
+    },
+    { $match: { lb: { $size: 0 } } },
+    { $project: { _id: 1, loadBalancerId: 1 } },
+  ]);
+
+  if (orphans.length === 0) return 0;
+
+  for (const orphan of orphans) {
+    await removeHealthCheckJob(orphan.loadBalancerId.toString());
+  }
+
+  const ids = orphans.map(o => o._id);
+  await HealthCheckScheduler.deleteMany({ _id: { $in: ids } });
+  console.log(`Swept ${orphans.length} orphaned health check scheduler(s)`);
+  return orphans.length;
 }
 
 export async function closeHealthCheckQueue(): Promise<void> {
