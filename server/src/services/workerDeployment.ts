@@ -1,5 +1,4 @@
 import { createHash } from 'crypto';
-import FormData from 'form-data';
 import axios from 'axios';
 import { retryWithBackoff } from '../utils/retry';
 
@@ -47,10 +46,17 @@ const rateLimitNamespaceId = (scriptName: string): string => {
   return String(parseInt(digest, 16));
 };
 
-const buildWorkerMetadata = (scriptName: string, placement: PlacementConfig, rateLimit?: RateLimitConfig) => {
-  const metadata: any = {
+const buildVersionPayload = (scriptName: string, workerCode: string, placement: PlacementConfig, rateLimit?: RateLimitConfig) => {
+  const payload: any = {
     compatibility_date: '2025-10-01',
     main_module: 'worker.js',
+    modules: [
+      {
+        name: 'worker.js',
+        content_type: 'application/javascript+module',
+        content_base64: Buffer.from(workerCode, 'utf8').toString('base64'),
+      },
+    ],
   };
 
   const bindings: any[] = [];
@@ -58,7 +64,7 @@ const buildWorkerMetadata = (scriptName: string, placement: PlacementConfig, rat
   // Add placement configuration
   if (placement.region) {
     // Explicit region takes precedence
-    metadata.placement = {
+    payload.placement = {
       mode: 'smart',
     };
     bindings.push({
@@ -68,63 +74,98 @@ const buildWorkerMetadata = (scriptName: string, placement: PlacementConfig, rat
     });
   } else if (placement.smartPlacement !== false) {
     // Smart placement is default
-    metadata.placement = {
+    payload.placement = {
       mode: 'smart',
     };
   }
 
   if (rateLimit?.enabled) {
-    // Rate limiting is a top-level `ratelimits` field in the API metadata (matches wrangler.toml's
-    // [[ratelimits]] key). It must NOT go inside bindings[] — the API does not recognise a
-    // "ratelimit" binding type and silently drops the simple config, causing Cloudflare's
-    // default (very low) limit to apply instead of the user's configured value.
-    metadata.ratelimits = [
-      {
-        name: 'EDGEBALANCER_RATE_LIMITER',
-        namespace_id: rateLimitNamespaceId(scriptName),
-        simple: {
-          limit: rateLimit.requestsPerMinute,
-          period: 60,
-        },
+    // The new beta Workers API (POST /workers/workers/{id}/versions) accepts rate limiting as a
+    // `ratelimit` binding inside bindings[] — the only documented shape for it. The multipart
+    // metadata APIs do not recognise a "ratelimit" binding type, and a top-level `ratelimits`
+    // field is silently dropped, which is why the binding never appeared on the Worker.
+    bindings.push({
+      type: 'ratelimit',
+      name: 'EDGEBALANCER_RATE_LIMITER',
+      namespace_id: rateLimitNamespaceId(scriptName),
+      simple: {
+        limit: rateLimit.requestsPerMinute,
+        period: 60,
       },
-    ];
+    });
   }
 
   if (bindings.length > 0) {
-    metadata.bindings = bindings;
+    payload.bindings = bindings;
   }
 
-  return metadata;
+  return payload;
 };
 
-const buildWorkerFormData = (scriptName: string, workerCode: string, placement: PlacementConfig, rateLimit?: RateLimitConfig) => {
-  const formData = new FormData();
+const getOrCreateWorker = async (accountId: string, apiToken: string, scriptName: string): Promise<void> => {
+  try {
+    const existing = await retryWithBackoff(
+      () => axios.get(
+        `${CLOUDFLARE_API_BASE}/accounts/${accountId}/workers/workers/${encodeURIComponent(scriptName)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+          },
+          timeout: 30000,
+        }
+      ),
+      { maxRetries: 3, retryableStatusCodes: [429, 500, 502, 503, 504] }
+    );
 
-  formData.append('metadata', JSON.stringify(buildWorkerMetadata(scriptName, placement, rateLimit)), {
-    contentType: 'application/json',
-  });
+    if (existing.data?.success) {
+      return;
+    }
+  } catch (error: any) {
+    if (error.response?.status !== 404) {
+      throw new Error(`Failed to check Worker: ${error.response?.data?.errors?.[0]?.message || error.message}`);
+    }
+  }
 
-  formData.append('worker.js', workerCode, {
-    contentType: 'application/javascript+module',
-    filename: 'worker.js',
-  });
+  const created = await retryWithBackoff(
+    () => axios.post(
+      `${CLOUDFLARE_API_BASE}/accounts/${accountId}/workers/workers`,
+      {
+        name: scriptName,
+        subdomain: { enabled: false },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
+      }
+    ),
+    { maxRetries: 3, retryableStatusCodes: [429, 500, 502, 503, 504] }
+  );
 
-  return formData;
+  if (!created.data?.success) {
+    throw new Error('Failed to create Worker');
+  }
 };
 
 export const deployWorker = async (params: DeployWorkerParams): Promise<void> => {
   const { accountId, apiToken, scriptName, workerCode, placement, rateLimit } = params;
-  const formData = buildWorkerFormData(scriptName, workerCode, placement, rateLimit);
 
   try {
+    await getOrCreateWorker(accountId, apiToken, scriptName);
+
+    const payload = buildVersionPayload(scriptName, workerCode, placement, rateLimit);
+
     const response = await retryWithBackoff(
-      () => axios.put(
-        `${CLOUDFLARE_API_BASE}/accounts/${accountId}/workers/scripts/${scriptName}`,
-        formData,
+      () => axios.post(
+        `${CLOUDFLARE_API_BASE}/accounts/${accountId}/workers/workers/${encodeURIComponent(scriptName)}/versions`,
+        payload,
         {
+          params: { deploy: true },
           headers: {
             'Authorization': `Bearer ${apiToken}`,
-            ...formData.getHeaders(),
+            'Content-Type': 'application/json',
           },
           timeout: 60000, // 60 second timeout for worker deployment
         }
@@ -147,17 +188,20 @@ export const deployWorker = async (params: DeployWorkerParams): Promise<void> =>
 
 export const uploadWorkerVersion = async (params: DeployWorkerParams): Promise<string> => {
   const { accountId, apiToken, scriptName, workerCode, placement, rateLimit } = params;
-  const formData = buildWorkerFormData(scriptName, workerCode, placement, rateLimit);
 
   try {
+    await getOrCreateWorker(accountId, apiToken, scriptName);
+
+    const payload = buildVersionPayload(scriptName, workerCode, placement, rateLimit);
+
     const response = await retryWithBackoff(
       () => axios.post(
-        `${CLOUDFLARE_API_BASE}/accounts/${accountId}/workers/scripts/${scriptName}/versions`,
-        formData,
+        `${CLOUDFLARE_API_BASE}/accounts/${accountId}/workers/workers/${encodeURIComponent(scriptName)}/versions`,
+        payload,
         {
           headers: {
             'Authorization': `Bearer ${apiToken}`,
-            ...formData.getHeaders(),
+            'Content-Type': 'application/json',
           },
           timeout: 60000,
         }

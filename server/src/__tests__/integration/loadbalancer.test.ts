@@ -1068,7 +1068,7 @@ describe('scriptName uniqueness — scoped per account', () => {
       strategy: 'round-robin',
       weightedEnabled: false,
       zoneId: 'a'.repeat(32),
-      status: 'active',
+      status: 'active' as const,
       workerUrl: 'https://example.com',
     };
 
@@ -1089,7 +1089,7 @@ describe('scriptName uniqueness — scoped per account', () => {
       strategy: 'round-robin',
       weightedEnabled: false,
       zoneId: 'a'.repeat(32),
-      status: 'active',
+      status: 'active' as const,
       workerUrl: 'https://example.com',
       userId: owner._id,
     };
