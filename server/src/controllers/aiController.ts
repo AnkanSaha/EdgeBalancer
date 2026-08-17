@@ -63,7 +63,7 @@ export const generateWithAi = async (req: Request, res: Response, next: NextFunc
       pendingAction: run.pendingAction ?? null,
     });
 
-    await recordAiRun({ userId, prompt, trace, outcome: run.outcome, durationMs: Date.now() - startedAt });
+    await recordAiRun({ runId, userId, prompt, trace, outcome: run.outcome, durationMs: Date.now() - startedAt });
   } catch (error: any) {
     const message = isCancellationError(error) || cancellation.isCancelled()
       ? 'Request cancelled'
@@ -72,6 +72,7 @@ export const generateWithAi = async (req: Request, res: Response, next: NextFunc
     emit('error', { message });
 
     await recordAiRun({
+      runId,
       userId,
       prompt,
       trace,
@@ -107,7 +108,7 @@ export const listAiRuns = async (req: Request, res: Response, next: NextFunction
     const runs = await AiRun.find(query)
       .sort({ createdAt: -1 })
       .limit(limit + 1)
-      .select('prompt outcome durationMs finalModel toolCalls.name createdAt')
+      .select('runId prompt outcome durationMs finalModel toolCalls.name createdAt')
       .lean();
 
     const hasMore = runs.length > limit;
@@ -157,13 +158,13 @@ export const completeAiRun = async (req: Request, res: Response, next: NextFunct
     if (!userId) { res.status(401); throw new Error('Not authenticated'); }
 
     const runId = req.params?.id;
-    if (!runId || !mongoose.Types.ObjectId.isValid(runId)) {
+    if (!runId) {
       res.status(400);
-      throw new Error('Invalid run ID');
+      throw new Error('Run ID is required');
     }
 
     const run = await AiRun.findOneAndUpdate(
-      { _id: runId, userId, outcome: 'pending' },
+      { runId, userId, outcome: 'pending' },
       { $set: { outcome: 'success' } },
       { new: true },
     ).lean();

@@ -2,6 +2,7 @@ const config = __CONFIG__;
 
 // ─── Path pattern matching ────────────────────────────────────────────
 function matchPathPattern(pattern, pathname) {
+  if (pattern === '/') return pathname === '/';
   const p = pattern.endsWith('/*') ? pattern : pattern.replace(/\/+$/, '');
   if (p === pathname) return true;
   if (p.endsWith('/*')) {
