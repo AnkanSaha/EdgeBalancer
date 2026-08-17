@@ -12,6 +12,7 @@ export interface User {
   email?: string | null;
   username: string;
   hasCloudflareCredentials: boolean;
+  cloudflareOAuthConnected?: boolean;
   cloudflareAccountId?: string; // masked
   cloudflareApiToken?: string; // masked
   totpEnabled?: boolean;

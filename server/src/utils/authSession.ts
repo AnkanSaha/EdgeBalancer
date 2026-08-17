@@ -31,7 +31,8 @@ export const toUserPayload = (user: IUser) => ({
   name: user.name,
   email: user.email,
   username: user.username,
-  hasCloudflareCredentials: !!(user.cloudflareAccountId && user.cloudflareApiToken),
+  hasCloudflareCredentials: !!(user.cloudflareAccountId && (user.cloudflareApiToken || user.cloudflareOAuthConnected)),
+  cloudflareOAuthConnected: !!user.cloudflareOAuthConnected,
   totpEnabled: hasTotp(user),
   totpDevices: confirmedDevices(user).map((device) => ({
     id: device._id.toString(),

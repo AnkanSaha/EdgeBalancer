@@ -27,12 +27,22 @@ export interface IUser extends Document {
   email?: string | null;
   username: string;
   firebaseUid?: string | null;
+  // Manual credentials (legacy, still supported)
   cloudflareAccountId?: string;
   cloudflareApiToken?: string;
   cloudflareAccountIdIv?: string;
   cloudflareTokenIv?: string;
   cloudflareAccountIdTag?: string;
   cloudflareTokenTag?: string;
+  // OAuth credentials
+  cloudflareOAuthToken?: string;
+  cloudflareOAuthTokenIv?: string;
+  cloudflareOAuthTokenTag?: string;
+  cloudflareRefreshToken?: string;
+  cloudflareRefreshTokenIv?: string;
+  cloudflareRefreshTokenTag?: string;
+  cloudflareTokenExpiresAt?: Date;
+  cloudflareOAuthConnected?: boolean;
   totpDevices: Types.DocumentArray<ITotpDevice>;
   passkeys: Types.DocumentArray<IPasskey>;
   preferredSecondFactor?: SecondFactorMethod | null;
@@ -128,6 +138,38 @@ const UserSchema = new Schema<IUser>(
     cloudflareTokenTag: {
       type: String,
       default: null,
+    },
+    cloudflareOAuthToken: {
+      type: String,
+      default: null,
+    },
+    cloudflareOAuthTokenIv: {
+      type: String,
+      default: null,
+    },
+    cloudflareOAuthTokenTag: {
+      type: String,
+      default: null,
+    },
+    cloudflareRefreshToken: {
+      type: String,
+      default: null,
+    },
+    cloudflareRefreshTokenIv: {
+      type: String,
+      default: null,
+    },
+    cloudflareRefreshTokenTag: {
+      type: String,
+      default: null,
+    },
+    cloudflareTokenExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    cloudflareOAuthConnected: {
+      type: Boolean,
+      default: false,
     },
     totpDevices: {
       type: [TotpDeviceSchema],

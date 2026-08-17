@@ -5,6 +5,14 @@ import {
   getMaskedCredentials
 } from '../services/credentialsService';
 import { CloudflareClient } from '../services/cloudflareClient';
+import {
+  buildAuthorizationUrl,
+  exchangeCodeForTokens,
+  fetchAccountId,
+  saveOAuthCredentials,
+  disconnectOAuth,
+  validateState,
+} from '../services/oauth.service';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
 export const saveCredentials = async (req: Request, res: Response, next: NextFunction) => {
@@ -128,6 +136,88 @@ export const getZones = async (req: Request, res: Response, next: NextFunction) 
       success: true,
       message: 'Zones retrieved successfully',
       data: { zones },
+    });
+  } catch (error) {
+    next(error as Error);
+  }
+};
+
+export const oauthAuthorize = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401);
+      throw new Error('Not authenticated');
+    }
+
+    // State includes userId — no cookie needed, it travels via URL
+    const { url } = buildAuthorizationUrl(userId);
+
+    res.json({
+      success: true,
+      message: 'Authorization URL generated',
+      data: { url },
+    });
+  } catch (error) {
+    next(error as Error);
+  }
+};
+
+export const oauthCallback = async (req: Request, res: Response, _next: NextFunction) => {
+  try {
+    const { code, state } = req.query as { code?: string; state?: string };
+
+    if (!code || !state) {
+      res.status(400);
+      throw new Error('Missing code or state parameter');
+    }
+
+    // Extract userId from state (state travels via URL — CSRF safe)
+    const stateData = validateState(state);
+    if (!stateData) {
+      res.status(400);
+      throw new Error('Invalid state format');
+    }
+
+    // Exchange code for tokens
+    const tokens = await exchangeCodeForTokens(code);
+
+    // Fetch account ID from Cloudflare
+    const accountId = await fetchAccountId(tokens.accessToken);
+
+    // Save credentials
+    await saveOAuthCredentials(
+      stateData.userId,
+      accountId,
+      tokens.accessToken,
+      tokens.refreshToken,
+      tokens.expiresIn
+    );
+
+    // Redirect to dashboard with success indicator
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+    res.redirect(`${clientUrl}/dashboard?cf=connected`);
+  } catch {
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+    res.redirect(`${clientUrl}/onboarding?error=oauth_failed`);
+  }
+};
+
+export const oauthDisconnect = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      res.status(401);
+      throw new Error('Not authenticated');
+    }
+
+    await disconnectOAuth(userId);
+
+    res.json({
+      success: true,
+      message: 'Cloudflare OAuth disconnected',
+      data: null,
     });
   } catch (error) {
     next(error as Error);

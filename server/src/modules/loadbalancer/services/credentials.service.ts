@@ -2,10 +2,12 @@
  * Credentials Service
  *
  * Handles retrieval of Cloudflare credentials for authenticated users.
+ * Supports both OAuth and manual token credentials.
  */
 
 import { User } from '../../../models/User';
 import { decrypt } from '../../../utils/encryption';
+import { refreshOAuthToken, isOAuthTokenExpired } from '../../../services/oauth.service';
 
 export interface CloudflareCredentials {
   accountId: string;
@@ -13,7 +15,8 @@ export interface CloudflareCredentials {
 }
 
 /**
- * Get decrypted Cloudflare credentials for a user
+ * Get decrypted Cloudflare credentials for a user.
+ * Checks OAuth first (with auto-refresh), then falls back to manual token.
  *
  * @throws Error if user not found or credentials not configured
  */
@@ -25,6 +28,39 @@ export async function getCloudflareCredentialsForUser(userId: string): Promise<C
     throw error;
   }
 
+  // OAuth path — preferred
+  if (user.cloudflareOAuthConnected) {
+    const hasOAuthFields = !!(
+      user.cloudflareAccountId &&
+      user.cloudflareOAuthToken &&
+      user.cloudflareAccountIdIv &&
+      user.cloudflareOAuthTokenIv &&
+      user.cloudflareAccountIdTag &&
+      user.cloudflareOAuthTokenTag
+    );
+
+    if (!hasOAuthFields) {
+      const error = new Error('Cloudflare OAuth credentials are incomplete. Please reconnect.');
+      (error as any).statusCode = 400;
+      throw error;
+    }
+
+    let accessToken: string;
+
+    // Refresh if expired (with 5-min buffer)
+    if (isOAuthTokenExpired(user.cloudflareTokenExpiresAt)) {
+      accessToken = await refreshOAuthToken(userId);
+    } else {
+      accessToken = decrypt(user.cloudflareOAuthToken!, user.cloudflareOAuthTokenIv!, user.cloudflareOAuthTokenTag!);
+    }
+
+    return {
+      accountId: decrypt(user.cloudflareAccountId!, user.cloudflareAccountIdIv!, user.cloudflareAccountIdTag!),
+      apiToken: accessToken,
+    };
+  }
+
+  // Manual token path — legacy
   if (
     !user.cloudflareAccountId ||
     !user.cloudflareApiToken ||

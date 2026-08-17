@@ -319,6 +319,9 @@ jobs:
               --from-literal=FIREBASE_PRIVATE_KEY="$FIREBASE_KEY" \
               --from-literal=MISTRAL_API_KEY="${{ secrets.MISTRAL_API_KEY }}" \
               --from-literal=OPENROUTER_API_KEY="${{ secrets.OPENROUTER_API_KEY }}" \
+              --from-literal=CLOUDFLARE_OAUTH_CLIENT_ID="${{ secrets.CLOUDFLARE_OAUTH_CLIENT_ID }}" \
+              --from-literal=CLOUDFLARE_OAUTH_CLIENT_SECRET="${{ secrets.CLOUDFLARE_OAUTH_CLIENT_SECRET }}" \
+              --from-literal=CLOUDFLARE_OAUTH_REDIRECT_URI="${{ secrets.CLOUDFLARE_OAUTH_REDIRECT_URI }}" \
               --dry-run=client -o yaml | sudo k3s kubectl apply -f -
 
             echo "Rolling update to: $IMAGE"

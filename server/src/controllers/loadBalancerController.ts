@@ -7,6 +7,7 @@ import { createWorkerDeployment, deployWorker, getActiveWorkerDeployment, pruneW
 import { attachDomainToWorker, detachDomainFromWorker } from '../services/workerDomain';
 import { deleteWorker, deleteWorkerScript } from '../services/workerDeletion';
 import { CloudflareClient } from '../services/cloudflareClient';
+import { refreshOAuthToken, isOAuthTokenExpired } from '../services/oauth.service';
 import { createRequestCancellation, RequestCancelledError } from '../utils/requestCancellation';
 import { beginLoadBalancerOperation, cancelLoadBalancerOperation, completeLoadBalancerOperation, isLoadBalancerOperationCancelled } from '../utils/loadBalancerOperationStore';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
@@ -123,6 +124,21 @@ const getCloudflareCredentialsForUser = async (userId: string) => {
     throw error;
   }
 
+  // OAuth path
+  if (user.cloudflareOAuthConnected && user.cloudflareOAuthToken && user.cloudflareAccountId) {
+    let accessToken: string;
+    if (isOAuthTokenExpired(user.cloudflareTokenExpiresAt)) {
+      accessToken = await refreshOAuthToken(userId);
+    } else {
+      accessToken = decrypt(user.cloudflareOAuthToken, user.cloudflareOAuthTokenIv!, user.cloudflareOAuthTokenTag!);
+    }
+    return {
+      accountId: decrypt(user.cloudflareAccountId, user.cloudflareAccountIdIv!, user.cloudflareAccountIdTag!),
+      apiToken: accessToken,
+    };
+  }
+
+  // Manual token path
   if (
     !user.cloudflareAccountId ||
     !user.cloudflareApiToken ||

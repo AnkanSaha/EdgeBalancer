@@ -582,8 +582,10 @@ function CloudflareTab({ user, refreshUser }: any) {
   });
   const [formData, setFormData] = useState({ accountId: '', apiToken: '' });
 
+  const isOAuth = user?.cloudflareOAuthConnected;
+
   useEffect(() => {
-    if (user?.hasCloudflareCredentials) fetchCredentials();
+    if (user?.hasCloudflareCredentials && !isOAuth) fetchCredentials();
   }, [user]);
 
   const fetchCredentials = async () => {
@@ -596,7 +598,7 @@ function CloudflareTab({ user, refreshUser }: any) {
         });
       }
     } catch (error) {
-      // Silent fail - credentials might not exist yet
+      // Silent fail
     }
   };
 
@@ -629,9 +631,50 @@ function CloudflareTab({ user, refreshUser }: any) {
     }
   };
 
+  const handleOAuthConnect = async () => {
+    setLoading(true);
+    try {
+      const response = await api.getCloudflareOAuthUrl();
+      if (response.data?.url) {
+        window.location.href = response.data.url;
+      } else {
+        toast.error('Failed to generate authorization URL');
+        setLoading(false);
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to connect to Cloudflare');
+      setLoading(false);
+    }
+  };
+
+  const handleOAuthDisconnect = async () => {
+    setLoading(true);
+    try {
+      await api.disconnectCloudflareOAuth();
+      toast.success('Cloudflare OAuth disconnected');
+      await refreshUser();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to disconnect');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManualDisconnect = async () => {
+    setLoading(true);
+    try {
+      await api.updateCloudflareCredentials({ accountId: '', apiToken: '' });
+      toast.success('Manual credentials removed');
+      await refreshUser();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to disconnect');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="card" style={{ padding: 28, position: 'relative', overflow: 'hidden' }}>
-      {/* Decorative icon */}
       <div style={{
         position: 'absolute', top: 20, right: 20,
         opacity: 0.06, pointerEvents: 'none',
@@ -642,134 +685,211 @@ function CloudflareTab({ user, refreshUser }: any) {
       <div style={{ position: 'relative' }}>
         <div className="kicker" style={{ marginBottom: 8 }}>// cloudflare integration</div>
         <h2 style={{ fontSize: 22, margin: 0, letterSpacing: '-0.02em', fontWeight: 500 }}>
-          API Credentials
+          Cloudflare Connection
         </h2>
         <p style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 8, marginBottom: 32, lineHeight: 1.6 }}>
-          Your credentials are encrypted with AES-256-CBC and stored securely.
+          {isOAuth
+            ? 'Connected via Cloudflare OAuth. Tokens are refreshed automatically.'
+            : 'Your credentials are encrypted with AES-256-GCM and stored securely.'}
         </p>
 
-        {!editing ? (
+        {/* Current connection status */}
+        {user?.hasCloudflareCredentials ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Account ID */}
+            {/* Connection method indicator */}
             <div style={{
-              padding: 16, background: 'var(--bg-2)',
-              border: '1px solid var(--line)', borderRadius: 'var(--radius)',
+              padding: 16, background: 'var(--bg)',
+              border: `1px solid ${isOAuth ? 'var(--accent)' : 'var(--green)'}`,
+              borderRadius: 'var(--radius)',
+              display: 'flex', gap: 12, alignItems: 'center',
             }}>
-              <div className="kicker" style={{ marginBottom: 8 }}>Account ID</div>
-              <div className="mono" style={{ fontSize: 13, color: 'var(--text)' }}>
-                {credentials.accountId || 'Not configured'}
-              </div>
-            </div>
-
-            {/* API Token */}
-            <div style={{
-              padding: 16, background: 'var(--bg-2)',
-              border: '1px solid var(--line)', borderRadius: 'var(--radius)',
-            }}>
-              <div className="kicker" style={{ marginBottom: 8 }}>API Token</div>
-              <div className="mono" style={{ fontSize: 13, color: 'var(--text)' }}>
-                {credentials.apiToken ? '••••••••••••••••••••••••' : 'Not configured'}
-              </div>
-            </div>
-
-            {/* Status indicator */}
-            {credentials.accountId && (
               <div style={{
-                padding: 16, background: 'var(--bg)',
-                border: '1px solid var(--line)', borderRadius: 'var(--radius)',
-                display: 'flex', gap: 12, alignItems: 'center',
-              }}>
-                <div style={{
-                  width: 8, height: 8, borderRadius: '50%',
-                  background: 'var(--green)', boxShadow: '0 0 8px var(--green)',
-                }} />
-                <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                  Credentials active and encrypted
+                width: 8, height: 8, borderRadius: '50%',
+                background: isOAuth ? 'var(--accent)' : 'var(--green)',
+                boxShadow: `0 0 8px ${isOAuth ? 'var(--accent)' : 'var(--green)'}`,
+              }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>
+                  {isOAuth ? 'Connected via OAuth' : 'Connected via API Token'}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+                  {isOAuth
+                    ? 'Automatic connection — no manual token needed'
+                    : `Account ID: ${credentials.accountId || '••••'}`}
                 </div>
               </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 12, paddingTop: 8 }}>
-              <button
-                className="btn btn-primary"
-                onClick={() => setEditing(true)}
-              >
-                <Icons.Edit size={14} /> {credentials.accountId ? 'Rotate Credentials' : 'Configure Credentials'}
-              </button>
             </div>
+
+            {/* Switch connection method */}
+            <div style={{
+              padding: 16, background: 'var(--bg-2)',
+              border: '1px solid var(--line)', borderRadius: 'var(--radius)',
+            }}>
+              <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 12 }}>
+                Switch connection method
+              </div>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                {!isOAuth && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleOAuthConnect}
+                    disabled={loading}
+                  >
+                    <Icons.Cloud size={14} /> Switch to OAuth
+                  </button>
+                )}
+                {isOAuth && (
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => setEditing(true)}
+                    disabled={loading}
+                  >
+                    <Icons.Key size={14} /> Switch to Manual Token
+                  </button>
+                )}
+                <button
+                  className="btn btn-ghost"
+                  onClick={isOAuth ? handleOAuthDisconnect : handleManualDisconnect}
+                  disabled={loading}
+                  style={{ color: 'var(--red)' }}
+                >
+                  <Icons.Trash size={14} /> Disconnect
+                </button>
+              </div>
+            </div>
+
+            {/* Manual token edit form (when switching from OAuth to manual) */}
+            {editing && isOAuth && (
+              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div style={{
+                  padding: 12, background: 'var(--accent-dim)',
+                  border: '1px solid var(--accent)', borderRadius: 'var(--radius)',
+                  fontSize: 13, color: 'var(--text-2)',
+                }}>
+                  Switching to manual token will disconnect your OAuth connection.
+                </div>
+                <div className="field">
+                  <label className="field-label">
+                    Cloudflare Account ID <span className="req">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="input input-mono"
+                    placeholder="32-character hexadecimal account ID"
+                    value={formData.accountId}
+                    onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="field">
+                  <label className="field-label">
+                    Cloudflare API Token <span className="req">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    className="input input-mono"
+                    placeholder="Paste your API token here"
+                    value={formData.apiToken}
+                    onChange={(e) => setFormData({ ...formData, apiToken: e.target.value })}
+                    disabled={loading}
+                  />
+                  <div className="hint">
+                    Token must have <span className="mono" style={{ color: 'var(--accent)' }}>{permissionSummary()}</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button type="submit" className="btn btn-primary" disabled={loading}>
+                    {loading ? 'Verifying...' : 'Save Credentials'}
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => {
+                    setEditing(false);
+                    setFormData({ accountId: '', apiToken: '' });
+                  }} disabled={loading}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         ) : (
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Account ID */}
-            <div className="field">
-              <label className="field-label">
-                Cloudflare Account ID <span className="req">*</span>
-              </label>
-              <input
-                type="text"
-                className="input input-mono"
-                placeholder="32-character hexadecimal account ID"
-                value={formData.accountId}
-                onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
-                disabled={loading}
-              />
-              <div className="hint">
-                Find this in your Cloudflare dashboard under Account → Workers & Pages
-              </div>
+          /* Not connected state */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center' }}>
+            <button
+              className="btn btn-primary btn-lg"
+              onClick={handleOAuthConnect}
+              disabled={loading}
+              style={{ justifyContent: 'center', width: '100%', gap: 10 }}
+            >
+              <Icons.Cloud size={18} />
+              {loading ? 'Redirecting...' : 'Connect with Cloudflare'}
+              {!loading && <Icons.Arrow size={14} />}
+            </button>
+
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+              color: 'var(--text-3)', fontSize: 13,
+            }}>
+              <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+              <span>or</span>
+              <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
             </div>
 
-            {/* API Token */}
-            <div className="field">
-              <label className="field-label">
-                Cloudflare API Token <span className="req">*</span>
-              </label>
-              <input
-                type="password"
-                className="input input-mono"
-                placeholder="Paste your API token here"
-                value={formData.apiToken}
-                onChange={(e) => setFormData({ ...formData, apiToken: e.target.value })}
-                disabled={loading}
-              />
-              <div className="hint">
-                Token must have <span className="mono" style={{ color: 'var(--accent)' }}>{permissionSummary()}</span>
-              </div>
-            </div>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => setEditing(true)}
+              disabled={loading}
+              style={{ fontSize: 14, color: 'var(--text-3)' }}
+            >
+              <Icons.Key size={14} />
+              Enter API token manually
+            </button>
 
-            <div style={{ display: 'flex', gap: 12, paddingTop: 8 }}>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <div style={{
-                      width: 14, height: 14,
-                      border: '2px solid currentColor', borderTopColor: 'transparent',
-                      borderRadius: '50%', animation: 'spin 0.6s linear infinite',
-                    }} />
-                    Verifying...
-                  </>
-                ) : (
-                  <>
-                    <Icons.Check size={14} /> Save Credentials
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => {
-                  setEditing(false);
-                  setFormData({ accountId: '', apiToken: '' });
-                }}
-                disabled={loading}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+            {editing && (
+              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20, width: '100%' }}>
+                <div className="field">
+                  <label className="field-label">
+                    Cloudflare Account ID <span className="req">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="input input-mono"
+                    placeholder="32-character hexadecimal account ID"
+                    value={formData.accountId}
+                    onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="field">
+                  <label className="field-label">
+                    Cloudflare API Token <span className="req">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    className="input input-mono"
+                    placeholder="Paste your API token here"
+                    value={formData.apiToken}
+                    onChange={(e) => setFormData({ ...formData, apiToken: e.target.value })}
+                    disabled={loading}
+                  />
+                  <div className="hint">
+                    Token must have <span className="mono" style={{ color: 'var(--accent)' }}>{permissionSummary()}</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button type="submit" className="btn btn-primary" disabled={loading}>
+                    {loading ? 'Verifying...' : 'Save Credentials'}
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => {
+                    setEditing(false);
+                    setFormData({ accountId: '', apiToken: '' });
+                  }} disabled={loading}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         )}
       </div>
 

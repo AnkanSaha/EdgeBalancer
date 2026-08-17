@@ -127,6 +127,16 @@ class ApiClient {
     return response.data;
   }
 
+  async getCloudflareOAuthUrl(): Promise<ApiResponse<{ url: string }>> {
+    const response = await this.client.get('/cloudflare/oauth/authorize');
+    return response.data;
+  }
+
+  async disconnectCloudflareOAuth(): Promise<ApiResponse> {
+    const response = await this.client.post('/cloudflare/oauth/disconnect');
+    return response.data;
+  }
+
   // Load Balancer endpoints
   async createLoadBalancer(data: any, options?: RequestOptions): Promise<ApiResponse> {
     const response = await this.client.post('/loadbalancers', data, options);
