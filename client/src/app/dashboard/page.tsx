@@ -156,6 +156,12 @@ export default function DashboardPage() {
       else if (action === 'resume') await api.resumeLoadBalancer(loadBalancerId);
       else await api.updateLoadBalancer(loadBalancerId, payload ?? {});
 
+      // Mark the AI run as success now that the action is confirmed
+      const runId = aiRunRef.current?.runId;
+      if (runId) {
+        try { await api.completeAiRun(runId); } catch {}
+      }
+
       toast.success(`${pending.name} updated`);
       setAiPrompt('');
       setAiRun(null);
@@ -178,6 +184,7 @@ export default function DashboardPage() {
   const handleNav = (id: string) => {
     if (id === 'settings') router.push('/settings');
     else if (id === 'sessions') router.push('/sessions');
+    else if (id === 'ai-runs') router.push('/ai-runs');
     else setCurrentNav(id);
   };
 

@@ -117,6 +117,7 @@ export default function SessionsPage() {
   const handleNav = (id: string) => {
     if (id === 'balancers') router.push('/dashboard');
     else if (id === 'settings') router.push('/settings');
+    else if (id === 'ai-runs') router.push('/ai-runs');
   };
 
   const handleLogout = async () => {

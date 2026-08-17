@@ -1,0 +1,403 @@
+'use client';
+
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { api } from '@/lib/api';
+import { Sidebar, Topbar } from '@/components/dashboard/Sidebar';
+import { Icons } from '@/components/shared/Icons';
+import { Modal } from '@/components/ui/Modal';
+import type { AiRunListItem, AiRunDetail, AiRunToolCall, AiOutcome } from '@/types/api';
+import toast from 'react-hot-toast';
+
+function relativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function outcomeColor(outcome: AiOutcome): string {
+  if (outcome === 'success') return 'var(--green)';
+  if (outcome === 'failure') return 'var(--red)';
+  if (outcome === 'pending') return 'var(--accent)';
+  return 'var(--text-3)';
+}
+
+function outcomeLabel(outcome: AiOutcome): string {
+  if (outcome === 'success') return 'Success';
+  if (outcome === 'failure') return 'Failed';
+  if (outcome === 'pending') return 'Pending';
+  return 'Refused';
+}
+
+// ─── Detail Modal ──────────────────────────────────────────────────
+
+function AiRunDetailModal({ runId, onClose }: { runId: string; onClose: () => void }) {
+  const [run, setRun] = useState<AiRunDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [expandedTool, setExpandedTool] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.getAiRun(runId);
+        if (!cancelled) setRun(res.data.run);
+      } catch (err: any) {
+        if (!cancelled) toast.error(err.message || 'Failed to load run details');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [runId]);
+
+  return (
+    <Modal isOpen onClose={onClose} title="AI Run Details" size="lg">
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
+          <div style={{
+            width: 28, height: 28, border: '3px solid var(--line)',
+            borderTopColor: 'var(--accent)', borderRadius: '50%',
+            animation: 'spin 0.9s linear infinite',
+          }} />
+        </div>
+      ) : !run ? (
+        <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-3)' }}>Run not found</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxHeight: '70vh', overflow: 'auto' }}>
+          {/* Header */}
+          <div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+              <span style={{
+                fontSize: 11, padding: '2px 8px', borderRadius: 4,
+                background: `${outcomeColor(run.outcome)}15`, color: outcomeColor(run.outcome),
+                fontWeight: 600, fontFamily: 'var(--mono)',
+              }}>
+                {outcomeLabel(run.outcome)}
+              </span>
+              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{relativeTime(run.createdAt)}</span>
+              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>· {formatDuration(run.durationMs)}</span>
+            </div>
+            <div style={{
+              fontSize: 14, lineHeight: 1.6, padding: 14,
+              background: 'var(--bg-2)', borderRadius: 'var(--radius)',
+              border: '1px solid var(--line)', whiteSpace: 'pre-wrap',
+            }}>
+              {run.prompt}
+            </div>
+          </div>
+
+          {/* Error */}
+          {run.error && (
+            <div style={{
+              padding: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+              borderRadius: 'var(--radius)', fontSize: 13, color: 'var(--red)',
+            }}>
+              {run.error}
+            </div>
+          )}
+
+          {/* Model attempts */}
+          {run.modelsUsed.length > 0 && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-2)' }}>Models Used</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {run.modelsUsed.map((m, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, padding: '6px 10px',
+                    background: 'var(--bg-2)', borderRadius: 'var(--radius)',
+                    fontFamily: 'var(--mono)',
+                  }}>
+                    <span style={{
+                      width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                      background: m.ok ? 'var(--green)' : 'var(--red)',
+                    }} />
+                    <span style={{ color: 'var(--text-2)' }}>{m.provider}/{m.model}</span>
+                    {!m.ok && m.error && (
+                      <span style={{ color: 'var(--text-3)', marginLeft: 'auto', fontSize: 11 }}>{m.error}</span>
+                    )}
+                    {i === run.modelsUsed.length - 1 && (
+                      <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>FINAL</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tool calls */}
+          {run.toolCalls.length > 0 && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-2)' }}>
+                Tool Calls ({run.toolCalls.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {run.toolCalls.map((tc, i) => (
+                  <div key={i}>
+                    <button
+                      onClick={() => setExpandedTool(expandedTool === i ? null : i)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        width: '100%', fontSize: 12, padding: '8px 10px',
+                        background: 'var(--bg-2)', borderRadius: 'var(--radius)',
+                        border: '1px solid var(--line)', cursor: 'pointer', textAlign: 'left',
+                      }}
+                    >
+                      <span style={{
+                        width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                        background: tc.ok ? 'var(--green)' : 'var(--red)',
+                      }} />
+                      <span style={{ fontFamily: 'var(--mono)', fontWeight: 500, color: 'var(--text)' }}>{tc.name}</span>
+                      <span style={{ color: 'var(--text-3)', marginLeft: 'auto' }}>{formatDuration(tc.durationMs)}</span>
+                      <span style={{
+                        color: 'var(--text-3)', transition: 'transform 0.2s',
+                        transform: expandedTool === i ? 'rotate(180deg)' : 'none',
+                      }}>▾</span>
+                    </button>
+                    {expandedTool === i && (
+                      <div style={{ marginTop: 4, padding: '0 4px' }}>
+                        {tc.args && Object.keys(tc.args).length > 0 && (
+                          <div style={{ marginBottom: 8 }}>
+                            <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4, fontFamily: 'var(--mono)' }}>Arguments</div>
+                            <pre style={{
+                              fontSize: 11, padding: 10, background: 'var(--bg)', borderRadius: 'var(--radius)',
+                              border: '1px solid var(--line)', overflow: 'auto', maxHeight: 200,
+                              fontFamily: 'var(--mono)', margin: 0, whiteSpace: 'pre-wrap',
+                            }}>
+                              {JSON.stringify(tc.args, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                        {tc.result && (
+                          <div>
+                            <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4, fontFamily: 'var(--mono)' }}>Result</div>
+                            <pre style={{
+                              fontSize: 11, padding: 10, background: 'var(--bg)', borderRadius: 'var(--radius)',
+                              border: '1px solid var(--line)', overflow: 'auto', maxHeight: 300,
+                              fontFamily: 'var(--mono)', margin: 0, whiteSpace: 'pre-wrap',
+                            }}>
+                              {(() => { try { return JSON.stringify(JSON.parse(tc.result), null, 2); } catch { return tc.result; } })()}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ─── Run Card ──────────────────────────────────────────────────────
+
+function AiRunCard({ run, onClick }: { run: AiRunListItem; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 10,
+        padding: 16, border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)',
+        background: 'var(--bg-1)', cursor: 'pointer', textAlign: 'left',
+        transition: 'border-color 150ms, background 150ms',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--bg-2)'; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.background = 'var(--bg-1)'; }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{
+          fontSize: 11, padding: '2px 8px', borderRadius: 4,
+          background: `${outcomeColor(run.outcome)}15`, color: outcomeColor(run.outcome),
+          fontWeight: 600, fontFamily: 'var(--mono)',
+        }}>
+          {outcomeLabel(run.outcome)}
+        </span>
+        <span style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
+          {run.finalModel || '—'}
+        </span>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-3)' }}>{relativeTime(run.createdAt)}</span>
+      </div>
+      <div style={{
+        fontSize: 13, color: 'var(--text)', lineHeight: 1.5,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>
+        {run.prompt}
+      </div>
+      <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
+        <span>{run.toolCalls.length} tool{run.toolCalls.length !== 1 ? 's' : ''}</span>
+        <span>{formatDuration(run.durationMs)}</span>
+      </div>
+    </button>
+  );
+}
+
+// ─── Empty State ───────────────────────────────────────────────────
+
+function AiRunsEmptyState() {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: '64px 24px', border: '2px dashed var(--line)', borderRadius: 'var(--radius-lg)',
+      textAlign: 'center',
+    }}>
+      <Icons.Zap size={32} style={{ color: 'var(--text-3)', marginBottom: 16 }} />
+      <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 8 }}>No AI runs yet</div>
+      <div style={{ fontSize: 13, color: 'var(--text-3)', maxWidth: 360 }}>
+        Use the AI prompt on the dashboard to create or manage load balancers with natural language. Your runs will appear here.
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ──────────────────────────────────────────────────────────
+
+export default function AiRunsPage() {
+  const router = useRouter();
+  const { user, loading: authLoading, logout } = useAuth();
+
+  const [runs, setRuns] = useState<AiRunListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!authLoading && !user) router.push('/login');
+  }, [user, authLoading, router]);
+
+  const fetchRuns = useCallback(async (reset = false) => {
+    if (reset) setLoading(true);
+    else setLoadingMore(true);
+    try {
+      const res = await api.getAiRuns({
+        cursor: reset ? undefined : (nextCursor ?? undefined),
+        limit: 20,
+      });
+      const { runs: fetched, nextCursor: cursor, hasMore: more } = res.data;
+      setRuns(prev => reset ? fetched : [...prev, ...fetched]);
+      setNextCursor(cursor);
+      setHasMore(more);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load AI runs');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [nextCursor]);
+
+  useEffect(() => {
+    if (user) fetchRuns(true);
+  }, [user]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasMore && !loadingMore && !loading) {
+          fetchRuns(false);
+        }
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loading, fetchRuns]);
+
+  const handleNav = (id: string) => {
+    if (id === 'balancers') router.push('/dashboard');
+    else if (id === 'settings') router.push('/settings');
+    else if (id === 'sessions') router.push('/sessions');
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+  };
+
+  if (authLoading || !user) return null;
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', flexDirection: 'column' }}>
+      <div className="app-shell">
+        <Sidebar
+          current="ai-runs"
+          onNav={handleNav}
+          onLogout={handleLogout}
+          userEmail={user?.email}
+          hasCloudflareCredentials={user?.hasCloudflareCredentials}
+          cloudflareOAuthConnected={user?.cloudflareOAuthConnected}
+          isReady={!!user?.hasCloudflareCredentials}
+        />
+        <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Topbar
+            crumbs={['Dashboard', 'AI Runs']}
+            title="AI Runs"
+            subtitle="History of every AI provisioning request and its outcome"
+          />
+          <div style={{ padding: 'clamp(16px, 4vw, 32px)', overflow: 'auto', flex: 1 }}>
+            {loading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
+                <div style={{
+                  width: 28, height: 28, border: '3px solid var(--line)',
+                  borderTopColor: 'var(--accent)', borderRadius: '50%',
+                  animation: 'spin 0.9s linear infinite',
+                }} />
+              </div>
+            ) : runs.length === 0 ? (
+              <AiRunsEmptyState />
+            ) : (
+              <>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  marginBottom: 'clamp(16px, 3vw, 24px)', fontSize: 13, color: 'var(--text-3)',
+                }}>
+                  <span style={{ fontFamily: 'var(--mono)' }}>{runs.length} runs</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {runs.map(run => (
+                    <AiRunCard key={run._id} run={run} onClick={() => setSelectedRunId(run._id)} />
+                  ))}
+                </div>
+                <div ref={sentinelRef} style={{ height: 1 }} />
+                {loadingMore && (
+                  <div style={{ textAlign: 'center', padding: 16, fontSize: 13, color: 'var(--text-3)' }}>
+                    Loading more…
+                  </div>
+                )}
+                {!hasMore && runs.length > 0 && (
+                  <div style={{ textAlign: 'center', padding: 16, fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
+                    — end of history —
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </main>
+      </div>
+
+      {selectedRunId && (
+        <AiRunDetailModal runId={selectedRunId} onClose={() => setSelectedRunId(null)} />
+      )}
+    </div>
+  );
+}

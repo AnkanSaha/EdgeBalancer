@@ -199,3 +199,52 @@ export interface AiStep {
   state: 'running' | 'ok' | 'failed';
   detail?: string;
 }
+
+export interface AiRunToolCallSummary {
+  name: string;
+}
+
+export interface AiRunListItem {
+  _id: string;
+  prompt: string;
+  outcome: AiOutcome;
+  durationMs: number;
+  finalModel: string | null;
+  toolCalls: AiRunToolCallSummary[];
+  createdAt: string;
+}
+
+export interface AiRunModelAttempt {
+  provider: string;
+  model: string;
+  ok: boolean;
+  error: string | null;
+}
+
+export interface AiRunToolCall {
+  name: string;
+  args: Record<string, unknown>;
+  result: string;
+  ok: boolean;
+  durationMs: number;
+}
+
+export interface AiRunDetail {
+  _id: string;
+  userId: string;
+  prompt: string;
+  modelsUsed: AiRunModelAttempt[];
+  finalModel: string | null;
+  toolCalls: AiRunToolCall[];
+  outcome: AiOutcome;
+  durationMs: number;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiRunsResponse {
+  runs: AiRunListItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}

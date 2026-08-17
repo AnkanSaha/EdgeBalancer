@@ -229,6 +229,26 @@ class ApiClient {
     return response.data;
   }
 
+  // AI Run endpoints
+  async getAiRuns(params?: { cursor?: string; limit?: number }): Promise<ApiResponse> {
+    const query = new URLSearchParams();
+    if (params?.cursor) query.set('cursor', params.cursor);
+    if (params?.limit) query.set('limit', String(params.limit));
+    const qs = query.toString();
+    const response = await this.client.get(`/ai/runs${qs ? `?${qs}` : ''}`);
+    return response.data;
+  }
+
+  async getAiRun(id: string): Promise<ApiResponse> {
+    const response = await this.client.get(`/ai/runs/${id}`);
+    return response.data;
+  }
+
+  async completeAiRun(id: string): Promise<ApiResponse> {
+    const response = await this.client.patch(`/ai/runs/${id}/complete`);
+    return response.data;
+  }
+
   // User/Profile endpoints
   async getProfile(): Promise<ApiResponse> {
     const response = await this.client.get('/user/profile');

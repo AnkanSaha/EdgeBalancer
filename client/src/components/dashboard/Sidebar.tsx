@@ -20,6 +20,7 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail, hasCloudflareCred
   const items = [
     { id: 'balancers', icon: 'Layers', label: 'Load Balancers' },
     { id: 'sessions', icon: 'History', label: 'LB History' },
+    { id: 'ai-runs', icon: 'Zap', label: 'AI Runs' },
   ];
 
   const bottom = [
