@@ -9,7 +9,7 @@ terraform {
 }
 
 provider "aws" {
-  region = var.aws_region
+  region = trimspace(var.aws_region)
 }
 
 # ===================================================================
@@ -182,7 +182,7 @@ resource "aws_ecs_cluster" "main" {
 # ─── Launch Template (t4g.micro, ARM Graviton) ────────────────────
 # Uses AWS-provided ECS-optimized AMI for ARM64
 data "aws_ssm_parameter" "ecs_ami" {
-  name = "/aws/service/ecs/al2023/arm64/recommended"
+  name = "/aws/service/ecs/optimized-ami/amazon-linux-2023/arm64/recommended/image_id"
 }
 
 resource "aws_launch_template" "ecs" {
