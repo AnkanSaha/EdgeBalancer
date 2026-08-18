@@ -62,6 +62,14 @@ resource "aws_subnet" "public_b" {
   tags                    = { Name = "public-b" }
 }
 
+resource "aws_subnet" "public_c" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.3.0/24"
+  availability_zone       = "${var.aws_region}c"
+  map_public_ip_on_launch = true
+  tags                    = { Name = "public-c" }
+}
+
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
   route {
@@ -78,6 +86,11 @@ resource "aws_route_table_association" "public" {
 
 resource "aws_route_table_association" "public_b" {
   subnet_id      = aws_subnet.public_b.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "public_c" {
+  subnet_id      = aws_subnet.public_c.id
   route_table_id = aws_route_table.public.id
 }
 
@@ -229,7 +242,7 @@ resource "aws_autoscaling_group" "ecs" {
   max_size                  = 10
   min_size                  = 1
   desired_capacity          = 1
-  vpc_zone_identifier       = [aws_subnet.public.id, aws_subnet.public_b.id]
+  vpc_zone_identifier       = [aws_subnet.public.id, aws_subnet.public_b.id, aws_subnet.public_c.id]
   health_check_type         = "EC2"
   health_check_grace_period = 300
 
@@ -290,7 +303,7 @@ resource "aws_lb" "main" {
   name               = "edgebalancer-alb"
   internal           = false
   load_balancer_type = "application"
-  subnets            = [aws_subnet.public.id, aws_subnet.public_b.id]
+  subnets            = [aws_subnet.public.id, aws_subnet.public_b.id, aws_subnet.public_c.id]
   security_groups    = [aws_security_group.alb.id]
   tags               = { Name = "edgebalancer-alb" }
 }
@@ -381,7 +394,7 @@ resource "aws_appautoscaling_policy" "ecs_cpu" {
 # ─── ElastiCache Redis (t4g.micro) ────────────────────────────────
 resource "aws_elasticache_subnet_group" "redis" {
   name       = "edgebalancer-redis-subnet"
-  subnet_ids = [aws_subnet.public.id, aws_subnet.public_b.id]
+  subnet_ids = [aws_subnet.public.id, aws_subnet.public_b.id, aws_subnet.public_c.id]
   depends_on = [aws_iam_service_linked_role.elasticache]
 }
 
