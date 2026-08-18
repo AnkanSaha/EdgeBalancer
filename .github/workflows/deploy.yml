@@ -409,7 +409,7 @@ jobs:
 
       - name: Terraform Init
         working-directory: aws
-        run: terraform init -backend=false
+        run: terraform init -input=false
 
       - name: Terraform Validate
         working-directory: aws
