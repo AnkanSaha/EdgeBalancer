@@ -1,7 +1,7 @@
 variable "aws_region" {
   type        = string
-  description = "AWS region (default: ap-south-1 Mumbai — closest to Kolkata, VERIFY)"
-  default     = "ap-south-1"
+  description = "AWS region (default: ap-south-2 Hyderabad)"
+  default     = "ap-south-2"
 }
 
 variable "docker_image" {

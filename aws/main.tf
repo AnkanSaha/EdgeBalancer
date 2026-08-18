@@ -8,11 +8,11 @@ terraform {
   required_version = ">= 1.3"
 
   backend "s3" {
-    bucket         = "edgebalancer-tfstate"
-    key            = "aws/terraform.tfstate"
-    region         = "ap-south-1"
-    dynamodb_table = "edgebalancer-tfstate-lock"
-    encrypt        = true
+    bucket       = "edgebalancer-tfstate-hyd"
+    key          = "aws/terraform.tfstate"
+    region       = "ap-south-2"
+    use_lockfile = true
+    encrypt      = true
   }
 }
 
@@ -21,19 +21,19 @@ provider "aws" {
 }
 
 # ===================================================================
-# AWS ECS + EC2 LAUNCH TYPE (equivalent to k3s on a single VPS)
+# AWS ECS + FARGATE (serverless compute — no instances to manage)
 #
-# Architecture (NAT removed for cost savings — ~$36/month saved):
-#   Internet → Cloudflare → ALB (HTTPS) → ECS Tasks (public subnet)
-#                                            ↓
-#                                   ElastiCache Redis (t4g.micro)
+# Architecture (minimal, no NAT — tasks run in public subnets):
+#   Internet → Cloudflare → ALB (HTTPS) → ECS Fargate Task → app:8000
+#                                              ↓
+#                                 ElastiCache Redis (Serverless)
 #
-# Auto-scaling: ASG min=1 max=10, ECS Service min=1 max=10 (uncapped)
-# Region: ap-south-1 (Mumbai) — VERIFY: closest to Kolkata
-# Machine: t4g.micro (2vCPU / 1GB ARM Graviton) — SAME AS YOUR CURRENT
+# Auto-scaling: app autoscaling — min 1 task, target-tracking on CPU
+# (max 100 — App Autoscaling requires a max, this is effectively uncapped)
+# Region: ap-south-2 (Hyderabad)
 # ===================================================================
 
-# ─── VPC (minimal single-AZ) ──────────────────────────────────────
+# ─── VPC (2 AZs, public subnets only) ─────────────────────────────
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
@@ -62,14 +62,6 @@ resource "aws_subnet" "public_b" {
   tags                    = { Name = "public-b" }
 }
 
-resource "aws_subnet" "public_c" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.3.0/24"
-  availability_zone       = "${var.aws_region}c"
-  map_public_ip_on_launch = true
-  tags                    = { Name = "public-c" }
-}
-
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
   route {
@@ -86,11 +78,6 @@ resource "aws_route_table_association" "public" {
 
 resource "aws_route_table_association" "public_b" {
   subnet_id      = aws_subnet.public_b.id
-  route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "public_c" {
-  subnet_id      = aws_subnet.public_c.id
   route_table_id = aws_route_table.public.id
 }
 
@@ -115,10 +102,10 @@ resource "aws_security_group" "alb" {
 
 resource "aws_security_group" "ecs" {
   name        = "edgebalancer-ecs-sg"
-  description = "ECS container instances"
+  description = "Fargate task SG"
   vpc_id      = aws_vpc.main.id
   ingress {
-    description     = "ALB to ECS"
+    description     = "ALB to app"
     from_port       = 8000
     to_port         = 8000
     protocol        = "tcp"
@@ -134,7 +121,7 @@ resource "aws_security_group" "ecs" {
 
 resource "aws_security_group" "redis" {
   name        = "edgebalancer-redis-sg"
-  description = "Redis (ElastiCache)"
+  description = "Redis (ElastiCache Serverless)"
   vpc_id      = aws_vpc.main.id
   ingress {
     description     = "ECS to Redis"
@@ -151,29 +138,7 @@ resource "aws_security_group" "redis" {
   }
 }
 
-# ─── IAM Roles ────────────────────────────────────────────────────
-resource "aws_iam_role" "ecs_instance" {
-  name = "edgebalancer-ecs-instance-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { Service = "ec2.amazonaws.com" }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_instance_ec2" {
-  role       = aws_iam_role.ecs_instance.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
-}
-
-resource "aws_iam_instance_profile" "ecs" {
-  name = "edgebalancer-ecs-instance-profile"
-  role = aws_iam_role.ecs_instance.name
-}
-
+# ─── IAM: task execution role (the ONLY role — image pull + logs) ─
 resource "aws_iam_role" "ecs_task_execution" {
   name = "edgebalancer-ecs-task-exec"
   assume_role_policy = jsonencode({
@@ -191,19 +156,11 @@ resource "aws_iam_role_policy_attachment" "ecs_task_exec" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-resource "aws_iam_role" "ecs_task" {
-  name = "edgebalancer-ecs-task-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { Service = "ecs-tasks.amazonaws.com" }
-    }]
-  })
-}
+# No aws_cloudwatch_log_group resource here — creating it would need logs:*
+# on the terraform IAM user. The awslogs driver auto-creates the group at
+# task start (execution role has logs:CreateLogGroup via the managed policy).
 
-# ─── ECS Cluster ──────────────────────────────────────────────────
+# ─── ECS Cluster (Fargate) ────────────────────────────────────────
 resource "aws_ecs_cluster" "main" {
   name = "edgebalancer"
   setting {
@@ -213,60 +170,14 @@ resource "aws_ecs_cluster" "main" {
   tags = { Name = "edgebalancer-ecs" }
 }
 
-# ─── Launch Template (t4g.micro, ARM Graviton) ────────────────────
-# Uses AWS-provided ECS-optimized AMI for ARM64
-data "aws_ssm_parameter" "ecs_ami" {
-  name = "/aws/service/ecs/optimized-ami/amazon-linux-2023/arm64/recommended/image_id"
-}
-
-resource "aws_launch_template" "ecs" {
-  name_prefix   = "edgebalancer-ecs-"
-  image_id      = data.aws_ssm_parameter.ecs_ami.value
-  instance_type = "t4g.micro"
-
-  iam_instance_profile { arn = aws_iam_instance_profile.ecs.arn }
-
-  user_data = base64encode(<<-EOF
-    #!/bin/bash
-    cat > /etc/ecs/ecs.config <<CONF
-    ECS_CLUSTER=${aws_ecs_cluster.main.name}
-    ECS_ENABLE_CONTAINER_INSTANCE_DRAIN=true
-    CONF
-  EOF
-  )
-}
-
-# ─── Auto Scaling Group (min 1, max 10 — UNCAPPED) ────────────────
-resource "aws_autoscaling_group" "ecs" {
-  name                      = "edgebalancer-ecs-asg"
-  max_size                  = 10
-  min_size                  = 1
-  desired_capacity          = 1
-  vpc_zone_identifier       = [aws_subnet.public.id, aws_subnet.public_b.id, aws_subnet.public_c.id]
-  health_check_type         = "EC2"
-  health_check_grace_period = 300
-
-  launch_template {
-    id      = aws_launch_template.ecs.id
-    version = "$Latest"
-  }
-
-  tag {
-    key                 = "Name"
-    value               = "edgebalancer-ecs"
-    propagate_at_launch = true
-  }
-}
-
-# ─── ECS Task Definition ───────────────────────────────────────────
+# ─── ECS Task Definition (Fargate) ────────────────────────────────
 resource "aws_ecs_task_definition" "app" {
   family                   = "edgebalancer-app"
-  requires_compatibilities = ["EC2"]
-  network_mode             = "bridge"
-  cpu                      = "512"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = "256"
   memory                   = "512"
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-  task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([
     {
@@ -274,12 +185,19 @@ resource "aws_ecs_task_definition" "app" {
       image = var.docker_image
       portMappings = [{
         containerPort = 8000
-        hostPort      = 8000
         protocol      = "tcp"
       }]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/edgebalancer"
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "edgebalancer"
+        }
+      }
       environment = [
         { name = "PORT", value = "8000" },
-        { name = "REDIS_URL", value = "redis://${aws_elasticache_replication_group.redis.primary_endpoint_address}:6379" },
+        { name = "REDIS_URL", value = "rediss://${aws_elasticache_serverless_cache.redis.endpoint[0].address}:6379" },
         { name = "JWT_SECRET", value = var.jwt_secret },
         { name = "MONGODB_URI", value = var.mongodb_uri },
         { name = "ENCRYPTION_KEY", value = var.encryption_key },
@@ -298,12 +216,12 @@ resource "aws_ecs_task_definition" "app" {
   ])
 }
 
-# ─── Load Balancer ────────────────────────────────────────────────
+# ─── Load Balancer (stable HTTPS endpoint) ────────────────────────
 resource "aws_lb" "main" {
   name               = "edgebalancer-alb"
   internal           = false
   load_balancer_type = "application"
-  subnets            = [aws_subnet.public.id, aws_subnet.public_b.id, aws_subnet.public_c.id]
+  subnets            = [aws_subnet.public.id, aws_subnet.public_b.id]
   security_groups    = [aws_security_group.alb.id]
   tags               = { Name = "edgebalancer-alb" }
 }
@@ -313,7 +231,7 @@ resource "aws_lb_target_group" "app" {
   port        = 8000
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
-  target_type = "instance"
+  target_type = "ip"
 
   health_check {
     path                = "/health"
@@ -325,7 +243,7 @@ resource "aws_lb_target_group" "app" {
   }
 }
 
-# ─── ACM Certificate (imported from same Cloudflare Origin certs as k3s) ─
+# Cloudflare Origin cert imported to ACM (same cert as the k3s setup)
 resource "aws_acm_certificate" "cloudflare_origin" {
   certificate_body = var.cf_origin_cert
   private_key      = var.cf_origin_key
@@ -344,14 +262,23 @@ resource "aws_lb_listener" "https" {
   }
 }
 
-# ─── ECS Service ──────────────────────────────────────────────────
+# ─── ECS Service (Fargate, 1 task, your app) ──────────────────────
 resource "aws_ecs_service" "app" {
   name            = "edgebalancer"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
-  launch_type     = "EC2"
+  launch_type     = "FARGATE"
   desired_count   = 1
-  deployment_controller { type = "ECS" }
+
+  lifecycle {
+    ignore_changes = [desired_count]
+  }
+
+  network_configuration {
+    subnets          = [aws_subnet.public.id, aws_subnet.public_b.id]
+    security_groups  = [aws_security_group.ecs.id]
+    assign_public_ip = true
+  }
 
   load_balancer {
     target_group_arn = aws_lb_target_group.app.arn
@@ -359,66 +286,54 @@ resource "aws_ecs_service" "app" {
     container_port   = 8000
   }
 
-  # Auto-scaling controlled by App Auto Scaling (below), not here
-  lifecycle {
-    ignore_changes = [desired_count]
-  }
-
   depends_on = [aws_lb_listener.https]
 }
 
-# ─── ECS Service Auto Scaling (min 1, max 10 — UNCAPPED) ──────────
+# ─── App Autoscaling (min 1, scale on CPU) ─────────────────────────
 resource "aws_appautoscaling_target" "ecs" {
-  max_capacity       = 10
-  min_capacity       = 1
+  service_namespace  = "ecs"
   resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.app.name}"
   scalable_dimension = "ecs:service:DesiredCount"
-  service_namespace  = "ecs"
+  min_capacity       = 1
+  max_capacity       = 100
 }
 
-resource "aws_appautoscaling_policy" "ecs_cpu" {
-  name               = "cpu-70-percent"
+resource "aws_appautoscaling_policy" "cpu" {
+  name               = "edgebalancer-cpu-tracking"
   policy_type        = "TargetTrackingScaling"
+  service_namespace  = "ecs"
   resource_id        = aws_appautoscaling_target.ecs.resource_id
-  scalable_dimension = aws_appautoscaling_target.ecs.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.ecs.service_namespace
+  scalable_dimension = "ecs:service:DesiredCount"
 
   target_tracking_scaling_policy_configuration {
-    target_value = 70
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
     }
+    target_value = 70.0
   }
 }
 
-# ─── ElastiCache Redis (t4g.micro) ────────────────────────────────
-resource "aws_elasticache_subnet_group" "redis" {
-  name       = "edgebalancer-redis-subnet"
-  subnet_ids = [aws_subnet.public.id, aws_subnet.public_b.id, aws_subnet.public_c.id]
-  depends_on = [aws_iam_service_linked_role.elasticache]
+# ─── ElastiCache Redis (Serverless — no nodes, no subnet group) ───
+resource "aws_elasticache_serverless_cache" "redis" {
+  engine = "redis"
+  name   = "edgebalancer-redis"
+
+  security_group_ids = [aws_security_group.redis.id]
+  subnet_ids         = [aws_subnet.public.id, aws_subnet.public_b.id]
+
+  cache_usage_limits {
+    data_storage {
+      maximum = 5
+      unit    = "GB"
+    }
+    ecpu_per_second {
+      maximum = 1000
+    }
+  }
+  tags = { Name = "edgebalancer-redis" }
 }
 
-resource "aws_iam_service_linked_role" "elasticache" {
-  aws_service_name = "elasticache.amazonaws.com"
-}
-
-resource "aws_elasticache_replication_group" "redis" {
-  replication_group_id       = "edgebalancer-redis"
-  description                = "EdgeBalancer rate-limit cache"
-  node_type                  = "cache.t4g.micro"
-  num_cache_clusters         = 1
-  port                       = 6379
-  subnet_group_name          = aws_elasticache_subnet_group.redis.name
-  security_group_ids         = [aws_security_group.redis.id]
-  parameter_group_name       = "default.redis7"
-  at_rest_encryption_enabled = true
-  # transit_encryption disabled: app uses redis:// (not rediss://)
-  # All traffic stays within VPC. Enable later if TLS required.
-  transit_encryption_enabled = false
-  tags                       = { Name = "edgebalancer-redis" }
-}
-
-# ─── Outputs (used by GitHub Actions for force-deploy) ──────────────────
+# ─── Outputs (used by GitHub Actions for force-deploy) ────────────
 output "ecs_cluster_name" {
   value = aws_ecs_cluster.main.name
 }
@@ -432,5 +347,5 @@ output "alb_dns" {
 }
 
 output "redis_endpoint" {
-  value = aws_elasticache_replication_group.redis.primary_endpoint_address
+  value = "${aws_elasticache_serverless_cache.redis.endpoint[0].address}:${aws_elasticache_serverless_cache.redis.endpoint[0].port}"
 }
