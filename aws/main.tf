@@ -156,9 +156,12 @@ resource "aws_iam_role_policy_attachment" "ecs_task_exec" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# No aws_cloudwatch_log_group resource here — creating it would need logs:*
-# on the terraform IAM user. The awslogs driver auto-creates the group at
-# task start (execution role has logs:CreateLogGroup via the managed policy).
+# ─── CloudWatch Log Group (managed by TF — IAM policy has logs:*) ──
+resource "aws_cloudwatch_log_group" "app" {
+  name              = "/ecs/edgebalancer"
+  retention_in_days = 7
+  tags              = { Name = "edgebalancer-logs" }
+}
 
 # ─── ECS Cluster (Fargate) ────────────────────────────────────────
 resource "aws_ecs_cluster" "main" {
@@ -178,6 +181,10 @@ resource "aws_ecs_task_definition" "app" {
   cpu                      = "256"
   memory                   = "512"
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
+  runtime_platform {
+    cpu_architecture        = "ARM64"
+    operating_system_family = "LINUX"
+  }
 
   container_definitions = jsonencode([
     {
@@ -190,7 +197,7 @@ resource "aws_ecs_task_definition" "app" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group"         = "/ecs/edgebalancer"
+          "awslogs-group"         = aws_cloudwatch_log_group.app.name
           "awslogs-region"        = var.aws_region
           "awslogs-stream-prefix" = "edgebalancer"
         }
