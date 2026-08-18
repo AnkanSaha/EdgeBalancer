@@ -64,6 +64,18 @@ export interface PlacementConfig {
   region?: string;
 }
 
+export interface PathRoute {
+  path: string;
+  originIndex: number;
+  priority: number;
+}
+
+export interface PathRateLimit {
+  path: string;
+  requestsPerMinute: number;
+  priority: number;
+}
+
 export type LoadBalancerStrategy =
   | 'round-robin'
   | 'weighted-round-robin'
@@ -91,6 +103,8 @@ export interface LoadBalancer {
   corsOrigins: string[];
   rateLimitEnabled: boolean;
   rateLimitRequestsPerMinute: number | null;
+  pathRoutes: PathRoute[];
+  pathRateLimits: PathRateLimit[];
   healthCheckEnabled: boolean;
   healthCheckIntervalSeconds: number | null;
   disabledOriginCount?: number;
@@ -148,6 +162,8 @@ export interface CreateLoadBalancerRequest {
   corsOrigins: string[];
   rateLimitEnabled: boolean;
   rateLimitRequestsPerMinute: number | null;
+  pathRoutes?: PathRoute[];
+  pathRateLimits?: PathRateLimit[];
   healthCheckEnabled: boolean;
   healthCheckIntervalSeconds: number;
   placement: PlacementConfig;
@@ -182,4 +198,53 @@ export interface AiStep {
   label: string;
   state: 'running' | 'ok' | 'failed';
   detail?: string;
+}
+
+export interface AiRunToolCallSummary {
+  name: string;
+}
+
+export interface AiRunListItem {
+  _id: string;
+  prompt: string;
+  outcome: AiOutcome;
+  durationMs: number;
+  finalModel: string | null;
+  toolCalls: AiRunToolCallSummary[];
+  createdAt: string;
+}
+
+export interface AiRunModelAttempt {
+  provider: string;
+  model: string;
+  ok: boolean;
+  error: string | null;
+}
+
+export interface AiRunToolCall {
+  name: string;
+  args: Record<string, unknown>;
+  result: string;
+  ok: boolean;
+  durationMs: number;
+}
+
+export interface AiRunDetail {
+  _id: string;
+  userId: string;
+  prompt: string;
+  modelsUsed: AiRunModelAttempt[];
+  finalModel: string | null;
+  toolCalls: AiRunToolCall[];
+  outcome: AiOutcome;
+  durationMs: number;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiRunsResponse {
+  runs: AiRunListItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
 }

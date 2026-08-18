@@ -10,7 +10,6 @@ import { Icons } from '@/components/shared/Icons';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { PauseModal } from '@/components/loadbalancers/PauseModal';
 import { DeploymentOverlay, DeploymentSuccessModal } from '@/components/loadbalancers/DeploymentExperience';
-import { RainLayer } from '@/components/shared/RainLayer';
 import { AiPromptCard, AiProgressOverlay, applyAiEvent, initialAiRunState, type AiRunState } from '@/components/dashboard/AiBuilder';
 import { streamAiGeneration } from '@/lib/aiStream';
 import type { LoadBalancer, LoadBalancerAnalytics } from '@/types/api';
@@ -157,6 +156,12 @@ export default function DashboardPage() {
       else if (action === 'resume') await api.resumeLoadBalancer(loadBalancerId);
       else await api.updateLoadBalancer(loadBalancerId, payload ?? {});
 
+      // Mark the AI run as success now that the action is confirmed
+      const runId = aiRunRef.current?.runId;
+      if (runId) {
+        try { await api.completeAiRun(runId); } catch {}
+      }
+
       toast.success(`${pending.name} updated`);
       setAiPrompt('');
       setAiRun(null);
@@ -179,6 +184,7 @@ export default function DashboardPage() {
   const handleNav = (id: string) => {
     if (id === 'settings') router.push('/settings');
     else if (id === 'sessions') router.push('/sessions');
+    else if (id === 'ai-runs') router.push('/ai-runs');
     else setCurrentNav(id);
   };
 
@@ -271,7 +277,6 @@ export default function DashboardPage() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', flexDirection: 'column' }}>
-      <RainLayer />
 
       <div className="app-shell">
         <Sidebar
@@ -279,6 +284,9 @@ export default function DashboardPage() {
           onNav={handleNav}
           onLogout={handleLogout}
           userEmail={user?.email}
+          hasCloudflareCredentials={user?.hasCloudflareCredentials}
+          cloudflareOAuthConnected={user?.cloudflareOAuthConnected}
+          isReady={!!user?.hasCloudflareCredentials}
         />
         <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Topbar
@@ -290,9 +298,11 @@ export default function DashboardPage() {
                 <button className="btn btn-ghost btn-sm" onClick={() => { fetchLoadBalancers(); fetchAnalytics(); }}>
                   <Icons.Refresh size={14} /> <span className="hide-sm">Refresh</span>
                 </button>
-                <button className="btn btn-primary btn-sm hide-sm" onClick={() => router.push('/loadbalancers/create')}>
-                  <Icons.Plus size={14} /> <span className="hide-md">Create Load Balancer</span><span className="hide-md-inverse">New</span>
-                </button>
+                {hasBalancers && (
+                  <button className="btn btn-primary btn-sm hide-sm" onClick={() => router.push('/loadbalancers/create')}>
+                    <Icons.Plus size={14} /> <span className="hide-md">Create Load Balancer</span><span className="hide-md-inverse">New</span>
+                  </button>
+                )}
               </>
             }
           />

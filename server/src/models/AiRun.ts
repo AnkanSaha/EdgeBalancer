@@ -17,6 +17,7 @@ export interface IAiToolCall {
 
 export interface IAiRun extends Document {
   userId: mongoose.Types.ObjectId;
+  runId: string;
   prompt: string;
   modelsUsed: IModelAttempt[];
   finalModel: string | null;
@@ -55,6 +56,11 @@ const AiRunSchema = new Schema<IAiRun>(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'User ID is required'],
+      index: true,
+    },
+    runId: {
+      type: String,
+      required: [true, 'Run ID is required'],
       index: true,
     },
     prompt: {

@@ -73,10 +73,14 @@ export default function EditLoadBalancerPage() {
     healthCheckIntervalSeconds: 30,
     rateLimitEnabled: false,
     rateLimitRequestsPerMinute: 60,
+    pathRoutes: [] as Array<{ path: string; originIndex: number; priority: number }>,
+    pathRateLimits: [] as Array<{ path: string; requestsPerMinute: number; priority: number }>,
     smartPlacement: true,
     placementHint: '',
   });
   const [corsInput, setCorsInput] = useState('');
+  const [pathRoutingExpanded, setPathRoutingExpanded] = useState(false);
+  const [advancedExpanded, setAdvancedExpanded] = useState(false);
   const [originViewMode, setOriginViewMode] = useState<Record<number, 'domain' | 'loading' | 'ip'>>({});
   const [originIpCache, setOriginIpCache] = useState<Record<string, string>>({});
   const [restartingOrigin, setRestartingOrigin] = useState<number | null>(null);
@@ -124,6 +128,8 @@ export default function EditLoadBalancerPage() {
           healthCheckIntervalSeconds: lb.healthCheckIntervalSeconds ?? 30,
           rateLimitEnabled: lb.rateLimitEnabled ?? false,
           rateLimitRequestsPerMinute: lb.rateLimitRequestsPerMinute ?? 60,
+          pathRoutes: (lb.pathRoutes || []).map((r: any) => ({ path: r.path, originIndex: r.originIndex, priority: r.priority })),
+          pathRateLimits: (lb.pathRateLimits || []).map((r: any) => ({ path: r.path, requestsPerMinute: r.requestsPerMinute, priority: r.priority })),
           smartPlacement: lb.placement?.smartPlacement !== false,
           placementHint: lb.placement?.region || '',
         });
@@ -193,19 +199,6 @@ export default function EditLoadBalancerPage() {
       const { hostname } = new URL(withProto);
       return /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
     } catch { return false; }
-  };
-
-  const convertOriginToHostname = (originId: number, index: number) => {
-    if (!loadBalancer) return;
-    const origin = form.origins.find(o => o.id === originId);
-    if (!origin) return;
-    const raw = origin.url.trim();
-    const withProto = /^https?:\/\//i.test(raw) ? raw : `http://${raw}`;
-    const parsed = (() => { try { return new URL(withProto); } catch { return null; } })();
-    if (!parsed) return;
-    const generatedHostname = `${loadBalancer.scriptName}-o${index + 1}.${loadBalancer.domain}`;
-    const newUrl = `${parsed.protocol}//${generatedHostname}`;
-    updateOrigin(originId, { url: newUrl, rawIp: parsed.hostname });
   };
 
   const findIpRecord = (url: string) => {
@@ -281,7 +274,6 @@ export default function EditLoadBalancerPage() {
             geoCountries: o.geoCountries || [],
             geoContinents: o.geoContinents || [],
             isFallback: o.isFallback || false,
-            ...(o.rawIp ? { rawIp: o.rawIp } : {}),
           };
         }),
         strategy: form.strategy,
@@ -293,6 +285,8 @@ export default function EditLoadBalancerPage() {
         healthCheckIntervalSeconds: form.healthCheckIntervalSeconds,
         rateLimitEnabled: form.rateLimitEnabled,
         rateLimitRequestsPerMinute: form.rateLimitEnabled ? form.rateLimitRequestsPerMinute : null,
+        pathRoutes: form.pathRoutes.length > 0 ? form.pathRoutes : undefined,
+        pathRateLimits: form.pathRateLimits.length > 0 ? form.pathRateLimits : undefined,
         placement: {
           smartPlacement: form.smartPlacement,
           ...(placementHint ? { region: placementHint } : {}),
@@ -397,39 +391,17 @@ export default function EditLoadBalancerPage() {
           title="Edit Load Balancer"
           subtitle="Configuration changes are promoted through Worker version deployments"
           actions={
-            <>
-              <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard')}>Cancel</button>
-              <button
-                className="btn btn-primary btn-sm"
-                disabled={!allValid || deploying}
-                onClick={deploy}
-                style={{ opacity: (!allValid || deploying) ? 0.5 : 1 }}>
-                {deploying ? (
-                  <>
-                    <span style={{
-                      width: 12, height: 12, border: '2px solid currentColor',
-                      borderRightColor: 'transparent', borderRadius: '50%',
-                      animation: 'spin 0.7s linear infinite',
-                    }} />
-                    Updating…
-                  </>
-                ) : (
-                  <>
-                    <Icons.Check size={14} /> <span className="hide-sm">Save Changes</span><span className="hide-md">Save</span>
-                  </>
-                )}
-              </button>
-            </>
+            <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard')}>Cancel</button>
           }
         />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 32, padding: 'clamp(16px, 4vw, 32px)', overflow: 'auto', flex: 1 }}>
           {/* Form Column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 2vw, 20px)' }}>
-          <FieldBlock n={1} title="Subdomain"
-            subtitle="Optional hostname prefix for the active edge route">
+          <FieldBlock n={1} title="Hostname"
+            subtitle="Leave empty for the bare domain, or enter a subdomain prefix">
             <div className="field">
-              <label className="field-label">Subdomain</label>
+              <label className="field-label">Subdomain prefix <span style={{ fontWeight: 400, color: 'var(--text-3)' }}>(optional)</span></label>
               <div style={{
                 display: 'flex', alignItems: 'stretch',
                 border: '1px solid var(--line)', borderRadius: 'var(--radius)',
@@ -452,13 +424,15 @@ export default function EditLoadBalancerPage() {
                 </div>
               </div>
               <div className="hint">
-                Your balancer will serve at{' '}
-                <span className="mono" style={{ color: 'var(--accent)' }}>https://{fullHost}</span>
+                {form.subdomain.trim()
+                  ? <><span className="mono" style={{ color: 'var(--accent)' }}>https://{fullHost}</span> — the subdomain will be created automatically</>
+                  : <>Uses the bare domain <span className="mono" style={{ color: 'var(--accent)' }}>https://{fullHost}</span></>
+                }
               </div>
             </div>
           </FieldBlock>
 
-          <FieldBlock n={2} title="Origin Servers"
+          <FieldBlock n={2} title="Origin Servers *"
             subtitle="Add, remove, or rebalance the backends that receive traffic here">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {loadBalancer.ipOriginRecords?.length > 0 && (
@@ -497,21 +471,25 @@ export default function EditLoadBalancerPage() {
                         className="input input-mono"
                         placeholder="https://domain.com, http://127.0.0.1, or 192.168.1.100"
                         value={s.url}
-                        onChange={e => updateOrigin(s.id, { url: e.target.value, rawIp: undefined })}
-                        style={{ paddingRight: (isRawIpUrl(s.url) || !!findIpRecord(s.url)) ? 130 : undefined }}
+                        onChange={e => {
+                          const newVal = e.target.value;
+                          if (isRawIpUrl(newVal) && !loadBalancer?.domain) {
+                            toast.error('Select a domain first — IP origins need a Cloudflare zone for DNS');
+                            return;
+                          }
+                          updateOrigin(s.id, { url: newVal, rawIp: undefined });
+                        }}
                       />
                       {isRawIpUrl(s.url) ? (
-                        <button
-                          type="button"
-                          onClick={() => convertOriginToHostname(s.id, i)}
+                        <span
                           style={{
                             position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
                             fontSize: 11, padding: '3px 8px', borderRadius: 4,
-                            background: 'var(--accent-dim)', border: '1px solid var(--accent)',
-                            color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 500,
+                            background: 'var(--bg-3)', border: '1px solid var(--line)',
+                            color: 'var(--text-3)', whiteSpace: 'nowrap', fontWeight: 500,
                           }}>
-                          Convert to Domain
-                        </button>
+                          DNS auto-created on deploy
+                        </span>
                       ) : findIpRecord(s.url) ? (
                         <button
                           type="button"
@@ -576,6 +554,16 @@ export default function EditLoadBalancerPage() {
                       <Icons.Trash size={14} />
                     </button>
                   </div>
+
+                  {isRawIpUrl(s.url) && (
+                    <div style={{ marginLeft: 64, fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>
+                      A DNS A-record will be created automatically in{' '}
+                      <span style={{ fontFamily: 'var(--mono)', color: 'var(--accent)' }}>
+                        {loadBalancer?.domain || 'your selected domain'}
+                      </span>{' '}
+                      during deployment. If deployment fails, the DNS record is cleaned up automatically.
+                    </div>
+                  )}
 
                   {(() => {
                     const health = loadBalancer?.originHealth?.[i];
@@ -922,7 +910,7 @@ export default function EditLoadBalancerPage() {
             </div>
           </FieldBlock>
 
-          <FieldBlock n={3} title="Traffic Strategy"
+          <FieldBlock n={3} title="Traffic Strategy *"
             subtitle="Switch how requests are distributed across your origin fleet">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
               {STRATEGIES.map(s => {
@@ -973,8 +961,37 @@ export default function EditLoadBalancerPage() {
             </div>
           </FieldBlock>
 
-          <FieldBlock n={4} title="Worker Placement"
-            subtitle="Tune where the Worker executes relative to your origin infrastructure">
+          {/* Advanced Settings (Optional) */}
+          <div style={{
+            border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)',
+            overflow: 'hidden',
+          }}>
+            <button
+              type="button"
+              onClick={() => setAdvancedExpanded(!advancedExpanded)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                width: '100%', padding: '16px 20px', background: 'var(--bg-1)',
+                border: 'none', cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>Advanced Settings</div>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+                  Placement, health checks, rate limiting, and path-based rules — all optional
+                </div>
+              </div>
+              <span style={{
+                fontSize: 18, color: 'var(--text-3)',
+                transition: 'transform 0.2s',
+                transform: advancedExpanded ? 'rotate(180deg)' : 'none',
+              }}>▾</span>
+            </button>
+            {advancedExpanded && (
+              <div style={{ padding: '0 20px 20px', borderTop: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 2vw, 20px)', paddingTop: 20 }}>
+
+          <FieldBlock n={4} title="Traffic Handling"
+            subtitle="Control how the load balancer handles requests, CORS, and server placement">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <label style={{
                 display: 'flex', gap: 14, padding: 16,
@@ -995,9 +1012,9 @@ export default function EditLoadBalancerPage() {
                   }} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>Expose Real Origin</div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>Keep Visitor&apos;s Website Info</div>
                   <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
-                    Pass the browser&apos;s real Origin header to your backend. Enable when your backend handles CORS directly.
+                    Normally the load balancer hides which website the visitor came from, so your server doesn&apos;t get confused. Most apps leave this <strong>off</strong>. Turn it on <em>only</em> if your server checks &quot;is this request coming from my own website?&quot; — for example, if your server has its own login or session check based on the visitor&apos;s domain.
                   </div>
                 </div>
                 <input
@@ -1028,9 +1045,9 @@ export default function EditLoadBalancerPage() {
                     }} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500 }}>Worker CORS</div>
+                    <div style={{ fontSize: 14, fontWeight: 500 }}>Handle Cross-Origin Requests</div>
                     <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
-                      After enabling, all Server Based CORS is not needed. The Worker Load Balancer will Allow CORS on behalf of Servers.
+                      If your frontend (e.g. <span style={{ fontFamily: 'var(--mono)' }}>mysite.com</span>) and backend are on <strong>different domains</strong>, browsers will block requests without CORS headers. Turn this on to let the load balancer handle those checks automatically — so your server code doesn&apos;t need to deal with it.
                     </div>
                   </div>
                   <input
@@ -1105,9 +1122,9 @@ export default function EditLoadBalancerPage() {
                   }} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>Smart Placement</div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>Optimize for Server Speed</div>
                   <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
-                    Run the Worker closer to your origins to reduce backend latency.
+                    By default, the load balancer runs near your <strong>visitors</strong> for the fastest response. Turn this on if your server is slow — the load balancer will move closer to your <strong>server</strong> instead, cutting the round-trip time between them. Good for heavy APIs; skip for static sites.
                   </div>
                 </div>
                 <input
@@ -1119,7 +1136,7 @@ export default function EditLoadBalancerPage() {
 
               <div className="field">
                 <label className="field-label">
-                  Placement Hint
+                  Pin to a Cloud Region
                   {!form.smartPlacement && <span style={{ color: 'var(--red)', marginLeft: 4 }}>*</span>}
                   {form.smartPlacement && <span style={{ color: 'var(--text-3)', fontWeight: 'normal', fontSize: 11, marginLeft: 4 }}>(disabled when Smart Placement is on)</span>}
                 </label>
@@ -1148,7 +1165,7 @@ export default function EditLoadBalancerPage() {
                       colorScheme: 'dark',
                     }}
                   >
-                    <option value="">Select cloud region...</option>
+                    <option value="">Choose a region to pin the load balancer to...</option>
                     <optgroup label="AWS">
                       {REGIONS_BY_PROVIDER.aws.map(region => (
                         <option key={region.code} value={region.code}>{region.name}</option>
@@ -1257,7 +1274,7 @@ export default function EditLoadBalancerPage() {
           </FieldBlock>
 
           <FieldBlock n={6} title="Rate Limiting"
-            subtitle="Reject excess requests from a single visitor before they reach your origins">
+            subtitle="Protect your origins from traffic spikes and abuse by limiting how many requests each visitor can make">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <label style={{
                 display: 'flex', gap: 14, padding: 16,
@@ -1278,9 +1295,9 @@ export default function EditLoadBalancerPage() {
                   }} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>Enable Rate Limiting</div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>Global Rate Limit</div>
                   <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
-                    Disabled by default. When enabled, each visitor IP is capped at the limit below per minute.
+                    Caps every visitor at a fixed number of requests per minute across your entire load balancer. This applies to all traffic regardless of which URL path they hit.
                   </div>
                 </div>
                 <input
@@ -1316,8 +1333,168 @@ export default function EditLoadBalancerPage() {
                   </div>
                 </div>
               )}
+
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: 16, marginTop: 4 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Per-Path Rate Limits</div>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 12 }}>
+                  Need tighter limits on specific URL paths? Add rules below. For example, cap <span style={{ fontFamily: 'var(--mono)' }}>/login/*</span> at 10 req/min to slow brute-force attacks, while keeping a higher global limit for everything else.
+                  Each rule uses its own separate counter — a visitor can hit the global limit <em>and</em> a path limit independently.
+                </div>
+                {form.pathRateLimits.map((rl, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                    <input
+                      className="input input-mono"
+                      placeholder="/login/*"
+                      value={rl.path}
+                      onChange={e => {
+                        const next = [...form.pathRateLimits];
+                        next[i] = { ...next[i], path: e.target.value };
+                        update('pathRateLimits', next);
+                      }}
+                      style={{ flex: 2 }}
+                    />
+                    <input
+                      className="input"
+                      type="number" min={1} max={100000} placeholder="60"
+                      value={rl.requestsPerMinute}
+                      onChange={e => {
+                        const next = [...form.pathRateLimits];
+                        next[i] = { ...next[i], requestsPerMinute: Number(e.target.value) || 60 };
+                        update('pathRateLimits', next);
+                      }}
+                      style={{ width: 100 }}
+                    />
+                    <span style={{ fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>req/min</span>
+                    <input
+                      className="input"
+                      type="number" min={1} placeholder="Priority"
+                      value={rl.priority}
+                      onChange={e => {
+                        const next = [...form.pathRateLimits];
+                        next[i] = { ...next[i], priority: Number(e.target.value) || 1 };
+                        update('pathRateLimits', next);
+                      }}
+                      style={{ width: 80 }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => update('pathRateLimits', form.pathRateLimits.filter((_, j) => j !== i))}
+                      style={{ padding: '4px 8px', color: 'var(--red)' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => update('pathRateLimits', [...form.pathRateLimits, { path: '', requestsPerMinute: 60, priority: form.pathRateLimits.length + 1 }])}
+                  style={{ fontSize: 13, marginTop: 4 }}
+                >
+                  + Add per-path rule
+                </button>
+              </div>
             </div>
           </FieldBlock>
+
+          {/* Path-Based Routing (Optional) */}
+          <div style={{
+            border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)',
+            overflow: 'hidden',
+          }}>
+            <button
+              type="button"
+              onClick={() => setPathRoutingExpanded(!pathRoutingExpanded)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                width: '100%', padding: '14px 20px', background: 'var(--bg-1)',
+                border: 'none', cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>Path-Based Routing</div>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+                  Optional — route specific URL paths to dedicated origins
+                </div>
+              </div>
+              <span style={{ fontSize: 18, color: 'var(--text-3)', transition: 'transform 0.2s', transform: pathRoutingExpanded ? 'rotate(180deg)' : 'none' }}>▾</span>
+            </button>
+            {pathRoutingExpanded && (
+              <div style={{ padding: '0 20px 16px', borderTop: '1px solid var(--line)' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', margin: '12px 0' }}>
+                  Route specific URL paths to dedicated origins. Requests not matching any rule use the default strategy.
+                </div>
+                {form.pathRoutes.map((route, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                    <input
+                      className="input input-mono"
+                      placeholder="/api/*"
+                      value={route.path}
+                      onChange={e => {
+                        const next = [...form.pathRoutes];
+                        next[i] = { ...next[i], path: e.target.value };
+                        update('pathRoutes', next);
+                      }}
+                      style={{ flex: 2 }}
+                    />
+                    <select
+                      className="input"
+                      value={route.originIndex}
+                      onChange={e => {
+                        const next = [...form.pathRoutes];
+                        next[i] = { ...next[i], originIndex: Number(e.target.value) };
+                        update('pathRoutes', next);
+                      }}
+                      style={{ flex: 2 }}
+                    >
+                      {form.origins.map((o, idx) => (
+                        <option key={idx} value={idx}>Origin {idx + 1}: {o.url || '(empty)'}</option>
+                      ))}
+                    </select>
+                    <input
+                      className="input"
+                      type="number" min={1} placeholder="Priority"
+                      value={route.priority}
+                      onChange={e => {
+                        const next = [...form.pathRoutes];
+                        next[i] = { ...next[i], priority: Number(e.target.value) || 1 };
+                        update('pathRoutes', next);
+                      }}
+                      style={{ width: 80 }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => update('pathRoutes', form.pathRoutes.filter((_, j) => j !== i))}
+                      style={{ padding: '4px 8px', color: 'var(--red)' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    const hasOrigin = form.origins.some(o => o.url.trim().length > 0);
+                    if (!hasOrigin) {
+                      toast.error('Add at least one origin server before creating path rules');
+                      return;
+                    }
+                    update('pathRoutes', [...form.pathRoutes, { path: '', originIndex: 0, priority: form.pathRoutes.length + 1 }]);
+                  }}
+                  style={{ fontSize: 13, marginTop: 4 }}
+                >
+                  + Add path rule
+                </button>
+              </div>
+            )}
+          </div>
+
+              </div>
+            )}
+          </div>
 
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',

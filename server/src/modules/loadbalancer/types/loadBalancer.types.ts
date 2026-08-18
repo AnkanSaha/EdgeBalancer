@@ -17,6 +17,18 @@ export interface LoadBalancerOrigin {
   isFallback?: boolean;
 }
 
+export interface PathRoute {
+  path: string;
+  originIndex: number;
+  priority: number;
+}
+
+export interface PathRateLimit {
+  path: string;
+  requestsPerMinute: number;
+  priority: number;
+}
+
 export interface LoadBalancerPlacement {
   smartPlacement: boolean;
   region?: string;
@@ -34,6 +46,8 @@ export interface LoadBalancerSnapshot {
   exposeRealOrigin: boolean;
   rateLimitEnabled: boolean;
   rateLimitRequestsPerMinute: number | null;
+  pathRoutes: PathRoute[];
+  pathRateLimits: PathRateLimit[];
   placement: LoadBalancerPlacement;
   workerUrl: string;
   status: string;
@@ -54,6 +68,8 @@ export interface FormattedLoadBalancer {
   exposeRealOrigin: boolean;
   rateLimitEnabled: boolean;
   rateLimitRequestsPerMinute: number | null;
+  pathRoutes: PathRoute[];
+  pathRateLimits: PathRateLimit[];
   placement: LoadBalancerPlacement;
   status: string;
   workerUrl: string;

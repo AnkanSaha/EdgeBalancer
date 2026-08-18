@@ -5,6 +5,8 @@ import { hasAnyProviderConfigured } from '../modules/ai/services/model-provider.
 import { openSseChannel } from '../modules/ai/services/sse.service';
 import { createTrace, runAgent } from '../modules/ai/services/agent.service';
 import { recordAiRun } from '../modules/ai/services/audit.service';
+import { AiRun } from '../models/AiRun';
+import mongoose from 'mongoose';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
 const MAX_PROMPT_LENGTH = 2000;
@@ -61,7 +63,7 @@ export const generateWithAi = async (req: Request, res: Response, next: NextFunc
       pendingAction: run.pendingAction ?? null,
     });
 
-    await recordAiRun({ userId, prompt, trace, outcome: run.outcome, durationMs: Date.now() - startedAt });
+    await recordAiRun({ runId, userId, prompt, trace, outcome: run.outcome, durationMs: Date.now() - startedAt });
   } catch (error: any) {
     const message = isCancellationError(error) || cancellation.isCancelled()
       ? 'Request cancelled'
@@ -70,6 +72,7 @@ export const generateWithAi = async (req: Request, res: Response, next: NextFunc
     emit('error', { message });
 
     await recordAiRun({
+      runId,
       userId,
       prompt,
       trace,
@@ -79,6 +82,101 @@ export const generateWithAi = async (req: Request, res: Response, next: NextFunc
     });
   } finally {
     close();
+  }
+};
+
+export const listAiRuns = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) { res.status(401); throw new Error('Not authenticated'); }
+
+    const limit = Math.min(Math.max(Number(req.query?.limit) || 20, 1), 50);
+    const cursor = typeof req.query?.cursor === 'string' ? req.query.cursor : null;
+
+    const query: any = { userId };
+    if (cursor) {
+      if (!mongoose.Types.ObjectId.isValid(cursor)) {
+        res.status(400);
+        throw new Error('Invalid cursor');
+      }
+      const cursorDoc = await AiRun.findById(cursor).lean();
+      if (cursorDoc) {
+        query.createdAt = { $lt: cursorDoc.createdAt };
+      }
+    }
+
+    const runs = await AiRun.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit + 1)
+      .select('runId prompt outcome durationMs finalModel toolCalls.name createdAt')
+      .lean();
+
+    const hasMore = runs.length > limit;
+    const items = hasMore ? runs.slice(0, limit) : runs;
+    const nextCursor = hasMore ? items[items.length - 1]._id.toString() : null;
+
+    res.json({
+      success: true,
+      message: 'AI runs retrieved',
+      data: { runs: items, nextCursor, hasMore },
+    });
+  } catch (error) {
+    next(error as Error);
+  }
+};
+
+export const getAiRun = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) { res.status(401); throw new Error('Not authenticated'); }
+
+    const runId = req.params?.id;
+    if (!runId || !mongoose.Types.ObjectId.isValid(runId)) {
+      res.status(400);
+      throw new Error('Invalid run ID');
+    }
+
+    const run = await AiRun.findOne({ _id: runId, userId }).lean();
+    if (!run) {
+      res.status(404);
+      throw new Error('AI run not found');
+    }
+
+    res.json({
+      success: true,
+      message: 'AI run retrieved',
+      data: { run },
+    });
+  } catch (error) {
+    next(error as Error);
+  }
+};
+
+export const completeAiRun = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) { res.status(401); throw new Error('Not authenticated'); }
+
+    const runId = req.params?.id;
+    if (!runId) {
+      res.status(400);
+      throw new Error('Run ID is required');
+    }
+
+    const run = await AiRun.findOneAndUpdate(
+      { runId, userId, outcome: 'pending' },
+      { $set: { outcome: 'success' } },
+      { new: true },
+    ).lean();
+
+    if (!run) {
+      res.status(404);
+      throw new Error('AI run not found or already completed');
+    }
+
+    res.json({ success: true, message: 'AI run marked as completed', data: null });
+  } catch (error) {
+    next(error as Error);
   }
 };
 

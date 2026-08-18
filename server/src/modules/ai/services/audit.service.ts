@@ -3,6 +3,7 @@ import type { AgentTrace } from './agent.service';
 import type { AiOutcome } from '../types/ai.types';
 
 export interface AuditRecord {
+  runId: string;
   userId: string;
   prompt: string;
   trace: AgentTrace;
@@ -24,6 +25,7 @@ export async function recordAiRun(record: AuditRecord): Promise<void> {
   try {
     await AiRun.create({
       userId: record.userId,
+      runId: record.runId,
       prompt: record.prompt,
       modelsUsed: record.trace.modelAttempts
         .slice(-MAX_MODEL_ATTEMPTS)

@@ -58,6 +58,32 @@ const CONFIG_PROPERTIES = {
   corsOrigins: { type: 'array', items: { type: 'string' } },
   rateLimitEnabled: { type: 'boolean', description: 'true to enforce requests-per-minute rate limiting per client IP' },
   rateLimitRequestsPerMinute: { type: 'integer', minimum: 1, maximum: 100000, description: 'requests allowed per minute per client IP; required when rateLimitEnabled is true' },
+  pathRoutes: {
+    type: 'array',
+    description: 'Path-based routing rules. Each maps a URL path pattern to a specific origin by index. First matching rule wins (checked by priority). Optional.',
+    items: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Path pattern, e.g. /api/*, /static/*' },
+        originIndex: { type: 'integer', minimum: 0, description: '0-based index into the origins array' },
+        priority: { type: 'integer', minimum: 1, description: 'Lower = checked first' },
+      },
+      required: ['path', 'originIndex', 'priority'],
+    },
+  },
+  pathRateLimits: {
+    type: 'array',
+    description: 'Path-based rate limits. Each applies a separate requests/minute cap to a URL path pattern. Optional.',
+    items: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Path pattern, e.g. /login/*, /api/*' },
+        requestsPerMinute: { type: 'integer', minimum: 1, maximum: 100000 },
+        priority: { type: 'integer', minimum: 1, description: 'Lower = checked first' },
+      },
+      required: ['path', 'requestsPerMinute', 'priority'],
+    },
+  },
   healthCheckEnabled: { type: 'boolean', description: 'true to probe each origin and stop routing to failed backends' },
   healthCheckIntervalSeconds: { type: 'integer', minimum: 5, maximum: 3600, description: 'health checks only: probe interval in seconds; required when healthCheckEnabled is true, default 30' },
   placement: {
@@ -213,6 +239,8 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
         corsOrigins: config.corsOrigins ?? existing.corsOrigins,
         rateLimitEnabled: config.rateLimitEnabled ?? existing.rateLimitEnabled,
         rateLimitRequestsPerMinute: config.rateLimitRequestsPerMinute ?? existing.rateLimitRequestsPerMinute,
+        pathRoutes: config.pathRoutes ?? existing.pathRoutes ?? [],
+        pathRateLimits: config.pathRateLimits ?? existing.pathRateLimits ?? [],
         healthCheckEnabled: config.healthCheckEnabled ?? existing.healthCheckEnabled,
         healthCheckIntervalSeconds: config.healthCheckIntervalSeconds ?? existing.healthCheckIntervalSeconds,
         placement: config.placement ?? existing.placement ?? { smartPlacement: false },

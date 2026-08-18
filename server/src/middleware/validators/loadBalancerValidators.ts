@@ -222,6 +222,58 @@ export const validateCreateLoadBalancerBody: ValidationFunction = (body) => {
     }
   }
 
+  // Path Routes (optional)
+  const pathRoutes = body?.pathRoutes;
+  if (pathRoutes !== undefined) {
+    if (!Array.isArray(pathRoutes)) {
+      errors.push('pathRoutes must be an array');
+    } else {
+      const priorities = new Set<number>();
+      pathRoutes.forEach((route: any, i: number) => {
+        if (!route?.path || typeof route.path !== 'string' || !route.path.startsWith('/')) {
+          errors.push(`pathRoutes[${i}].path must start with /`);
+        }
+        if (!Number.isInteger(route?.originIndex) || route.originIndex < 0) {
+          errors.push(`pathRoutes[${i}].originIndex must be a non-negative integer`);
+        } else if (origins && route.originIndex >= origins.length) {
+          errors.push(`pathRoutes[${i}].originIndex ${route.originIndex} is out of range (max ${origins.length - 1})`);
+        }
+        if (!Number.isInteger(route?.priority) || route.priority < 1) {
+          errors.push(`pathRoutes[${i}].priority must be an integer >= 1`);
+        } else if (priorities.has(route.priority)) {
+          errors.push(`pathRoutes[${i}].priority ${route.priority} is a duplicate`);
+        } else {
+          priorities.add(route.priority);
+        }
+      });
+    }
+  }
+
+  // Path Rate Limits (optional)
+  const pathRateLimits = body?.pathRateLimits;
+  if (pathRateLimits !== undefined) {
+    if (!Array.isArray(pathRateLimits)) {
+      errors.push('pathRateLimits must be an array');
+    } else {
+      const priorities = new Set<number>();
+      pathRateLimits.forEach((rl: any, i: number) => {
+        if (!rl?.path || typeof rl.path !== 'string' || !rl.path.startsWith('/')) {
+          errors.push(`pathRateLimits[${i}].path must start with /`);
+        }
+        if (!Number.isInteger(rl?.requestsPerMinute) || rl.requestsPerMinute < 1 || rl.requestsPerMinute > 100000) {
+          errors.push(`pathRateLimits[${i}].requestsPerMinute must be an integer between 1 and 100000`);
+        }
+        if (!Number.isInteger(rl?.priority) || rl.priority < 1) {
+          errors.push(`pathRateLimits[${i}].priority must be an integer >= 1`);
+        } else if (priorities.has(rl.priority)) {
+          errors.push(`pathRateLimits[${i}].priority ${rl.priority} is a duplicate`);
+        } else {
+          priorities.add(rl.priority);
+        }
+      });
+    }
+  }
+
   return errors;
 };
 

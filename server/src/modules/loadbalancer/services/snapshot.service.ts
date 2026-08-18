@@ -33,6 +33,16 @@ export function snapshotLoadBalancer(loadBalancer: any) {
     corsOrigins: Array.isArray(loadBalancer.corsOrigins) ? loadBalancer.corsOrigins : [],
     rateLimitEnabled: loadBalancer.rateLimitEnabled === true,
     rateLimitRequestsPerMinute: loadBalancer.rateLimitRequestsPerMinute ?? null,
+    pathRoutes: Array.isArray(loadBalancer.pathRoutes) ? loadBalancer.pathRoutes.map((r: any) => ({
+      path: r.path,
+      originIndex: r.originIndex,
+      priority: r.priority,
+    })) : [],
+    pathRateLimits: Array.isArray(loadBalancer.pathRateLimits) ? loadBalancer.pathRateLimits.map((r: any) => ({
+      path: r.path,
+      requestsPerMinute: r.requestsPerMinute,
+      priority: r.priority,
+    })) : [],
     healthCheckEnabled: loadBalancer.healthCheckEnabled === true,
     healthCheckIntervalSeconds: loadBalancer.healthCheckIntervalSeconds ?? 30,
     healthAutoPaused: loadBalancer.healthAutoPaused === true,
@@ -69,11 +79,13 @@ export function configSignature(params: {
   corsOrigins?: string[];
   rateLimitEnabled?: boolean;
   rateLimitRequestsPerMinute?: number | null;
+  pathRoutes?: Array<{ path: string; originIndex: number; priority: number }>;
+  pathRateLimits?: Array<{ path: string; requestsPerMinute: number; priority: number }>;
   healthCheckEnabled?: boolean;
   healthCheckIntervalSeconds?: number;
   placement: any;
 }): string {
-  const { origins, strategy, weightedEnabled, exposeRealOrigin, corsEnabled, corsOrigins, rateLimitEnabled, rateLimitRequestsPerMinute, healthCheckEnabled, healthCheckIntervalSeconds, placement } = params;
+  const { origins, strategy, weightedEnabled, exposeRealOrigin, corsEnabled, corsOrigins, rateLimitEnabled, rateLimitRequestsPerMinute, pathRoutes, pathRateLimits, healthCheckEnabled, healthCheckIntervalSeconds, placement } = params;
 
   return JSON.stringify({
     origins: origins.map((origin) => ({
@@ -101,6 +113,8 @@ export function configSignature(params: {
     corsOrigins: [...(corsOrigins ?? [])].sort(),
     rateLimitEnabled: rateLimitEnabled === true,
     rateLimitRequestsPerMinute: rateLimitRequestsPerMinute ?? null,
+    pathRoutes: (pathRoutes ?? []).sort((a, b) => a.priority - b.priority),
+    pathRateLimits: (pathRateLimits ?? []).sort((a, b) => a.priority - b.priority),
     healthCheckEnabled: healthCheckEnabled === true,
     healthCheckIntervalSeconds: healthCheckIntervalSeconds ?? 30,
     placement: normalizePlacement(placement),

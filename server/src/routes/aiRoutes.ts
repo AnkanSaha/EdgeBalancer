@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { generateWithAi } from '../controllers/aiController';
+import { generateWithAi, listAiRuns, getAiRun, completeAiRun } from '../controllers/aiController';
 import { authenticate } from '../middleware/auth';
 import { runHandlers } from '../utils/routeRunner';
 import { parseCookies } from '../types/http';
@@ -29,6 +29,13 @@ const STRICT = TEST
   ? { max: 10000, timeWindow: '1 minute' }
   : { max: 5, timeWindow: '15 minutes', keyGenerator };
 
+const RELAXED = TEST
+  ? { max: 10000, timeWindow: '1 minute' }
+  : { max: 60, timeWindow: '1 minute' };
+
 export default async function aiRoutes(app: FastifyInstance) {
   app.post('/generate', { config: { rateLimit: STRICT } }, async (request, reply) => runHandlers([authenticate, generateWithAi], request, reply));
+  app.get('/runs', { config: { rateLimit: RELAXED } }, async (request, reply) => runHandlers([authenticate, listAiRuns], request, reply));
+  app.get('/runs/:id', { config: { rateLimit: RELAXED } }, async (request, reply) => runHandlers([authenticate, getAiRun], request, reply));
+  app.patch('/runs/:id/complete', { config: { rateLimit: RELAXED } }, async (request, reply) => runHandlers([authenticate, completeAiRun], request, reply));
 }

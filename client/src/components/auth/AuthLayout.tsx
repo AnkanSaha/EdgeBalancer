@@ -1,7 +1,6 @@
 'use client';
 
 import { Icons } from '@/components/shared/Icons';
-import { RainLayer } from '@/components/shared/RainLayer';
 
 interface AuthStep {
   n: string;
@@ -27,7 +26,6 @@ export const AuthLayout = ({ children, step, onBack, aside }: AuthLayoutProps) =
 
   return (
     <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr' }} className="auth-grid">
-      <RainLayer />
 
       {/* Left — brand panel */}
       <div style={{

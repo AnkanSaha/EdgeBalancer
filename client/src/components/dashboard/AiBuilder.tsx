@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Icons } from '@/components/shared/Icons';
-import { RainLayer } from '@/components/shared/RainLayer';
 import type { AiEvent, AiOutcome, AiStep, LoadBalancer, PendingAction } from '@/types/api';
 
 const MAX_PROMPT_LENGTH = 2000;
@@ -179,7 +178,7 @@ export function AiPromptCard({ value, onChange, onSubmit, disabled }: AiPromptCa
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Round-robin balancer named api-edge on example.com routing to https://a.example.com and https://b.example.com…"
+        placeholder="Create a round-robin load balancer named api-edge on mysite.com with origins https://a.mysite.com and https://b.mysite.com, enable CORS for https://app.mysite.com, rate limit 100 req/min globally and 10 req/min on /login/*, path route /api/* to origin 2, enable health checks every 30s, and use smart placement…"
         style={{
           width: '100%',
           resize: 'none',
@@ -191,7 +190,7 @@ export function AiPromptCard({ value, onChange, onSubmit, disabled }: AiPromptCa
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <span className="hide-sm" style={{ fontSize: 12, color: 'var(--text-3)' }}>
-          Create, update, pause or delete — destructive steps ask first.
+          Create deploys instantly · update, pause, resume or delete ask you first.
         </span>
         <div style={{ flex: 1, minWidth: 0 }} />
         <span className="mono" style={{ fontSize: 11, color: 'var(--text-3)' }}>
@@ -307,8 +306,6 @@ export function AiProgressOverlay({
           )}
         </div>
       </div>
-
-      <RainLayer tone={tone} />
     </div>
   );
 }

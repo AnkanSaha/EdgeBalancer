@@ -9,14 +9,18 @@ interface SidebarProps {
   onNav: (id: string) => void;
   onLogout: () => void;
   userEmail?: string | null;
+  hasCloudflareCredentials?: boolean;
+  cloudflareOAuthConnected?: boolean;
+  isReady?: boolean;
 }
 
-export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) => {
+export const Sidebar = ({ current, onNav, onLogout, userEmail, hasCloudflareCredentials, cloudflareOAuthConnected, isReady }: SidebarProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const items = [
     { id: 'balancers', icon: 'Layers', label: 'Load Balancers' },
-    { id: 'sessions', icon: 'History', label: 'Sessions' },
+    { id: 'sessions', icon: 'History', label: 'LB History' },
+    { id: 'ai-runs', icon: 'Zap', label: 'AI Runs' },
   ];
 
   const bottom = [
@@ -28,34 +32,6 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
       <div style={{ padding: '0 8px 20px' }}>
         <Logo />
       </div>
-
-      <div className="kicker" style={{ padding: '8px 12px', marginBottom: 4 }}>// workspace</div>
-      <button style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '10px 12px', borderRadius: 'var(--radius)',
-        border: '1px solid var(--line)', background: 'var(--bg-1)',
-        marginBottom: 20, textAlign: 'left', width: '100%',
-        fontSize: 'clamp(12px, 2vw, 13px)',
-      }}>
-        <div style={{
-          width: 24, height: 24, borderRadius: 6,
-          background: 'var(--accent-dim)',
-          border: '1px solid var(--accent)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--accent)',
-          flexShrink: 0,
-        }}>
-          {userEmail ? userEmail.substring(0, 2).toUpperCase() : 'AL'}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            My Workspace
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
-            free
-          </div>
-        </div>
-      </button>
 
       <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {items.map(it => {
@@ -89,16 +65,22 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail }: SidebarProps) =
         padding: 14, border: '1px solid var(--line)',
         borderRadius: 'var(--radius)', marginBottom: 12,
         fontSize: 'clamp(11px, 2vw, 12px)',
+        display: 'flex', flexDirection: 'column', gap: 8,
       }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <div style={{ position: 'relative', width: 6, height: 6, flexShrink: 0 }}>
-            <div className="animate-ping" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--green)' }} />
-            <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--green)' }} />
+            <div className="animate-ping" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: hasCloudflareCredentials ? 'var(--green)' : 'var(--red)' }} />
+            <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: hasCloudflareCredentials ? 'var(--green)' : 'var(--red)' }} />
           </div>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-2)' }}>CF connected</div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-2)' }}>
+            {hasCloudflareCredentials ? 'Cloudflare Connected' : 'Cloudflare Not Connected'}
+          </div>
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
-          token • cf_live_••••
+          Auth: {cloudflareOAuthConnected ? 'OAuth' : 'API Token'}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
+          Status: {isReady ? <span style={{ color: 'var(--green)' }}>Ready</span> : <span style={{ color: 'var(--red)' }}>Not Ready</span>}
         </div>
       </div>
 

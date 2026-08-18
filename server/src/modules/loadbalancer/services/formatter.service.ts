@@ -27,6 +27,8 @@ export function formatLoadBalancer(lb: any) {
     corsOrigins: Array.isArray(lb.corsOrigins) ? lb.corsOrigins : [],
     rateLimitEnabled: lb.rateLimitEnabled === true,
     rateLimitRequestsPerMinute: lb.rateLimitRequestsPerMinute ?? null,
+    pathRoutes: Array.isArray(lb.pathRoutes) ? lb.pathRoutes : [],
+    pathRateLimits: Array.isArray(lb.pathRateLimits) ? lb.pathRateLimits : [],
     healthCheckEnabled: lb.healthCheckEnabled === true,
     healthCheckIntervalSeconds: lb.healthCheckIntervalSeconds ?? null,
     ipOriginRecords: Array.isArray(lb.ipOriginRecords) ? lb.ipOriginRecords : [],

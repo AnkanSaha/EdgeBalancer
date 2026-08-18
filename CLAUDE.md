@@ -280,6 +280,8 @@ types/
 | status | String | `active` \| `paused` \| `inactive` |
 | pauseMode | String | `release-domain` \| `keep-domain` |
 | workerUrl | String | deployed Worker URL |
+| pathRoutes | Array\<IPathRoute\> | optional path-based origin routing rules: `path`, `originIndex`, `priority` |
+| pathRateLimits | Array\<IPathRateLimit\> | optional path-based rate limits: `path`, `requestsPerMinute`, `priority` |
 
 ### Session
 Stores deployment history snapshots (Worker JS + config) per load balancer action.

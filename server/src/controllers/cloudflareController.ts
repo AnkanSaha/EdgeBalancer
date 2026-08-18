@@ -1,10 +1,11 @@
-import { 
-  validateCloudflareCredentials, 
+import {
+  validateCloudflareCredentials,
   saveCloudflareCredentials,
   getCloudflareCredentials,
   getMaskedCredentials
 } from '../services/credentialsService';
 import { CloudflareClient } from '../services/cloudflareClient';
+import { getRedisClient } from '../utils/redisClient';
 import {
   buildAuthorizationUrl,
   exchangeCodeForTokens,
@@ -115,6 +116,19 @@ export const getZones = async (req: Request, res: Response, next: NextFunction) 
       throw new Error('Not authenticated');
     }
 
+    // Check Redis cache first (5s TTL to dedupe rapid page loads)
+    const cacheKey = `cf:zones:${userId}`;
+    try {
+      const redis = await getRedisClient();
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        res.json(JSON.parse(cached));
+        return;
+      }
+    } catch {
+      // Redis down → fall through to Cloudflare API
+    }
+
     // Get decrypted credentials
     const credentials = await getCloudflareCredentials(userId);
     if (!credentials) {
@@ -132,11 +146,21 @@ export const getZones = async (req: Request, res: Response, next: NextFunction) 
       status: zone.status,
     }));
 
-    res.json({
+    const response = {
       success: true,
       message: 'Zones retrieved successfully',
       data: { zones },
-    });
+    };
+
+    // Cache for 5 seconds
+    try {
+      const redis = await getRedisClient();
+      await redis.set(cacheKey, JSON.stringify(response), { EX: 20 });
+    } catch {
+      // Redis down → skip caching
+    }
+
+    res.json(response);
   } catch (error) {
     next(error as Error);
   }

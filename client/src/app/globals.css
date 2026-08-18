@@ -351,21 +351,6 @@ details[open] > summary svg { transform: rotate(180deg); }
   .ai-actions > button { width: 100%; justify-content: center; }
 }
 
-/* AI provisioning overlay — rain falling into a sea that rises with progress */
-/* Fixed and on top, so drops fall in front of the status text rather than behind a card. */
-.ai-rain { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 3; }
-.ai-drop {
-  position: absolute; top: -14vh; width: 1px; border-radius: 1px;
-  background: linear-gradient(to bottom, transparent, var(--accent));
-  animation-name: ai-rain-fall; animation-timing-function: linear; animation-iteration-count: infinite;
-}
-@keyframes ai-rain-fall {
-  0%   { transform: translateY(0); opacity: 0; }
-  12%  { opacity: 0.55; }
-  85%  { opacity: 0.55; }
-  100% { transform: translateY(125vh); opacity: 0; }
-}
-
 /* Each SSE step surfaces on its own rather than the list snapping to a new height */
 .ai-step { animation: ai-step-in 420ms cubic-bezier(0.4, 0, 0.2, 1) backwards; }
 @keyframes ai-step-in {
