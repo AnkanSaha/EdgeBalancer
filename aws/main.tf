@@ -6,6 +6,14 @@ terraform {
     }
   }
   required_version = ">= 1.3"
+
+  backend "s3" {
+    bucket         = "edgebalancer-tfstate"
+    key            = "aws/terraform.tfstate"
+    region         = "ap-south-1"
+    dynamodb_table = "edgebalancer-tfstate-lock"
+    encrypt        = true
+  }
 }
 
 provider "aws" {
@@ -43,7 +51,15 @@ resource "aws_subnet" "public" {
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "${var.aws_region}a"
   map_public_ip_on_launch = true
-  tags                    = { Name = "public" }
+  tags                    = { Name = "public-a" }
+}
+
+resource "aws_subnet" "public_b" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "${var.aws_region}b"
+  map_public_ip_on_launch = true
+  tags                    = { Name = "public-b" }
 }
 
 resource "aws_route_table" "public" {
@@ -57,6 +73,11 @@ resource "aws_route_table" "public" {
 
 resource "aws_route_table_association" "public" {
   subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "public_b" {
+  subnet_id      = aws_subnet.public_b.id
   route_table_id = aws_route_table.public.id
 }
 
@@ -84,7 +105,7 @@ resource "aws_security_group" "ecs" {
   description = "ECS container instances"
   vpc_id      = aws_vpc.main.id
   ingress {
-    description     = "ALB → ECS"
+    description     = "ALB to ECS"
     from_port       = 8000
     to_port         = 8000
     protocol        = "tcp"
@@ -103,7 +124,7 @@ resource "aws_security_group" "redis" {
   description = "Redis (ElastiCache)"
   vpc_id      = aws_vpc.main.id
   ingress {
-    description     = "ECS → Redis"
+    description     = "ECS to Redis"
     from_port       = 6379
     to_port         = 6379
     protocol        = "tcp"
@@ -208,7 +229,7 @@ resource "aws_autoscaling_group" "ecs" {
   max_size                  = 10
   min_size                  = 1
   desired_capacity          = 1
-  vpc_zone_identifier       = [aws_subnet.public.id]
+  vpc_zone_identifier       = [aws_subnet.public.id, aws_subnet.public_b.id]
   health_check_type         = "EC2"
   health_check_grace_period = 300
 
@@ -269,7 +290,7 @@ resource "aws_lb" "main" {
   name               = "edgebalancer-alb"
   internal           = false
   load_balancer_type = "application"
-  subnets            = [aws_subnet.public.id]
+  subnets            = [aws_subnet.public.id, aws_subnet.public_b.id]
   security_groups    = [aws_security_group.alb.id]
   tags               = { Name = "edgebalancer-alb" }
 }
@@ -360,7 +381,12 @@ resource "aws_appautoscaling_policy" "ecs_cpu" {
 # ─── ElastiCache Redis (t4g.micro) ────────────────────────────────
 resource "aws_elasticache_subnet_group" "redis" {
   name       = "edgebalancer-redis-subnet"
-  subnet_ids = [aws_subnet.public.id]
+  subnet_ids = [aws_subnet.public.id, aws_subnet.public_b.id]
+  depends_on = [aws_iam_service_linked_role.elasticache]
+}
+
+resource "aws_iam_service_linked_role" "elasticache" {
+  aws_service_name = "elasticache.amazonaws.com"
 }
 
 resource "aws_elasticache_replication_group" "redis" {
