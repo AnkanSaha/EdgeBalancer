@@ -1,10 +1,11 @@
 import Fastify from 'fastify';
 import mongoose from 'mongoose';
-import rateLimit from '@fastify/rate-limit';
-import { registerCors } from './middleware/cors';
-import { registerErrorHandler } from './middleware/errorHandler';
-import idempotencyPlugin from './middleware/fastifyIdempotency';
-import { RedisSlidingWindowStore } from './middleware/rateLimitStore';
+import { registerHelmet } from './middleware/config/helmet';
+import { registerCors } from './middleware/config/cors';
+import { registerRateLimit } from './middleware/config/rateLimit';
+import { registerErrorHandler } from './middleware/config/errorHandler';
+import idempotencyPlugin from './middleware/config/fastifyIdempotency';
+import { registerContentTypeParser } from './middleware/config/contentTypeParser';
 import authRoutes from './routes/authRoutes';
 import cloudflareRoutes from './routes/cloudflareRoutes';
 import userRoutes from './routes/userRoutes';
@@ -35,37 +36,13 @@ export const buildServer = async () => {
     bodyLimit: 1048576, // 1MB
   });
 
-  // Register plugins
-  registerCors(app);
-  await app.register(rateLimit, {
-    global: true,
-    max: process.env.NODE_ENV === 'test' ? 1000 : 100,
-    timeWindow: '1 minute',
-    store: RedisSlidingWindowStore,
-    skipOnError: true, // a Redis outage must not 500 every request
-    // Cloudflare strips cf-connecting-ip from client input, so it can't be forged.
-    keyGenerator: (request) =>
-      (request.headers['cf-connecting-ip'] as string | undefined) ?? request.ip,
-    errorResponseBuilder: (_req, ctx) => ({
-      statusCode: 429, // required: the custom error handler reads it off this object
-      success: false,
-      message: `Too many requests. Retry in ${Math.ceil(ctx.ttl / 1000)}s.`,
-      data: null,
-    }),
-  });
+  // Register plugins — security first, then CORS
+  await registerHelmet(app);
+  await registerCors(app);
+  await registerRateLimit(app);
   await app.register(idempotencyPlugin);
   registerErrorHandler(app);
-
-  // Add content type parser for application/json that allows empty bodies
-  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
-    try {
-      const json = body === '' ? {} : JSON.parse(body as string);
-      done(null, json);
-    } catch (err: any) {
-      err.statusCode = 400;
-      done(err, undefined);
-    }
-  });
+  registerContentTypeParser(app);
 
   // Kubelet probes: never rate limited, never logged.
   const probeOpts = { logLevel: 'silent' as const, config: { rateLimit: false } };

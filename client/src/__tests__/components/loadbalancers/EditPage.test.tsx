@@ -89,10 +89,15 @@ beforeEach(() => {
   mockUseAuth.mockReturnValue({ user: AUTHED_USER, loading: false, logout: jest.fn() } as any);
 });
 
+async function openAdvancedSettings() {
+  await waitFor(() => screen.getByText('Advanced Settings'));
+  fireEvent.click(screen.getByText('Advanced Settings'));
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe('EditLoadBalancerPage — exposeRealOrigin toggle', () => {
-  it('renders Expose Real Origin toggle after loading', async () => {
+describe('EditLoadBalancerPage — Keep Visitor Website Info toggle', () => {
+  it('renders Keep Visitor Website Info toggle after loading and expanding Advanced Settings', async () => {
     mockApi.getLoadBalancer.mockResolvedValue({
       success: true,
       data: { loadBalancer: BASE_LB },
@@ -100,7 +105,8 @@ describe('EditLoadBalancerPage — exposeRealOrigin toggle', () => {
     });
 
     render(<EditLoadBalancerPage />);
-    await waitFor(() => expect(screen.getByText('Expose Real Origin')).toBeInTheDocument());
+    await openAdvancedSettings();
+    await waitFor(() => expect(screen.getByText(/Keep Visitor/i)).toBeInTheDocument());
   });
 
   it('initializes checkbox as unchecked when lb.exposeRealOrigin is false', async () => {
@@ -111,11 +117,12 @@ describe('EditLoadBalancerPage — exposeRealOrigin toggle', () => {
     });
 
     const { container } = render(<EditLoadBalancerPage />);
-    await waitFor(() => screen.getByText('Expose Real Origin'));
+    await openAdvancedSettings();
+    await waitFor(() => screen.getByText(/Keep Visitor/i));
 
     const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
     const exposeCheckbox = Array.from(checkboxes).find(
-      cb => cb.closest('label')?.textContent?.includes('Expose Real Origin')
+      cb => cb.closest('label')?.textContent?.includes('Keep Visitor')
     );
     expect(exposeCheckbox?.checked).toBe(false);
   });
@@ -128,11 +135,12 @@ describe('EditLoadBalancerPage — exposeRealOrigin toggle', () => {
     });
 
     const { container } = render(<EditLoadBalancerPage />);
-    await waitFor(() => screen.getByText('Expose Real Origin'));
+    await openAdvancedSettings();
+    await waitFor(() => screen.getByText(/Keep Visitor/i));
 
     const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
     const exposeCheckbox = Array.from(checkboxes).find(
-      cb => cb.closest('label')?.textContent?.includes('Expose Real Origin')
+      cb => cb.closest('label')?.textContent?.includes('Keep Visitor')
     );
     expect(exposeCheckbox?.checked).toBe(true);
   });
@@ -145,11 +153,12 @@ describe('EditLoadBalancerPage — exposeRealOrigin toggle', () => {
     });
 
     const { container } = render(<EditLoadBalancerPage />);
-    await waitFor(() => screen.getByText('Expose Real Origin'));
+    await openAdvancedSettings();
+    await waitFor(() => screen.getByText(/Keep Visitor/i));
 
     const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
     const exposeCheckbox = Array.from(checkboxes).find(
-      cb => cb.closest('label')?.textContent?.includes('Expose Real Origin')
+      cb => cb.closest('label')?.textContent?.includes('Keep Visitor')
     )!;
 
     expect(exposeCheckbox.checked).toBe(false);
@@ -165,16 +174,17 @@ describe('EditLoadBalancerPage — exposeRealOrigin toggle', () => {
     });
 
     render(<EditLoadBalancerPage />);
+    await openAdvancedSettings();
     await waitFor(() =>
-      expect(screen.getByText(/Pass the browser.*real Origin header/i)).toBeInTheDocument()
+      expect(screen.getByText(/visitor.*came from/i)).toBeInTheDocument()
     );
   });
 });
 
 // ─── CORS toggle ──────────────────────────────────────────────────────────────
 
-describe('EditLoadBalancerPage — CORS toggle', () => {
-  it('renders "Worker CORS" label after loading', async () => {
+describe('EditLoadBalancerPage — Handle Cross-Origin Requests toggle', () => {
+  it('renders "Handle Cross-Origin Requests" label after loading and expanding Advanced Settings', async () => {
     mockApi.getLoadBalancer.mockResolvedValue({
       success: true,
       data: { loadBalancer: BASE_LB },
@@ -182,7 +192,8 @@ describe('EditLoadBalancerPage — CORS toggle', () => {
     });
 
     render(<EditLoadBalancerPage />);
-    await waitFor(() => expect(screen.getByText('Worker CORS')).toBeInTheDocument());
+    await openAdvancedSettings();
+    await waitFor(() => expect(screen.getByText('Handle Cross-Origin Requests')).toBeInTheDocument());
   });
 
   it('CORS toggle initializes from lb.corsEnabled (false → unchecked)', async () => {
@@ -193,11 +204,12 @@ describe('EditLoadBalancerPage — CORS toggle', () => {
     });
 
     const { container } = render(<EditLoadBalancerPage />);
-    await waitFor(() => screen.getByText('Worker CORS'));
+    await openAdvancedSettings();
+    await waitFor(() => screen.getByText('Handle Cross-Origin Requests'));
 
     const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
     const corsCheckbox = Array.from(checkboxes).find(cb =>
-      cb.closest('label')?.textContent?.includes('Worker CORS')
+      cb.closest('label')?.textContent?.includes('Handle Cross-Origin')
     );
     expect(corsCheckbox).toBeDefined();
     expect(corsCheckbox?.checked).toBe(false);
@@ -211,11 +223,12 @@ describe('EditLoadBalancerPage — CORS toggle', () => {
     });
 
     const { container } = render(<EditLoadBalancerPage />);
-    await waitFor(() => screen.getByText('Worker CORS'));
+    await openAdvancedSettings();
+    await waitFor(() => screen.getByText('Handle Cross-Origin Requests'));
 
     const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
     const corsCheckbox = Array.from(checkboxes).find(cb =>
-      cb.closest('label')?.textContent?.includes('Worker CORS')
+      cb.closest('label')?.textContent?.includes('Handle Cross-Origin')
     );
     expect(corsCheckbox).toBeDefined();
     expect(corsCheckbox?.checked).toBe(true);
@@ -233,7 +246,8 @@ describe('EditLoadBalancerPage — ipOriginRecords banner', () => {
     });
 
     render(<EditLoadBalancerPage />);
-    await waitFor(() => screen.getByText('Expose Real Origin'));
+    await openAdvancedSettings();
+    await waitFor(() => screen.getByText(/Keep Visitor/i));
 
     expect(screen.queryByText(/auto-converted/i)).not.toBeInTheDocument();
   });

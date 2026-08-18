@@ -1,10 +1,10 @@
 import { FastifyRequest, FastifyReply, FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import crypto from 'crypto';
-import { getRedisClient } from '../utils/redisClient';
-import { verifyToken } from '../utils/jwt';
-import { authenticate } from './auth';
-import { runHandlers } from '../utils/routeRunner';
+import { getRedisClient } from '../../utils/redisClient';
+import { verifyToken } from '../../utils/jwt';
+import { authenticate } from '../auth';
+import { runHandlers } from '../../utils/routeRunner';
 
 interface IdempotencyRecord {
   statusCode: number;
