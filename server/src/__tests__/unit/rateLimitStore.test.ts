@@ -1,4 +1,4 @@
-import { RedisSlidingWindowStore } from '../../middleware/rateLimitStore';
+import { RedisSlidingWindowStore } from '../../middleware/config/rateLimitStore';
 import { getRedisClient } from '../../utils/redisClient';
 
 jest.mock('../../utils/redisClient', () => ({ getRedisClient: jest.fn() }));

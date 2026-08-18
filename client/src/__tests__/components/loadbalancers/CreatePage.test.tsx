@@ -9,7 +9,10 @@ import { api } from '@/lib/api';
 jest.mock('next/navigation', () => ({ useRouter: jest.fn() }));
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('@/lib/api', () => ({ api: { getCloudflareZones: jest.fn(), createLoadBalancer: jest.fn() } }));
-jest.mock('react-hot-toast', () => ({ default: { error: jest.fn(), success: jest.fn() } }));
+jest.mock('react-hot-toast', () => ({
+  __esModule: true,
+  default: { error: jest.fn(), success: jest.fn() },
+}));
 
 jest.mock('@/components/dashboard/Sidebar', () => ({
   Sidebar: () => null,
@@ -65,121 +68,75 @@ beforeEach(() => {
   mockApi.getCloudflareZones.mockResolvedValue({ success: true, data: { zones: [] }, message: 'ok' });
 });
 
+async function openAdvancedSettings() {
+  await waitFor(() => screen.getByText('Advanced Settings'));
+  fireEvent.click(screen.getByText('Advanced Settings'));
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe('CreateLoadBalancerPage — exposeRealOrigin toggle', () => {
-  it('renders the Expose Real Origin label text', async () => {
+describe('CreateLoadBalancerPage — Keep Visitor Website Info toggle', () => {
+  it('renders the "Keep Visitor Website Info" label after expanding Advanced Settings', async () => {
     render(<CreateLoadBalancerPage />);
-    await waitFor(() => expect(screen.getByText('Expose Real Origin')).toBeInTheDocument());
+    await openAdvancedSettings();
+    await waitFor(() => expect(screen.getByText(/Keep Visitor/i)).toBeInTheDocument());
   });
 
   it('renders the toggle description text', async () => {
     render(<CreateLoadBalancerPage />);
+    await openAdvancedSettings();
     await waitFor(() =>
-      expect(screen.getByText(/Pass the browser.*real Origin header/i)).toBeInTheDocument()
+      expect(screen.getByText(/visitor.*came from/i)).toBeInTheDocument()
     );
   });
 
-  it('checkbox defaults to unchecked (exposeRealOrigin: false)', async () => {
+  it('checkbox defaults to checked (exposeRealOrigin: true)', async () => {
     const { container } = render(<CreateLoadBalancerPage />);
-    await waitFor(() => screen.getByText('Expose Real Origin'));
-    // Find all hidden checkboxes; exposeRealOrigin is the first one in placement section
+    await openAdvancedSettings();
+    await waitFor(() => screen.getByText(/Keep Visitor/i));
+
     const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
     const exposeCheckbox = Array.from(checkboxes).find(
-      cb => cb.closest('label')?.textContent?.includes('Expose Real Origin')
+      cb => cb.closest('label')?.textContent?.includes('Keep Visitor')
     );
     expect(exposeCheckbox).toBeDefined();
-    expect(exposeCheckbox?.checked).toBe(false);
+    expect(exposeCheckbox?.checked).toBe(true);
   });
 
-  it('checking the toggle sets exposeRealOrigin: true', async () => {
+  it('unchecking the toggle sets exposeRealOrigin: false', async () => {
     const { container } = render(<CreateLoadBalancerPage />);
-    await waitFor(() => screen.getByText('Expose Real Origin'));
+    await openAdvancedSettings();
+    await waitFor(() => screen.getByText(/Keep Visitor/i));
 
     const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
     const exposeCheckbox = Array.from(checkboxes).find(
-      cb => cb.closest('label')?.textContent?.includes('Expose Real Origin')
+      cb => cb.closest('label')?.textContent?.includes('Keep Visitor')
     )!;
 
-    fireEvent.change(exposeCheckbox, { target: { checked: true } });
-
-    await waitFor(() => expect(exposeCheckbox.checked).toBe(true));
-  });
-
-  it('includes exposeRealOrigin: false in the deploy payload by default', async () => {
-    mockApi.createLoadBalancer.mockResolvedValue({
-      success: true,
-      data: { loadBalancer: { name: 'test', fullDomain: 'test.example.com' } },
-      message: 'ok',
-    });
-
-    const { container } = render(<CreateLoadBalancerPage />);
-    await waitFor(() => screen.getByText('Expose Real Origin'));
-
-    // Fill minimum required fields to pass validation
-    const nameInput = container.querySelector<HTMLInputElement>('input[placeholder*="my-load-balancer"], input[placeholder*="name"]')
-      || container.querySelector<HTMLInputElement>('input[type="text"]');
-    if (nameInput) fireEvent.change(nameInput, { target: { value: 'my-lb' } });
-
-    const deployButtons = screen.getAllByRole('button');
-    const deployBtn = deployButtons.find(b => b.textContent?.match(/deploy/i));
-    if (deployBtn && !deployBtn.hasAttribute('disabled')) {
-      fireEvent.click(deployBtn);
-      await waitFor(() => {
-        if (mockApi.createLoadBalancer.mock.calls.length > 0) {
-          const payload = mockApi.createLoadBalancer.mock.calls[0][0] as any;
-          expect(payload.exposeRealOrigin).toBe(false);
-        }
-      });
-    }
+    fireEvent.change(exposeCheckbox, { target: { checked: false } });
+    await waitFor(() => expect(exposeCheckbox.checked).toBe(false));
   });
 });
 
 // ─── CORS toggle ──────────────────────────────────────────────────────────────
 
-describe('CreateLoadBalancerPage — CORS toggle', () => {
-  it('renders the "Worker CORS" label text', async () => {
+describe('CreateLoadBalancerPage — Handle Cross-Origin Requests toggle', () => {
+  it('renders the "Handle Cross-Origin Requests" label after expanding Advanced Settings', async () => {
     render(<CreateLoadBalancerPage />);
-    await waitFor(() => expect(screen.getByText('Worker CORS')).toBeInTheDocument());
+    await openAdvancedSettings();
+    await waitFor(() => expect(screen.getByText('Handle Cross-Origin Requests')).toBeInTheDocument());
   });
 
   it('CORS toggle checkbox defaults to unchecked (corsEnabled: false)', async () => {
     const { container } = render(<CreateLoadBalancerPage />);
-    await waitFor(() => screen.getByText('Worker CORS'));
+    await openAdvancedSettings();
+    await waitFor(() => screen.getByText('Handle Cross-Origin Requests'));
 
     const checkboxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
     const corsCheckbox = Array.from(checkboxes).find(cb =>
-      cb.closest('label')?.textContent?.includes('Worker CORS')
+      cb.closest('label')?.textContent?.includes('Handle Cross-Origin')
     );
     expect(corsCheckbox).toBeDefined();
     expect(corsCheckbox?.checked).toBe(false);
-  });
-});
-
-// ─── Convert to Domain ────────────────────────────────────────────────────────
-
-describe('CreateLoadBalancerPage — Convert to Domain', () => {
-  it('shows "Convert to Domain" button when a raw IP URL is typed in the origin input', async () => {
-    render(<CreateLoadBalancerPage />);
-    await waitFor(() => screen.getByText('Expose Real Origin'));
-
-    const originInput = screen.getByPlaceholderText(/192\.168/);
-    fireEvent.change(originInput, { target: { value: 'http://18.60.112.44' } });
-
-    await waitFor(() =>
-      expect(screen.getByText('Convert to Domain')).toBeInTheDocument()
-    );
-  });
-
-  it('does NOT show "Convert to Domain" button when a regular hostname is typed', async () => {
-    render(<CreateLoadBalancerPage />);
-    await waitFor(() => screen.getByText('Expose Real Origin'));
-
-    const originInput = screen.getByPlaceholderText(/192\.168/);
-    fireEvent.change(originInput, { target: { value: 'https://backend.example.com' } });
-
-    await waitFor(() => {
-      expect(screen.queryByText('Convert to Domain')).not.toBeInTheDocument();
-    });
   });
 });

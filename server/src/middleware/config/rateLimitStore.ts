@@ -1,4 +1,4 @@
-import { getRedisClient } from '../utils/redisClient';
+import { getRedisClient } from '../../utils/redisClient';
 
 // Sliding window counter: current slot plus the fraction of the previous slot
 // still inside the window, so the count decays instead of resetting at the
