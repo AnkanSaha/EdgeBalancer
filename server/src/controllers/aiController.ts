@@ -101,12 +101,15 @@ export const listAiRuns = async (req: Request, res: Response, next: NextFunction
       }
       const cursorDoc = await AiRun.findById(cursor).lean();
       if (cursorDoc) {
-        query.createdAt = { $lt: cursorDoc.createdAt };
+        query.$or = [
+          { createdAt: { $lt: cursorDoc.createdAt } },
+          { createdAt: cursorDoc.createdAt, _id: { $lt: cursorDoc._id } },
+        ];
       }
     }
 
     const runs = await AiRun.find(query)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .limit(limit + 1)
       .select('runId prompt outcome durationMs finalModel toolCalls.name createdAt')
       .lean();
