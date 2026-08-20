@@ -1,6 +1,6 @@
 import { load } from '@cashfreepayments/cashfree-js';
 
-const isSandbox = !process.env.NEXT_PUBLIC_CASHFREE_ENV || process.env.NEXT_PUBLIC_CASHFREE_ENV !== 'production';
+const isSandbox = process.env.NEXT_PUBLIC_CASHFREE_ENV === 'sandbox';
 
 /**
  * Open Cashfree popup checkout (like Razorpay) with a payment session ID.
@@ -14,7 +14,7 @@ export async function openCashfreeCheckout(paymentSessionId: string): Promise<{ 
   return new Promise((resolve) => {
     cashfree.checkout({
       paymentSessionId,
-      redirectTarget: '_blank',
+      redirectTarget: '_modal',
     }).then((result: any) => {
       if (result.error) {
         resolve({ status: 'ERROR' });
