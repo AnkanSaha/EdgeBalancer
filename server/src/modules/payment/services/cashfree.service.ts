@@ -4,11 +4,15 @@ import { randomUUID } from 'crypto';
 // Lazy-initialized — env vars aren't available at import time (dotenv loads after imports)
 let _cashfree: Cashfree | null = null;
 
+export function getCashfreeEnv(): CFEnvironment {
+  return process.env.CASHFREE_ENV === 'sandbox' ? CFEnvironment.SANDBOX : CFEnvironment.PRODUCTION;
+}
+
 function getCashfree(): Cashfree {
   if (!_cashfree) {
     const appId = process.env.CASHFREE_APP_ID || '';
     const secretKey = process.env.CASHFREE_SECRET_KEY || '';
-    const env = process.env.CASHFREE_ENV === 'production' ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX;
+    const env = getCashfreeEnv();
     _cashfree = new Cashfree(env, appId, secretKey);
     _cashfree.XApiVersion = '2023-08-01';
   }

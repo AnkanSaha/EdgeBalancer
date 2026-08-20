@@ -47,6 +47,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.client == 'true'
+    env:
+      NEXT_PUBLIC_CASHFREE_ENV: production
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
