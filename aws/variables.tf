@@ -95,3 +95,23 @@ variable "cloudflare_oauth_redirect_uri" {
   description = "Cloudflare OAuth redirect URI"
   default     = ""
 }
+
+variable "cashfree_app_id" {
+  type        = string
+  description = "Cashfree payment gateway app ID"
+  sensitive   = true
+  default     = ""
+}
+
+variable "cashfree_secret_key" {
+  type        = string
+  description = "Cashfree payment gateway secret key"
+  sensitive   = true
+  default     = ""
+}
+
+variable "cashfree_env" {
+  type        = string
+  description = "Cashfree environment (sandbox | production)"
+  default     = "production"
+}

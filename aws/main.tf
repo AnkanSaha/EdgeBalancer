@@ -218,6 +218,9 @@ resource "aws_ecs_task_definition" "app" {
         { name = "CLOUDFLARE_OAUTH_CLIENT_ID", value = var.cloudflare_oauth_client_id },
         { name = "CLOUDFLARE_OAUTH_CLIENT_SECRET", value = var.cloudflare_oauth_client_secret },
         { name = "CLOUDFLARE_OAUTH_REDIRECT_URI", value = var.cloudflare_oauth_redirect_uri },
+        { name = "CASHFREE_APP_ID", value = var.cashfree_app_id },
+        { name = "CASHFREE_SECRET_KEY", value = var.cashfree_secret_key },
+        { name = "CASHFREE_ENV", value = var.cashfree_env },
       ]
     }
   ])

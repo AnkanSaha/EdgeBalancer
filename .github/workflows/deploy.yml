@@ -326,6 +326,9 @@ jobs:
 #               --from-literal=CLOUDFLARE_OAUTH_CLIENT_ID="${{ secrets.CLOUDFLARE_OAUTH_CLIENT_ID }}" \
 #               --from-literal=CLOUDFLARE_OAUTH_CLIENT_SECRET="${{ secrets.CLOUDFLARE_OAUTH_CLIENT_SECRET }}" \
 #               --from-literal=CLOUDFLARE_OAUTH_REDIRECT_URI="${{ secrets.CLOUDFLARE_OAUTH_REDIRECT_URI }}" \
+#               --from-literal=CASHFREE_APP_ID="${{ secrets.CASHFREE_APP_ID }}" \
+#               --from-literal=CASHFREE_SECRET_KEY="${{ secrets.CASHFREE_SECRET_KEY }}" \
+#               --from-literal=CASHFREE_ENV="${{ secrets.CASHFREE_ENV }}" \
 #               --dry-run=client -o yaml | sudo k3s kubectl apply -f -
 # 
 #             echo "Rolling update to: $IMAGE"
@@ -398,6 +401,9 @@ jobs:
       TF_VAR_cloudflare_oauth_client_id: ${{ secrets.CLOUDFLARE_OAUTH_CLIENT_ID }}
       TF_VAR_cloudflare_oauth_client_secret: ${{ secrets.CLOUDFLARE_OAUTH_CLIENT_SECRET }}
       TF_VAR_cloudflare_oauth_redirect_uri: ${{ secrets.CLOUDFLARE_OAUTH_REDIRECT_URI }}
+      TF_VAR_cashfree_app_id: ${{ secrets.CASHFREE_APP_ID }}
+      TF_VAR_cashfree_secret_key: ${{ secrets.CASHFREE_SECRET_KEY }}
+      TF_VAR_cashfree_env: ${{ secrets.CASHFREE_ENV }}
     steps:
       - name: Mask AWS credentials
         run: |
