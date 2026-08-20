@@ -62,7 +62,8 @@ export default function SettingsPage() {
         cloudflareOAuthConnected={user?.cloudflareOAuthConnected}
         isReady={!!user?.hasCloudflareCredentials}
         isPro={user?.isPro}
-        proExpiresAt={user?.proExpiresAt}
+        plan={user?.plan}
+        planExpiresAt={user?.planExpiresAt}
       />
       <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <Topbar

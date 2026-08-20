@@ -7,6 +7,7 @@ import { createTrace, runAgent } from '../modules/ai/services/agent.service';
 import { recordAiRun } from '../modules/ai/services/audit.service';
 import { AiRun } from '../models/AiRun';
 import { User } from '../models/User';
+import { getUserPlan } from '../modules/payment/services/subscription.service';
 import mongoose from 'mongoose';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
@@ -20,8 +21,8 @@ export const generateWithAi = async (req: Request, res: Response, next: NextFunc
   }
 
   // Pro check — gate AI feature
-  const user = await User.findById(userId).select('proExpiresAt');
-  if (!user?.proExpiresAt || user.proExpiresAt <= new Date()) {
+  const { plan } = await getUserPlan(userId);
+  if (plan !== 'pro') {
     res.status(403);
     return next(new Error('AI provisioning requires an EdgeBalancer Pro subscription'));
   }
@@ -154,10 +155,9 @@ export const getAiRun = async (req: Request, res: Response, next: NextFunction) 
     }
 
     // Free users see limited data — only prompt, time, models used summary
-    const user = await User.findById(userId).select('proExpiresAt').lean();
-    const isPro = !!(user?.proExpiresAt && user.proExpiresAt > new Date());
+    const { plan: userPlan } = await getUserPlan(userId);
 
-    if (!isPro) {
+    if (userPlan !== 'pro') {
       res.json({
         success: true,
         message: 'AI run retrieved',

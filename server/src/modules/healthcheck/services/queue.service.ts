@@ -1,6 +1,7 @@
 import { Queue, Worker, type Job } from 'bullmq';
 import { HealthCheckScheduler } from '../../../models/HealthCheckScheduler';
-import { isUserPro } from '../../../utils/proCache';
+import { getUserPlan } from '../../payment/services/subscription.service';
+import { PLANS } from '../../../config/plans';
 import { onRedisReconnect } from '../../../utils/redisClient';
 import { processHealthCheckJob } from './worker.service';
 
@@ -74,7 +75,8 @@ export async function resyncHealthCheckJobs(): Promise<void> {
     const chunk = batch.splice(0);
     await Promise.allSettled(
       chunk.map(async s => {
-        if (!(await isUserPro(s.userId.toString()))) {
+        const { plan } = await getUserPlan(s.userId.toString());
+        if (PLANS[plan].maxHealthCheckLBs === 0) {
           skipped++;
           return;
         }

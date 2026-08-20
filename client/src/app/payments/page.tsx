@@ -81,7 +81,8 @@ export default function PaymentsPage() {
         cloudflareOAuthConnected={user.cloudflareOAuthConnected}
         isReady={!!user.hasCloudflareCredentials}
         isPro={user.isPro}
-        proExpiresAt={user.proExpiresAt}
+        plan={user.plan}
+        planExpiresAt={user.planExpiresAt}
       />
       <main>
         <Topbar

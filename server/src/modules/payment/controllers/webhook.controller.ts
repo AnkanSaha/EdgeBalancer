@@ -1,7 +1,8 @@
 import { PaymentHistory } from '../../../models/PaymentHistory';
-import { activatePro } from '../services/subscription.service';
+import { activatePlan } from '../services/subscription.service';
 import { verifyWebhookSignature } from '../services/cashfree.service';
 import type { AppHandler } from '../../../types/http';
+import type { PlanType } from '../../../config/plans';
 
 /**
  * POST /api/payments/webhook — Cashfree webhook handler.
@@ -58,11 +59,11 @@ export const handleWebhook: AppHandler = async (req, res) => {
   // eventType: "PAYMENT_SUCCESS_WEBHOOK", "PAYMENT_FAILED_WEBHOOK", "USER_DROPPED_PAYMENT"
   if (paymentStatus === 'SUCCESS' && payment.status !== 'SUCCESS') {
     payment.status = 'SUCCESS';
-    payment.paymentMethod = typeof paymentMethod === 'object' ? JSON.stringify(paymentMethod) : paymentMethod;
+    payment.paymentMethod = paymentMethod;
     payment.cfPaymentId = String(cfPaymentId);
     await payment.save();
-    await activatePro(payment.userId.toString());
-    console.log('[Webhook] Payment SUCCESS, Pro activated for user:', payment.userId);
+    await activatePlan(payment.userId.toString(), payment.plan as PlanType);
+    console.log('[Webhook] Payment SUCCESS, plan activated:', payment.plan, 'for user:', payment.userId);
   } else if (paymentStatus === 'FAILED' || eventType === 'PAYMENT_FAILED_WEBHOOK') {
     payment.status = 'FAILED';
     await payment.save();

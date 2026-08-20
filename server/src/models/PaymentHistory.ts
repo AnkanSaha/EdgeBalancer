@@ -10,6 +10,7 @@ export interface IPaymentHistory extends Document {
   amount: number;
   currency: string;
   status: PaymentStatus;
+  plan: string;
   paymentMethod?: string;
   cfPaymentId?: string;
   expiresAt: Date;
@@ -50,6 +51,11 @@ const PaymentHistorySchema = new Schema<IPaymentHistory>(
       type: String,
       enum: ['PENDING', 'SUCCESS', 'FAILED', 'EXPIRED'],
       default: 'PENDING',
+    },
+    plan: {
+      type: String,
+      enum: ['trial', 'student', 'pro'],
+      required: true,
     },
     paymentMethod: {
       type: String,

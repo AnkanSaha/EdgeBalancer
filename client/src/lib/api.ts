@@ -256,8 +256,8 @@ class ApiClient {
   }
 
   // Payment endpoints
-  async createOrder(phone: string): Promise<ApiResponse> {
-    const response = await this.client.post('/payments', { phone });
+  async createOrder(planType: string, phone: string): Promise<ApiResponse> {
+    const response = await this.client.post('/payments', { planType, phone });
     return response.data;
   }
 

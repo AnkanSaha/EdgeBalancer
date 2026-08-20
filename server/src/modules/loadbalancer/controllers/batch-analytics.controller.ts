@@ -1,5 +1,5 @@
 import { LoadBalancer } from '../../../models/LoadBalancer';
-import { User } from '../../../models/User';
+import { getUserPlan } from '../../payment/services/subscription.service';
 import { getCloudflareCredentialsForUser } from '../services/credentials.service';
 import { fetchWorkerAnalytics, type WorkerAnalytics } from '../services/analytics.service';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../../../types/http';
@@ -14,13 +14,13 @@ export async function getBatchLoadBalancerAnalytics(req: Request, res: Response,
       throw new Error('Not authenticated');
     }
 
-    // Pro check — analytics on cards is a Pro feature
-    const user = await User.findById(userId).select('proExpiresAt').lean();
-    const isPro = !!(user?.proExpiresAt && user.proExpiresAt > new Date());
-    if (!isPro) {
+    // Plan check — analytics requires subscribed plan
+    const { plan } = await getUserPlan(userId);
+    const planConfig = (await import('../../../config/plans')).PLANS[plan];
+    if (!planConfig.hasAnalytics) {
       res.json({
         success: true,
-        message: 'Analytics requires Pro',
+        message: 'Analytics requires a subscription',
         data: { analytics: {} },
       });
       return;

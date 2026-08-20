@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { Session } from '../../../models/Session';
-import { User } from '../../../models/User';
+import { getUserPlan } from '../../payment/services/subscription.service';
+import { PLANS } from '../../../config/plans';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../../../types/http';
 
 export async function downloadScript(req: Request, res: Response, next: NextFunction) {
@@ -11,11 +12,11 @@ export async function downloadScript(req: Request, res: Response, next: NextFunc
       throw new Error('Not authenticated');
     }
 
-    // Pro check — script download is a Pro feature
-    const user = await User.findById(userId).select('proExpiresAt').lean();
-    if (!user?.proExpiresAt || user.proExpiresAt <= new Date()) {
+    // Plan check — script download requires subscription
+    const { plan } = await getUserPlan(userId);
+    if (!PLANS[plan].hasScriptDownload) {
       res.status(403);
-      throw new Error('Script download requires an EdgeBalancer Pro subscription');
+      throw new Error('Script download requires a Student or Pro subscription');
     }
 
     const { id } = req.params as { id: string };

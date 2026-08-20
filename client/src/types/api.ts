@@ -19,8 +19,11 @@ export interface User {
   totpDevices?: Credential[];
   passkeys?: Credential[];
   preferredSecondFactor?: SecondFactorMethod | null;
+  plan?: 'free' | 'trial' | 'student' | 'pro';
+  planExpiresAt?: string | null;
   isPro?: boolean;
-  proExpiresAt?: string | null;
+  isSubscribed?: boolean;
+  hasEverSubscribed?: boolean;
 }
 
 export type SecondFactorMethod = 'totp' | 'passkey';

@@ -1,5 +1,6 @@
 import { HealthCheckScheduler } from '../../../models/HealthCheckScheduler';
-import { isUserPro } from '../../../utils/proCache';
+import { getUserPlan } from '../../payment/services/subscription.service';
+import { PLANS } from '../../../config/plans';
 import { getRedisClient } from '../../../utils/redisClient';
 import { probeOrigin, isHealthyStatus } from './probe.service';
 import { reconcileHealthOrchestrator } from '../orchestrators/reconcile-health.orchestrator';
@@ -28,8 +29,9 @@ export async function processHealthCheckJob(loadBalancerId: string): Promise<voi
     return;
   }
 
-  // Skip health checks for expired Pro users (Redis-first, DB fallback)
-  if (!(await isUserPro(scheduler.userId.toString()))) {
+  // Skip health checks for free users (plan-aware)
+  const { plan } = await getUserPlan(scheduler.userId.toString());
+  if (PLANS[plan].maxHealthCheckLBs === 0) {
     return;
   }
 

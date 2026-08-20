@@ -25,6 +25,8 @@ const STRATEGIES = [
   { id: 'geo-steering', title: 'Geographic Routing', desc: 'Visitors are sent to the server closest to where they are.', icon: 'Globe' },
 ];
 
+const FREE_STRATEGIES = new Set(['round-robin', 'cookie-sticky', 'ip-hash']);
+
 const STEPS = [
   { n: 1, label: 'Name *' },
   { n: 2, label: 'Domain *' },
@@ -808,16 +810,31 @@ export default function CreateLoadBalancerPage() {
               {STRATEGIES.map(s => {
                 const Ico = Icons[s.icon as keyof typeof Icons];
                 const active = form.strategy === s.id;
+                const isSubscribed = user?.isSubscribed;
+                const locked = !isSubscribed && !FREE_STRATEGIES.has(s.id);
                 return (
                   <button key={s.id}
-                    onClick={() => { update('strategy', s.id); setActiveStep(5); }}
+                    onClick={() => { if (!locked) { update('strategy', s.id); setActiveStep(5); } }}
                     style={{
                       textAlign: 'left', padding: 14,
                       borderRadius: 'var(--radius)',
-                      border: `1px solid ${active ? 'var(--accent)' : 'var(--line)'}`,
-                      background: active ? 'var(--accent-dim)' : 'var(--bg-2)',
+                      border: `1px solid ${active ? 'var(--accent)' : locked ? 'var(--line)' : 'var(--line)'}`,
+                      background: active ? 'var(--accent-dim)' : locked ? 'var(--bg)' : 'var(--bg-2)',
                       display: 'flex', gap: 12, alignItems: 'flex-start',
+                      opacity: locked ? 0.5 : 1,
+                      cursor: locked ? 'not-allowed' : 'pointer',
+                      position: 'relative',
                     }}>
+                    {locked && (
+                      <div style={{
+                        position: 'absolute', top: 8, right: 8,
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        fontSize: 10, color: 'var(--accent)', fontFamily: 'var(--mono)',
+                        fontWeight: 600,
+                      }}>
+                        <Icons.Lock size={10} /> PRO
+                      </div>
+                    )}
                     <div style={{
                       width: 28, height: 28, borderRadius: 6,
                       border: `1px solid ${active ? 'var(--accent)' : 'var(--line-2)'}`,
@@ -833,20 +850,22 @@ export default function CreateLoadBalancerPage() {
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.45 }}>{s.desc}</div>
                     </div>
-                    <div style={{
-                      width: 14, height: 14, borderRadius: '50%',
-                      border: `1.5px solid ${active ? 'var(--accent)' : 'var(--line-2)'}`,
-                      background: active ? 'var(--accent)' : 'transparent',
-                      flexShrink: 0, marginTop: 2,
-                      position: 'relative',
-                    }}>
-                      {active && (
-                        <div style={{
-                          position: 'absolute', inset: 3,
-                          borderRadius: '50%', background: 'oklch(0.18 0.02 60)',
-                        }} />
-                      )}
-                    </div>
+                    {!locked && (
+                      <div style={{
+                        width: 14, height: 14, borderRadius: '50%',
+                        border: `1.5px solid ${active ? 'var(--accent)' : 'var(--line-2)'}`,
+                        background: active ? 'var(--accent)' : 'transparent',
+                        flexShrink: 0, marginTop: 2,
+                        position: 'relative',
+                      }}>
+                        {active && (
+                          <div style={{
+                            position: 'absolute', inset: 3,
+                            borderRadius: '50%', background: 'oklch(0.18 0.02 60)',
+                          }} />
+                        )}
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -999,8 +1018,19 @@ export default function CreateLoadBalancerPage() {
                 display: 'flex', gap: 14, padding: 16,
                 border: `1px solid ${form.smartPlacement ? 'var(--accent)' : 'var(--line)'}`,
                 background: form.smartPlacement ? 'var(--accent-dim)' : 'var(--bg-2)',
-                borderRadius: 'var(--radius)', cursor: 'pointer',
-              }} onClick={() => setActiveStep(6)}>
+                borderRadius: 'var(--radius)', cursor: user?.isSubscribed ? 'pointer' : 'not-allowed',
+                position: 'relative', opacity: user?.isSubscribed ? 1 : 0.6,
+              }} onClick={() => { if (user?.isSubscribed) setActiveStep(6); }}>
+                {!user?.isSubscribed && (
+                  <div style={{
+                    position: 'absolute', top: 8, right: 8,
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    fontSize: 10, color: 'var(--accent)', fontFamily: 'var(--mono)',
+                    fontWeight: 600,
+                  }}>
+                    <Icons.Lock size={10} /> PRO
+                  </div>
+                )}
                 <div style={{
                   width: 36, height: 20, flexShrink: 0,
                   borderRadius: 999,
@@ -1017,11 +1047,16 @@ export default function CreateLoadBalancerPage() {
                   <div style={{ fontSize: 14, fontWeight: 500 }}>Optimize for Server Speed</div>
                   <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
                     By default, the load balancer runs near your <strong>visitors</strong> for the fastest response. Turn this on if your server is slow — the load balancer will move closer to your <strong>server</strong> instead, cutting the round-trip time between them. Good for heavy APIs; skip for static sites.
+                    {!user?.isSubscribed && (
+                      <span style={{ display: 'block', marginTop: 6, color: 'var(--accent)', fontWeight: 500 }}>
+                        Upgrade to Student or Pro to customize placement.
+                      </span>
+                    )}
                   </div>
                 </div>
                 <input
                   type="checkbox" checked={form.smartPlacement}
-                  onChange={e => update('smartPlacement', e.target.checked)}
+                  onChange={e => { if (user?.isSubscribed) update('smartPlacement', e.target.checked); }}
                   style={{ display: 'none' }}
                 />
               </label>

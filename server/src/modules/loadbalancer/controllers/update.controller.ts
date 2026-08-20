@@ -7,7 +7,9 @@ import { beginLoadBalancerOperation, completeLoadBalancerOperation, isLoadBalanc
 import { updateLoadBalancerOrchestrator } from '../orchestrators/update.orchestrator';
 import { getValidatedLoadBalancerId } from '../services/validation.service';
 import { isCancellationError } from '../services/operation.service';
-import { User } from '../../../models/User';
+import { LoadBalancer } from '../../../models/LoadBalancer';
+import { getUserPlan } from '../../payment/services/subscription.service';
+import { PLANS, isStrategyAllowed } from '../../../config/plans';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../../../types/http';
 
 export async function updateLoadBalancer(req: Request, res: Response, next: NextFunction) {
@@ -22,21 +24,52 @@ export async function updateLoadBalancer(req: Request, res: Response, next: Next
       throw new Error('Not authenticated');
     }
 
-    // Pro check — Health Checks and Rate Limiting are Pro features
-    if (req.body.healthCheckEnabled || req.body.rateLimitEnabled) {
-      const user = await User.findById(userId).select('proExpiresAt').lean();
-      if (!user?.proExpiresAt || user.proExpiresAt <= new Date()) {
-        res.status(400);
-        throw new Error('Health Checks and Rate Limiting require an EdgeBalancer Pro subscription');
-      }
-    }
-
     let id: string;
     try {
       id = getValidatedLoadBalancerId(req.params.id);
     } catch (error: any) {
       res.status(400);
       throw error;
+    }
+
+    const { plan } = await getUserPlan(userId);
+    const config = PLANS[plan];
+
+    // Strategy gating
+    const strategy = req.body.strategy;
+    if (strategy && !isStrategyAllowed(plan, strategy)) {
+      res.status(400);
+      throw new Error(`The "${strategy}" strategy requires a higher plan. Upgrade to unlock all strategies.`);
+    }
+
+    // Placement gating — free users can't modify placement
+    if (!config.canEditPlacement && req.body.placement !== undefined) {
+      delete req.body.placement;
+    }
+
+    // Health check limit
+    if (req.body.healthCheckEnabled) {
+      if (config.maxHealthCheckLBs === 0) {
+        res.status(400);
+        throw new Error('Health Checks require an EdgeBalancer Pro or Student subscription');
+      }
+      if (config.maxHealthCheckLBs > 0) {
+        const lb = await LoadBalancer.findById(id).select('healthCheckEnabled');
+        // Only count if this LB doesn't already have HC
+        if (!lb?.healthCheckEnabled) {
+          const hcCount = await LoadBalancer.countDocuments({ userId, healthCheckEnabled: true });
+          if (hcCount >= config.maxHealthCheckLBs) {
+            res.status(400);
+            throw new Error(`Your ${config.name} plan allows health checks on ${config.maxHealthCheckLBs} load balancers.`);
+          }
+        }
+      }
+    }
+
+    // Rate limiting — Pro only
+    if (req.body.rateLimitEnabled && !config.hasRateLimit) {
+      res.status(400);
+      throw new Error('Rate Limiting requires an EdgeBalancer Pro subscription');
     }
 
     const result = await updateLoadBalancerOrchestrator({

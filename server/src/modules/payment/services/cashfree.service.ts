@@ -22,8 +22,7 @@ export interface CreateOrderResult {
 }
 
 /** Create a Cashfree order for the Pro subscription */
-export async function createOrder(userId: string, email: string | null | undefined, phone: string): Promise<CreateOrderResult> {
-  const amount = Number(process.env.PAYMENT_AMOUNT) || 199;
+export async function createOrder(userId: string, email: string | null | undefined, phone: string, amount: number): Promise<CreateOrderResult> {
   const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
   const orderId = `ebp_${randomUUID().replace(/-/g, '').slice(0, 20)}`;
 
@@ -70,8 +69,4 @@ export function verifyWebhookSignature(
 export async function fetchOrderPayments(orderId: string) {
   const response = await getCashfree().PGOrderFetchPayments(orderId);
   return response.data;
-}
-
-export function getPaymmentAmount(): number {
-  return Number(process.env.PAYMENT_AMOUNT) || 1;
 }
