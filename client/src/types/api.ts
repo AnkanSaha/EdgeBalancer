@@ -19,6 +19,8 @@ export interface User {
   totpDevices?: Credential[];
   passkeys?: Credential[];
   preferredSecondFactor?: SecondFactorMethod | null;
+  isPro?: boolean;
+  proExpiresAt?: string | null;
 }
 
 export type SecondFactorMethod = 'totp' | 'passkey';
@@ -245,6 +247,24 @@ export interface AiRunDetail {
 
 export interface AiRunsResponse {
   runs: AiRunListItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+// --- Payment types ---
+
+export interface PaymentHistory {
+  orderId: string;
+  amount: number;
+  currency: string;
+  status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'EXPIRED';
+  paymentMethod?: string | null;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface PaymentHistoryResponse {
+  payments: PaymentHistory[];
   nextCursor: string | null;
   hasMore: boolean;
 }

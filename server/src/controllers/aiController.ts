@@ -6,6 +6,7 @@ import { openSseChannel } from '../modules/ai/services/sse.service';
 import { createTrace, runAgent } from '../modules/ai/services/agent.service';
 import { recordAiRun } from '../modules/ai/services/audit.service';
 import { AiRun } from '../models/AiRun';
+import { User } from '../models/User';
 import mongoose from 'mongoose';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
@@ -16,6 +17,13 @@ export const generateWithAi = async (req: Request, res: Response, next: NextFunc
   if (!userId) {
     res.status(401);
     return next(new Error('Not authenticated'));
+  }
+
+  // Pro check — gate AI feature
+  const user = await User.findById(userId).select('proExpiresAt');
+  if (!user?.proExpiresAt || user.proExpiresAt <= new Date()) {
+    res.status(403);
+    return next(new Error('AI provisioning requires an EdgeBalancer Pro subscription'));
   }
 
   if (!hasAnyProviderConfigured()) {
@@ -143,6 +151,33 @@ export const getAiRun = async (req: Request, res: Response, next: NextFunction) 
     if (!run) {
       res.status(404);
       throw new Error('AI run not found');
+    }
+
+    // Free users see limited data — only prompt, time, models used summary
+    const user = await User.findById(userId).select('proExpiresAt').lean();
+    const isPro = !!(user?.proExpiresAt && user.proExpiresAt > new Date());
+
+    if (!isPro) {
+      res.json({
+        success: true,
+        message: 'AI run retrieved',
+        data: {
+          run: {
+            _id: run._id,
+            prompt: run.prompt,
+            outcome: run.outcome,
+            durationMs: run.durationMs,
+            finalModel: run.finalModel,
+            modelsUsed: (run.modelsUsed || []).map((m: any) => ({
+              provider: m.provider,
+              model: m.model,
+              ok: m.ok,
+            })),
+            createdAt: run.createdAt,
+          },
+        },
+      });
+      return;
     }
 
     res.json({

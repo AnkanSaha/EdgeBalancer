@@ -254,6 +254,21 @@ class ApiClient {
     const response = await this.client.get('/user/profile');
     return response.data;
   }
+
+  // Payment endpoints
+  async createOrder(phone: string): Promise<ApiResponse> {
+    const response = await this.client.post('/payments', { phone });
+    return response.data;
+  }
+
+  async getPaymentHistory(params?: { cursor?: string; limit?: number }): Promise<ApiResponse> {
+    const query = new URLSearchParams();
+    if (params?.cursor) query.set('cursor', params.cursor);
+    if (params?.limit) query.set('limit', String(params.limit));
+    const qs = query.toString();
+    const response = await this.client.get(`/payments/history${qs ? `?${qs}` : ''}`);
+    return response.data;
+  }
 }
 
 // Export singleton instance

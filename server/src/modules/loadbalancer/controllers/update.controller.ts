@@ -7,6 +7,7 @@ import { beginLoadBalancerOperation, completeLoadBalancerOperation, isLoadBalanc
 import { updateLoadBalancerOrchestrator } from '../orchestrators/update.orchestrator';
 import { getValidatedLoadBalancerId } from '../services/validation.service';
 import { isCancellationError } from '../services/operation.service';
+import { User } from '../../../models/User';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../../../types/http';
 
 export async function updateLoadBalancer(req: Request, res: Response, next: NextFunction) {
@@ -19,6 +20,15 @@ export async function updateLoadBalancer(req: Request, res: Response, next: Next
     if (!userId) {
       res.status(401);
       throw new Error('Not authenticated');
+    }
+
+    // Pro check — Health Checks and Rate Limiting are Pro features
+    if (req.body.healthCheckEnabled || req.body.rateLimitEnabled) {
+      const user = await User.findById(userId).select('proExpiresAt').lean();
+      if (!user?.proExpiresAt || user.proExpiresAt <= new Date()) {
+        res.status(400);
+        throw new Error('Health Checks and Rate Limiting require an EdgeBalancer Pro subscription');
+      }
     }
 
     let id: string;

@@ -1,4 +1,5 @@
 import { LoadBalancer } from '../../../models/LoadBalancer';
+import { User } from '../../../models/User';
 import { getValidatedLoadBalancerId } from '../services/validation.service';
 import { getCloudflareCredentialsForUser } from '../services/credentials.service';
 import { fetchWorkerAnalytics } from '../services/analytics.service';
@@ -12,6 +13,17 @@ export async function getLoadBalancerAnalytics(req: Request, res: Response, next
     if (!userId) {
       res.status(401);
       throw new Error('Not authenticated');
+    }
+
+    // Pro check
+    const user = await User.findById(userId).select('proExpiresAt').lean();
+    if (!user?.proExpiresAt || user.proExpiresAt <= new Date()) {
+      res.json({
+        success: true,
+        message: 'Analytics requires Pro',
+        data: { analytics: null },
+      });
+      return;
     }
 
     let id: string;

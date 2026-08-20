@@ -1,4 +1,5 @@
 import { LoadBalancer } from '../../../models/LoadBalancer';
+import { User } from '../../../models/User';
 import { getCloudflareCredentialsForUser } from '../services/credentials.service';
 import { fetchWorkerAnalytics, type WorkerAnalytics } from '../services/analytics.service';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../../../types/http';
@@ -11,6 +12,18 @@ export async function getBatchLoadBalancerAnalytics(req: Request, res: Response,
     if (!userId) {
       res.status(401);
       throw new Error('Not authenticated');
+    }
+
+    // Pro check — analytics on cards is a Pro feature
+    const user = await User.findById(userId).select('proExpiresAt').lean();
+    const isPro = !!(user?.proExpiresAt && user.proExpiresAt > new Date());
+    if (!isPro) {
+      res.json({
+        success: true,
+        message: 'Analytics requires Pro',
+        data: { analytics: {} },
+      });
+      return;
     }
 
     const rawPeriod = req.query?.period;

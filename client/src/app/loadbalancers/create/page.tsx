@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { Sidebar, Topbar } from '@/components/dashboard/Sidebar';
 import { Icons } from '@/components/shared/Icons';
+import Link from 'next/link';
 import { DeploymentOverlay, DeploymentSuccessModal } from '@/components/loadbalancers/DeploymentExperience';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { LoadBalancerVisualization } from '@/components/loadbalancers/LoadBalancerVisualization';
@@ -1105,6 +1106,21 @@ export default function CreateLoadBalancerPage() {
 
           <FieldBlock n={7} title="Health Checks"
             subtitle="Continuously probe each origin and stop sending traffic to failed backends">
+            {!user?.isPro ? (
+              <div style={{
+                padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                gap: 12, background: 'var(--bg-2)', border: '1px solid var(--line)',
+                borderRadius: 'var(--radius)', flexWrap: 'wrap',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Icons.Lock size={14} stroke="var(--text-3)" />
+                  <span style={{ fontSize: 13, color: 'var(--text-2)' }}>Health Checks is a Pro feature</span>
+                </div>
+                <Link href="/pro">
+                  <button className="btn btn-primary btn-sm">Upgrade to Pro</button>
+                </Link>
+              </div>
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <label style={{
                 display: 'flex', gap: 14, padding: 16,
@@ -1164,10 +1180,26 @@ export default function CreateLoadBalancerPage() {
                 </div>
               )}
             </div>
+            )}
           </FieldBlock>
 
           <FieldBlock n={8} title="Rate Limiting"
             subtitle="Protect your origins from traffic spikes and abuse by limiting how many requests each visitor can make">
+            {!user?.isPro ? (
+              <div style={{
+                padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                gap: 12, background: 'var(--bg-2)', border: '1px solid var(--line)',
+                borderRadius: 'var(--radius)', flexWrap: 'wrap',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Icons.Lock size={14} stroke="var(--text-3)" />
+                  <span style={{ fontSize: 13, color: 'var(--text-2)' }}>Rate Limiting is a Pro feature</span>
+                </div>
+                <Link href="/pro">
+                  <button className="btn btn-primary btn-sm">Upgrade to Pro</button>
+                </Link>
+              </div>
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <label style={{
                 display: 'flex', gap: 14, padding: 16,
@@ -1289,6 +1321,7 @@ export default function CreateLoadBalancerPage() {
                 </button>
               </div>
             </div>
+            )}
           </FieldBlock>
 
           {/* Path-Based Routing (Optional) */}

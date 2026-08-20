@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icons } from '@/components/shared/Icons';
 import type { AiEvent, AiOutcome, AiStep, LoadBalancer, PendingAction } from '@/types/api';
+import Link from 'next/link';
 
 const MAX_PROMPT_LENGTH = 2000;
 const MAX_PROMPT_HEIGHT = 220;
@@ -137,9 +138,10 @@ interface AiPromptCardProps {
   onChange: (value: string) => void;
   onSubmit: () => void;
   disabled?: boolean;
+  isPro?: boolean;
 }
 
-export function AiPromptCard({ value, onChange, onSubmit, disabled }: AiPromptCardProps) {
+export function AiPromptCard({ value, onChange, onSubmit, disabled, isPro }: AiPromptCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -153,6 +155,25 @@ export function AiPromptCard({ value, onChange, onSubmit, disabled }: AiPromptCa
   }, [value]);
 
   const canSubmit = !disabled && value.trim().length > 0;
+
+  if (!isPro) {
+    return (
+      <div className="feature-card" style={{
+        padding: 'clamp(16px, 2.5vw, 24px)',
+        marginBottom: 'clamp(16px, 3vw, 24px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 16, flexWrap: 'wrap',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Icons.Lock size={15} style={{ color: 'var(--text-3)' }} />
+          <span style={{ fontSize: 13, color: 'var(--text-2)' }}>AI Provisioning is a Pro feature</span>
+        </div>
+        <Link href="/pro">
+          <button className="btn btn-primary btn-sm">Upgrade to Pro</button>
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -45,6 +45,8 @@ export const toUserPayload = (user: IUser) => ({
     createdAt: passkey.createdAt,
   })),
   preferredSecondFactor: user.preferredSecondFactor ?? null,
+  isPro: !!(user.proExpiresAt && user.proExpiresAt > new Date()),
+  proExpiresAt: user.proExpiresAt ?? null,
 });
 
 export const issueSessionCookie = (res: AppResponse, user: IUser): void => {

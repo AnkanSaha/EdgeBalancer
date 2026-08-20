@@ -12,18 +12,22 @@ interface SidebarProps {
   hasCloudflareCredentials?: boolean;
   cloudflareOAuthConnected?: boolean;
   isReady?: boolean;
+  isPro?: boolean;
+  proExpiresAt?: string | null;
 }
 
-export const Sidebar = ({ current, onNav, onLogout, userEmail, hasCloudflareCredentials, cloudflareOAuthConnected, isReady }: SidebarProps) => {
+export const Sidebar = ({ current, onNav, onLogout, userEmail, hasCloudflareCredentials, cloudflareOAuthConnected, isReady, isPro, proExpiresAt }: SidebarProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const items = [
     { id: 'balancers', icon: 'Layers', label: 'Load Balancers' },
     { id: 'sessions', icon: 'History', label: 'LB History' },
     { id: 'ai-runs', icon: 'Zap', label: 'AI Runs' },
+    { id: 'pro', icon: 'Crown', label: 'EdgeBalancer Pro' },
   ];
 
   const bottom = [
+    { id: 'payments', icon: 'CreditCard', label: 'Payment History' },
     { id: 'settings', icon: 'Settings', label: 'Settings' },
   ];
 
@@ -31,6 +35,39 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail, hasCloudflareCred
     <>
       <div style={{ padding: '0 8px 20px' }}>
         <Logo />
+        {isPro && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 14px', borderRadius: 'var(--radius)',
+            background: 'linear-gradient(135deg, #f59e0b22, #f9731622)',
+            border: '1px solid #f59e0b55',
+            marginTop: 10,
+            boxShadow: '0 0 20px #f59e0b15',
+          }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #f59e0b, #f97316)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 2px 8px #f59e0b44',
+            }}>
+              <Icons.Crown size={14} fill="#fff" stroke="#fff" />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{
+                fontSize: 13, fontWeight: 700, color: '#f59e0b',
+                fontFamily: 'var(--mono)', letterSpacing: '0.04em',
+              }}>Pro User</div>
+              {proExpiresAt && (
+                <div style={{
+                  fontSize: 11, color: 'var(--text-3)', marginTop: 2,
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
+                  Until {new Date(proExpiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

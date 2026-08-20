@@ -46,6 +46,7 @@ export interface IUser extends Document {
   totpDevices: Types.DocumentArray<ITotpDevice>;
   passkeys: Types.DocumentArray<IPasskey>;
   preferredSecondFactor?: SecondFactorMethod | null;
+  proExpiresAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -182,6 +183,10 @@ const UserSchema = new Schema<IUser>(
     preferredSecondFactor: {
       type: String,
       enum: ['totp', 'passkey', null],
+      default: null,
+    },
+    proExpiresAt: {
+      type: Date,
       default: null,
     },
   },

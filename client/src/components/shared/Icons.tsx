@@ -59,4 +59,6 @@ export const Icons = {
   Download: (p: IconProps) => <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></Icon>,
   Sun: (p: IconProps) => <Icon {...p}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></Icon>,
   Moon: (p: IconProps) => <Icon {...p}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></Icon>,
+  Crown: (p: IconProps) => <Icon {...p}><path d="M2 20h20M4 20l1.5-11 4.5 4 4-7 4 7 4.5-4L22 20" /></Icon>,
+  CreditCard: (p: IconProps) => <Icon {...p}><rect x="1" y="4" width="22" height="16" rx="2" /><path d="M1 10h22" /></Icon>,
 };

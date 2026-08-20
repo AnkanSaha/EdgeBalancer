@@ -2,11 +2,13 @@
 
 import { Icons } from '@/components/shared/Icons';
 import type { Session } from '@/types/api';
+import Link from 'next/link';
 
 interface SessionCardProps {
   session: Session;
   onDownload: () => void;
   isDownloading?: boolean;
+  isPro?: boolean;
 }
 
 function relativeTime(dateStr: string): string {
@@ -20,7 +22,7 @@ function relativeTime(dateStr: string): string {
   return `${days}d ago`;
 }
 
-export const SessionCard = ({ session, onDownload, isDownloading }: SessionCardProps) => {
+export const SessionCard = ({ session, onDownload, isDownloading, isPro }: SessionCardProps) => {
   const fullDomain = session.subdomain
     ? `${session.subdomain}.${session.domain}`
     : session.domain;
@@ -72,14 +74,22 @@ export const SessionCard = ({ session, onDownload, isDownloading }: SessionCardP
 
       {session.isActive && (
         <div style={{ paddingTop: 8, borderTop: '1px solid var(--line)' }}>
-          <button
-            onClick={onDownload}
-            disabled={isDownloading}
-            className="btn btn-ghost btn-sm"
-            style={{ opacity: isDownloading ? 0.5 : 1 }}>
-            <Icons.Download size={13} />
-            {isDownloading ? 'Fetching…' : 'Download Script'}
-          </button>
+          {!isPro ? (
+            <Link href="/pro">
+              <button className="btn btn-ghost btn-sm">
+                <Icons.Lock size={13} /> Upgrade to Pro to download
+              </button>
+            </Link>
+          ) : (
+            <button
+              onClick={onDownload}
+              disabled={isDownloading}
+              className="btn btn-ghost btn-sm"
+              style={{ opacity: isDownloading ? 0.5 : 1 }}>
+              <Icons.Download size={13} />
+              {isDownloading ? 'Fetching…' : 'Download Script'}
+            </button>
+          )}
         </div>
       )}
     </div>

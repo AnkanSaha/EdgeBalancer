@@ -118,6 +118,8 @@ export default function SessionsPage() {
     if (id === 'balancers') router.push('/dashboard');
     else if (id === 'settings') router.push('/settings');
     else if (id === 'ai-runs') router.push('/ai-runs');
+    else if (id === 'pro') router.push('/pro');
+    else if (id === 'payments') router.push('/payments');
   };
 
   const handleLogout = async () => {
@@ -157,6 +159,8 @@ export default function SessionsPage() {
           hasCloudflareCredentials={user?.hasCloudflareCredentials}
           cloudflareOAuthConnected={user?.cloudflareOAuthConnected}
           isReady={!!user?.hasCloudflareCredentials}
+          isPro={user?.isPro}
+          proExpiresAt={user?.proExpiresAt}
         />
         <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Topbar
@@ -202,6 +206,7 @@ export default function SessionsPage() {
                       session={session}
                       onDownload={() => handleDownload(session)}
                       isDownloading={downloadingId === session._id}
+                      isPro={user?.isPro}
                     />
                   ))}
                 </div>

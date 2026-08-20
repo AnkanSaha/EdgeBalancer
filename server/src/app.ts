@@ -13,6 +13,7 @@ import aiRoutes from './routes/aiRoutes';
 import loadBalancerRoutes from './modules/loadbalancer/loadbalancer.routes';
 import healthCheckRoutes from './modules/healthcheck/healthcheck.routes';
 import sessionRoutes from './modules/session/session.routes';
+import paymentRoutes from './modules/payment/payment.routes';
 
 export const buildServer = async () => {
   const app = Fastify({
@@ -67,6 +68,7 @@ export const buildServer = async () => {
   await app.register(healthCheckRoutes, { prefix: '/api/loadbalancers' });
   await app.register(sessionRoutes, { prefix: '/api/sessions' });
   await app.register(aiRoutes, { prefix: '/api/ai' });
+  await app.register(paymentRoutes, { prefix: '/api/payments' });
 
   return app;
 };

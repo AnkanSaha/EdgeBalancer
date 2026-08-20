@@ -53,12 +53,16 @@ export default function SettingsPage() {
           if (id === 'balancers') router.push('/dashboard');
           else if (id === 'sessions') router.push('/sessions');
           else if (id === 'ai-runs') router.push('/ai-runs');
+          else if (id === 'pro') router.push('/pro');
+          else if (id === 'payments') router.push('/payments');
         }}
         onLogout={handleLogout}
         userEmail={user?.email}
         hasCloudflareCredentials={user?.hasCloudflareCredentials}
         cloudflareOAuthConnected={user?.cloudflareOAuthConnected}
         isReady={!!user?.hasCloudflareCredentials}
+        isPro={user?.isPro}
+        proExpiresAt={user?.proExpiresAt}
       />
       <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <Topbar

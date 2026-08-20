@@ -185,6 +185,8 @@ export default function DashboardPage() {
     if (id === 'settings') router.push('/settings');
     else if (id === 'sessions') router.push('/sessions');
     else if (id === 'ai-runs') router.push('/ai-runs');
+    else if (id === 'pro') router.push('/pro');
+    else if (id === 'payments') router.push('/payments');
     else setCurrentNav(id);
   };
 
@@ -287,6 +289,8 @@ export default function DashboardPage() {
           hasCloudflareCredentials={user?.hasCloudflareCredentials}
           cloudflareOAuthConnected={user?.cloudflareOAuthConnected}
           isReady={!!user?.hasCloudflareCredentials}
+          isPro={user?.isPro}
+          proExpiresAt={user?.proExpiresAt}
         />
         <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Topbar
@@ -312,6 +316,7 @@ export default function DashboardPage() {
               onChange={setAiPrompt}
               onSubmit={runAiGeneration}
               disabled={!!aiRun}
+              isPro={user?.isPro}
             />
 
             {!hasBalancers && !loading ? (
@@ -396,6 +401,7 @@ export default function DashboardPage() {
                       onResume={() => handleResume(lb)}
                       isDeleting={deletingId === lb.id}
                       isActioning={actioningId === lb.id}
+                      isPro={user?.isPro}
                     />
                   ))}
                   {loadBalancers.length === 0 && !isFetching && (searchValue || statusFilter) && (
