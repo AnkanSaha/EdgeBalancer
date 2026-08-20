@@ -10,7 +10,7 @@ export interface ProbeResult {
   error: string | null;
 }
 
-const PROBE_TIMEOUT_MS = Number(process.env.HEALTH_CHECK_PROBE_TIMEOUT_MS || 5000);
+const PROBE_TIMEOUT_MS = Number(process.env.HEALTH_CHECK_PROBE_TIMEOUT_MS || 3000);
 
 const buildProbeUrl = (origin: ProbeTarget): string => {
   const path = origin.healthPath?.trim() || '/';

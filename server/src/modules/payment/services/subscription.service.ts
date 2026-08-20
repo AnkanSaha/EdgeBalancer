@@ -1,13 +1,13 @@
 import { User } from '../../../models/User';
 import type { IUser } from '../../../models/User';
+import { setProCache, removeProCache, isUserPro as isUserProCached } from '../../../utils/proCache';
 import type { AppHandler } from '../../../types/http';
 
 const PRO_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-/** Check if a user currently has an active Pro subscription */
+/** Check if a user currently has an active Pro subscription (Redis first, DB fallback) */
 export async function isUserPro(userId: string): Promise<boolean> {
-  const user = await User.findById(userId).select('proExpiresAt');
-  return !!(user?.proExpiresAt && user.proExpiresAt > new Date());
+  return isUserProCached(userId);
 }
 
 /** Activate Pro for a user — extends from now if already Pro, or starts fresh */
@@ -20,6 +20,10 @@ export async function activatePro(userId: string): Promise<IUser> {
   const base = user.proExpiresAt && user.proExpiresAt > now ? user.proExpiresAt : now;
   user.proExpiresAt = new Date(base.getTime() + PRO_DURATION_MS);
   await user.save();
+
+  // Cache in Redis with exact TTL
+  await setProCache(userId, user.proExpiresAt);
+
   return user;
 }
 
