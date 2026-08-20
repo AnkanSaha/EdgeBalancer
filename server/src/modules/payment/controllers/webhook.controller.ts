@@ -41,7 +41,11 @@ export const handleWebhook: AppHandler = async (req, res) => {
   const orderId = payload?.data?.order?.order_id;
   const paymentStatus = payload?.data?.payment?.payment_status;
   const eventType = payload?.type;
-  const paymentMethod = payload?.data?.payment?.payment_method || null;
+  const paymentMethodRaw = payload?.data?.payment?.payment_method || null;
+  // Extract just the type: "netbanking", "upi", "card", etc.
+  const paymentMethod = paymentMethodRaw && typeof paymentMethodRaw === 'object'
+    ? Object.keys(paymentMethodRaw)[0] || null
+    : typeof paymentMethodRaw === 'string' ? paymentMethodRaw : null;
   const cfPaymentId = payload?.data?.payment?.cf_payment_id || null;
 
   if (!orderId) {
@@ -59,7 +63,7 @@ export const handleWebhook: AppHandler = async (req, res) => {
   // eventType: "PAYMENT_SUCCESS_WEBHOOK", "PAYMENT_FAILED_WEBHOOK", "USER_DROPPED_PAYMENT"
   if (paymentStatus === 'SUCCESS' && payment.status !== 'SUCCESS') {
     payment.status = 'SUCCESS';
-    payment.paymentMethod = paymentMethod;
+    payment.paymentMethod = paymentMethod ?? undefined;
     payment.cfPaymentId = String(cfPaymentId);
     await payment.save();
     await activatePlan(payment.userId.toString(), payment.plan as PlanType);

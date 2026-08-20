@@ -84,7 +84,7 @@ export default function PaymentsPage() {
         plan={user.plan}
         planExpiresAt={user.planExpiresAt}
       />
-      <main>
+      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <Topbar
           crumbs={['Dashboard', 'Payment History']}
           title="Payment History"

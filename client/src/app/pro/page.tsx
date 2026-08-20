@@ -396,6 +396,28 @@ export default function ProPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Loading overlay — shown between modal close and Cashfree checkout open */}
+      {loading && !polling && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.6)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{
+            background: 'var(--bg-1)', borderRadius: 'var(--radius-lg)',
+            padding: '32px 48px', textAlign: 'center',
+          }}>
+            <div style={{
+              width: 32, height: 32, margin: '0 auto 16px',
+              border: '3px solid var(--line)', borderTopColor: 'var(--accent)',
+              borderRadius: '50%', animation: 'spin 0.9s linear infinite',
+            }} />
+            <div style={{ fontSize: 14, color: 'var(--text-2)' }}>Opening payment gateway...</div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>Please wait</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
