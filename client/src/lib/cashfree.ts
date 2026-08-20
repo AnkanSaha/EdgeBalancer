@@ -14,7 +14,7 @@ export async function openCashfreeCheckout(paymentSessionId: string): Promise<{ 
   return new Promise((resolve) => {
     cashfree.checkout({
       paymentSessionId,
-      redirectTarget: '_blank',
+      redirectTarget: '_modal',
     }).then((result: any) => {
       if (result.error) {
         resolve({ status: 'ERROR' });
