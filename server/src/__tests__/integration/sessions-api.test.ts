@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import mongoose from 'mongoose';
 import { buildServer } from '../../app';
 import { connectTestDb, clearCollections, closeTestDb } from '../helpers/db';
-import { createTestUser, makeTestJwt, authCookieHeader } from '../helpers/auth';
+import { createTestUser } from '../helpers/auth';
 import { createSession } from '../../services/sessionService';
 
 const FAKE_LB_ID = new mongoose.Types.ObjectId().toString();
@@ -159,7 +159,7 @@ describe('GET /api/sessions/:id/script', () => {
   });
 
   it('200 returns content for an active session owned by the user', async () => {
-    const { user, cookie } = await createTestUser();
+    const { user, cookie } = await createTestUser({ plan: 'pro' });
     await createSession({ ...BASE_SESSION, userId: user._id.toString(), content: '// my worker' });
 
     const { Session } = await import('../../models/Session');
@@ -173,7 +173,7 @@ describe('GET /api/sessions/:id/script', () => {
   });
 
   it('403 when session is inactive', async () => {
-    const { user, cookie } = await createTestUser();
+    const { user, cookie } = await createTestUser({ plan: 'pro' });
     await createSession({ ...BASE_SESSION, userId: user._id.toString() });
 
     const { Session } = await import('../../models/Session');
@@ -185,7 +185,7 @@ describe('GET /api/sessions/:id/script', () => {
   });
 
   it('404 when session does not exist', async () => {
-    const { cookie } = await createTestUser();
+    const { cookie } = await createTestUser({ plan: 'pro' });
     const fakeId = new mongoose.Types.ObjectId().toString();
     const res = await app.inject({ method: 'GET', url: `/api/sessions/${fakeId}/script`, headers: cookie });
     expect(res.statusCode).toBe(404);
@@ -193,8 +193,7 @@ describe('GET /api/sessions/:id/script', () => {
 
   it('404 when session belongs to a different user', async () => {
     const { user } = await createTestUser();
-    const otherUserId = new mongoose.Types.ObjectId().toString();
-    const otherCookie = authCookieHeader(makeTestJwt({ userId: otherUserId }));
+    const { cookie: otherCookie } = await createTestUser({ firebaseUid: 'uid-script-other', plan: 'pro' });
 
     await createSession({ ...BASE_SESSION, userId: user._id.toString() });
 
@@ -206,7 +205,7 @@ describe('GET /api/sessions/:id/script', () => {
   });
 
   it('400 when session id is not a valid ObjectId', async () => {
-    const { cookie } = await createTestUser();
+    const { cookie } = await createTestUser({ plan: 'pro' });
     const res = await app.inject({ method: 'GET', url: '/api/sessions/bad-id/script', headers: cookie });
     expect(res.statusCode).toBe(400);
   });

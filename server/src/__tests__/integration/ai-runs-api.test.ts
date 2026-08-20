@@ -176,7 +176,7 @@ describe('GET /api/ai/runs/:id', () => {
   });
 
   it('200 returns full run details for an owned run', async () => {
-    const { user, cookie } = await createTestUser();
+    const { user, cookie } = await createTestUser({ plan: 'pro' });
 
     await AiRun.create({
       userId: user._id,

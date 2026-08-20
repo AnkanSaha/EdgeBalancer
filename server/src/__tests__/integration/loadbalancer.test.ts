@@ -645,7 +645,7 @@ const mockedFetchAnalytics = fetchWorkerAnalytics as jest.MockedFunction<typeof 
 
 describe('GET /api/loadbalancers/:id/analytics', () => {
   it('200 returns analytics data for the owning user', async () => {
-    const { user, cookie } = await createTestUser();
+    const { user, cookie } = await createTestUser({ plan: 'pro' });
     const lb = await LB_SEED(user._id, { name: 'analytics-lb' });
 
     const res = await app.inject({
@@ -664,7 +664,7 @@ describe('GET /api/loadbalancers/:id/analytics', () => {
 
   it('200 with analytics: null when CF call fails (graceful)', async () => {
     mockedFetchAnalytics.mockResolvedValueOnce(null);
-    const { user, cookie } = await createTestUser();
+    const { user, cookie } = await createTestUser({ plan: 'pro' });
     const lb = await LB_SEED(user._id, { name: 'cf-fail-lb' });
 
     const res = await app.inject({
@@ -678,7 +678,7 @@ describe('GET /api/loadbalancers/:id/analytics', () => {
   });
 
   it('defaults period to 24h when not specified', async () => {
-    const { user, cookie } = await createTestUser();
+    const { user, cookie } = await createTestUser({ plan: 'pro' });
     const lb = await LB_SEED(user._id, { name: 'period-lb' });
 
     await app.inject({
@@ -693,7 +693,7 @@ describe('GET /api/loadbalancers/:id/analytics', () => {
   });
 
   it('passes period=7d when specified in query string', async () => {
-    const { user, cookie } = await createTestUser();
+    const { user, cookie } = await createTestUser({ plan: 'pro' });
     const lb = await LB_SEED(user._id, { name: 'period7d-lb' });
 
     await app.inject({
@@ -708,7 +708,7 @@ describe('GET /api/loadbalancers/:id/analytics', () => {
   });
 
   it('passes the correct scriptName to the analytics service', async () => {
-    const { user, cookie } = await createTestUser();
+    const { user, cookie } = await createTestUser({ plan: 'pro' });
     const lb = await LB_SEED(user._id, { name: 'script-check' });
 
     await app.inject({
@@ -723,7 +723,7 @@ describe('GET /api/loadbalancers/:id/analytics', () => {
   });
 
   it('404 when load balancer does not exist', async () => {
-    const { cookie } = await createTestUser();
+    const { cookie } = await createTestUser({ plan: 'pro' });
     const fakeId = new mongoose.Types.ObjectId().toString();
 
     const res = await app.inject({
@@ -737,8 +737,7 @@ describe('GET /api/loadbalancers/:id/analytics', () => {
 
   it('403 when load balancer belongs to a different user', async () => {
     const { user: owner } = await createTestUser({ email: 'owner2@example.com' });
-    const otherUserId = new mongoose.Types.ObjectId().toString();
-    const otherCookie = { cookie: `token=${makeTestJwt({ userId: otherUserId, email: 'other2@example.com' })}` };
+    const { cookie: otherCookie } = await createTestUser({ email: 'other2@example.com', firebaseUid: 'uid-other2', plan: 'pro' });
     const lb = await LB_SEED(owner._id, { name: 'protected-lb' });
 
     const res = await app.inject({
@@ -760,7 +759,7 @@ describe('GET /api/loadbalancers/:id/analytics', () => {
   });
 
   it('400 when id is not a valid ObjectId', async () => {
-    const { cookie } = await createTestUser();
+    const { cookie } = await createTestUser({ plan: 'pro' });
     const res = await app.inject({
       method: 'GET',
       url: '/api/loadbalancers/not-an-id/analytics',
