@@ -1,5 +1,7 @@
 import { Queue, Worker, type Job } from 'bullmq';
 import { HealthCheckScheduler } from '../../../models/HealthCheckScheduler';
+import { getUserPlan } from '../../payment/services/subscription.service';
+import { PLANS } from '../../../config/plans';
 import { onRedisReconnect } from '../../../utils/redisClient';
 import { processHealthCheckJob } from './worker.service';
 
@@ -40,7 +42,7 @@ export async function startHealthCheckWorker(): Promise<void> {
     },
     {
       connection,
-      concurrency: Number(process.env.HEALTH_CHECK_CONCURRENCY || 50),
+      concurrency: Number(process.env.HEALTH_CHECK_CONCURRENCY || 1000),
     }
   );
 
@@ -59,22 +61,45 @@ export async function startHealthCheckWorker(): Promise<void> {
 }
 
 export async function resyncHealthCheckJobs(): Promise<void> {
-  const schedulers = await HealthCheckScheduler.find({ enabled: true })
-    .select({ loadBalancerId: 1, intervalSeconds: 1 })
-    .lean();
+  const cursor = HealthCheckScheduler.find({ enabled: true })
+    .select({ loadBalancerId: 1, intervalSeconds: 1, userId: 1 })
+    .lean()
+    .cursor();
 
-  const CHUNK = 50;
-  for (let i = 0; i < schedulers.length; i += CHUNK) {
-    const chunk = schedulers.slice(i, i + CHUNK);
+  let total = 0;
+  let skipped = 0;
+  const batch: Array<{ loadBalancerId: string; intervalSeconds: number; userId: string }> = [];
+
+  const flushBatch = async () => {
+    if (batch.length === 0) return;
+    const chunk = batch.splice(0);
     await Promise.allSettled(
-      chunk.map(s =>
-        upsertHealthCheckJob(s.loadBalancerId.toString(), s.intervalSeconds)
-      )
+      chunk.map(async s => {
+        const { plan } = await getUserPlan(s.userId.toString());
+        if (PLANS[plan].maxHealthCheckLBs === 0) {
+          skipped++;
+          return;
+        }
+        await upsertHealthCheckJob(s.loadBalancerId, s.intervalSeconds);
+      })
     );
-  }
+  };
 
-  if (schedulers.length > 0) {
-    console.log(`Health check resynced ${schedulers.length} scheduler(s)`);
+  for await (const doc of cursor) {
+    total++;
+    batch.push({
+      loadBalancerId: doc.loadBalancerId.toString(),
+      intervalSeconds: doc.intervalSeconds,
+      userId: doc.userId.toString(),
+    });
+    if (batch.length >= 50) {
+      await flushBatch();
+    }
+  }
+  await flushBatch();
+
+  if (total > 0) {
+    console.log(`Health check resynced ${total - skipped} scheduler(s) (skipped ${skipped} non-Pro)`);
   }
 }
 

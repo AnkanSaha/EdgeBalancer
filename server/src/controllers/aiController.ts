@@ -6,6 +6,8 @@ import { openSseChannel } from '../modules/ai/services/sse.service';
 import { createTrace, runAgent } from '../modules/ai/services/agent.service';
 import { recordAiRun } from '../modules/ai/services/audit.service';
 import { AiRun } from '../models/AiRun';
+import { User } from '../models/User';
+import { getUserPlan } from '../modules/payment/services/subscription.service';
 import mongoose from 'mongoose';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
@@ -16,6 +18,13 @@ export const generateWithAi = async (req: Request, res: Response, next: NextFunc
   if (!userId) {
     res.status(401);
     return next(new Error('Not authenticated'));
+  }
+
+  // Pro check — gate AI feature
+  const { plan } = await getUserPlan(userId);
+  if (plan !== 'pro') {
+    res.status(403);
+    return next(new Error('AI provisioning requires an EdgeBalancer Pro subscription'));
   }
 
   if (!hasAnyProviderConfigured()) {
@@ -143,6 +152,32 @@ export const getAiRun = async (req: Request, res: Response, next: NextFunction) 
     if (!run) {
       res.status(404);
       throw new Error('AI run not found');
+    }
+
+    // Free users see limited data — only prompt, time, models used summary
+    const { plan: userPlan } = await getUserPlan(userId);
+
+    if (userPlan !== 'pro') {
+      res.json({
+        success: true,
+        message: 'AI run retrieved',
+        data: {
+          run: {
+            _id: run._id,
+            prompt: run.prompt,
+            outcome: run.outcome,
+            durationMs: run.durationMs,
+            finalModel: run.finalModel,
+            modelsUsed: (run.modelsUsed || []).map((m: any) => ({
+              provider: m.provider,
+              model: m.model,
+              ok: m.ok,
+            })),
+            createdAt: run.createdAt,
+          },
+        },
+      });
+      return;
     }
 
     res.json({

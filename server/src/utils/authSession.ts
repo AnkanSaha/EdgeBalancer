@@ -2,6 +2,7 @@ import type { IUser, SecondFactorMethod } from '../models/User';
 import { confirmedDevices, hasTotp } from '../services/totpService';
 import type { AppResponse } from '../types/http';
 import { generateToken } from './jwt';
+import { resolvePlan, type PlanType } from '../config/plans';
 
 export const CHALLENGE_COOKIE = 'eb_2fa';
 export const PASSKEY_REG_COOKIE = 'eb_pk_reg';
@@ -26,26 +27,37 @@ export const availableMethods = (user: IUser): SecondFactorMethod[] => {
 export const hasSecondFactor = (user: IUser): boolean => availableMethods(user).length > 0;
 
 /** The user object every authenticated response returns. Secrets never appear here. */
-export const toUserPayload = (user: IUser) => ({
-  id: user._id,
-  name: user.name,
-  email: user.email,
-  username: user.username,
-  hasCloudflareCredentials: !!(user.cloudflareAccountId && (user.cloudflareApiToken || user.cloudflareOAuthConnected)),
-  cloudflareOAuthConnected: !!user.cloudflareOAuthConnected,
-  totpEnabled: hasTotp(user),
-  totpDevices: confirmedDevices(user).map((device) => ({
-    id: device._id.toString(),
-    name: device.name,
-    createdAt: device.createdAt,
-  })),
-  passkeys: user.passkeys.map((passkey) => ({
-    id: passkey._id.toString(),
-    name: passkey.name,
-    createdAt: passkey.createdAt,
-  })),
-  preferredSecondFactor: user.preferredSecondFactor ?? null,
-});
+export const toUserPayload = (user: IUser) => {
+  const plan: PlanType = resolvePlan(user.plan, user.planExpiresAt);
+  const isSubscribed = plan !== 'free';
+  const isPro = plan === 'pro';
+
+  return {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    username: user.username,
+    hasCloudflareCredentials: !!(user.cloudflareAccountId && (user.cloudflareApiToken || user.cloudflareOAuthConnected)),
+    cloudflareOAuthConnected: !!user.cloudflareOAuthConnected,
+    totpEnabled: hasTotp(user),
+    totpDevices: confirmedDevices(user).map((device) => ({
+      id: device._id.toString(),
+      name: device.name,
+      createdAt: device.createdAt,
+    })),
+    passkeys: user.passkeys.map((passkey) => ({
+      id: passkey._id.toString(),
+      name: passkey.name,
+      createdAt: passkey.createdAt,
+    })),
+    preferredSecondFactor: user.preferredSecondFactor ?? null,
+    plan,
+    planExpiresAt: user.planExpiresAt ?? null,
+    isPro,
+    isSubscribed,
+    hasEverSubscribed: !!user.hasEverSubscribed,
+  };
+};
 
 export const issueSessionCookie = (res: AppResponse, user: IUser): void => {
   const token = generateToken({

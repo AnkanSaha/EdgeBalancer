@@ -1,4 +1,5 @@
 import { LoadBalancer } from '../../../models/LoadBalancer';
+import { getUserPlan } from '../../payment/services/subscription.service';
 import { getCloudflareCredentialsForUser } from '../services/credentials.service';
 import { fetchWorkerAnalytics, type WorkerAnalytics } from '../services/analytics.service';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../../../types/http';
@@ -11,6 +12,18 @@ export async function getBatchLoadBalancerAnalytics(req: Request, res: Response,
     if (!userId) {
       res.status(401);
       throw new Error('Not authenticated');
+    }
+
+    // Plan check — analytics requires subscribed plan
+    const { plan } = await getUserPlan(userId);
+    const planConfig = (await import('../../../config/plans')).PLANS[plan];
+    if (!planConfig.hasAnalytics) {
+      res.json({
+        success: true,
+        message: 'Analytics requires a subscription',
+        data: { analytics: {} },
+      });
+      return;
     }
 
     const rawPeriod = req.query?.period;

@@ -12,6 +12,7 @@ interface LoadBalancerCardProps {
   onResume: () => void;
   isDeleting?: boolean;
   isActioning?: boolean;
+  isPro?: boolean;
 }
 
 function formatRequests(n: number): string {
@@ -28,7 +29,8 @@ export const LoadBalancerCard = ({
   onPause,
   onResume,
   isDeleting,
-  isActioning
+  isActioning,
+  isPro,
 }: LoadBalancerCardProps) => {
   const getStatusColor = () => {
     if (lb.status === 'active') return 'live';
@@ -96,8 +98,17 @@ export const LoadBalancerCard = ({
         </div>
       )}
 
-      {/* Analytics row */}
-      {analytics === 'loading' ? (
+      {/* Analytics row — Pro only */}
+      {!isPro ? (
+        <div style={{
+          paddingTop: 10, borderTop: '1px solid var(--line)',
+          display: 'flex', alignItems: 'center', gap: 8,
+          fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)',
+        }}>
+          <Icons.Lock size={12} />
+          <span>Analytics available on Pro</span>
+        </div>
+      ) : analytics === 'loading' ? (
         <div style={{ display: 'flex', gap: 8, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
           {[80, 56].map((w, i) => (
             <div key={i} style={{

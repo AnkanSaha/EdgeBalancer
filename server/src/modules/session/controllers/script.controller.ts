@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 import { Session } from '../../../models/Session';
+import { getUserPlan } from '../../payment/services/subscription.service';
+import { PLANS } from '../../../config/plans';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../../../types/http';
 
 export async function downloadScript(req: Request, res: Response, next: NextFunction) {
@@ -8,6 +10,13 @@ export async function downloadScript(req: Request, res: Response, next: NextFunc
     if (!userId) {
       res.status(401);
       throw new Error('Not authenticated');
+    }
+
+    // Plan check — script download requires subscription
+    const { plan } = await getUserPlan(userId);
+    if (!PLANS[plan].hasScriptDownload) {
+      res.status(403);
+      throw new Error('Script download requires a Student or Pro subscription');
     }
 
     const { id } = req.params as { id: string };

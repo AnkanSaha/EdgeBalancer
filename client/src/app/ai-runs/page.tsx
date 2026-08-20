@@ -43,7 +43,7 @@ function outcomeLabel(outcome: AiOutcome): string {
 
 // ─── Detail Modal ──────────────────────────────────────────────────
 
-function AiRunDetailModal({ runId, onClose }: { runId: string; onClose: () => void }) {
+function AiRunDetailModal({ runId, onClose, isPro }: { runId: string; onClose: () => void; isPro?: boolean }) {
   const [run, setRun] = useState<AiRunDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedTool, setExpandedTool] = useState<number | null>(null);
@@ -138,10 +138,22 @@ function AiRunDetailModal({ runId, onClose }: { runId: string; onClose: () => vo
           )}
 
           {/* Tool calls */}
-          {run.toolCalls.length > 0 && (
+          {!isPro && (!run.toolCalls || run.toolCalls.length === 0) && (
+            <div style={{
+              padding: 14, display: 'flex', alignItems: 'center', gap: 10,
+              background: 'var(--bg-2)', border: '1px solid var(--line)',
+              borderRadius: 'var(--radius)',
+            }}>
+              <Icons.Lock size={14} stroke="var(--text-3)" />
+              <span style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                Upgrade to Pro to see full tool call details
+              </span>
+            </div>
+          )}
+          {run.toolCalls && run.toolCalls.length > 0 && (
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-2)' }}>
-                Tool Calls ({run.toolCalls.length})
+                Tool Calls ({run.toolCalls?.length})
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {run.toolCalls.map((tc, i) => (
@@ -240,7 +252,7 @@ function AiRunCard({ run, onClick }: { run: AiRunListItem; onClick: () => void }
         {run.prompt}
       </div>
       <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
-        <span>{run.toolCalls.length} tool{run.toolCalls.length !== 1 ? 's' : ''}</span>
+        <span>{run.toolCalls?.length ?? 0} tool{(run.toolCalls?.length ?? 0) !== 1 ? 's' : ''}</span>
         <span>{formatDuration(run.durationMs)}</span>
       </div>
     </button>
@@ -327,6 +339,8 @@ export default function AiRunsPage() {
     if (id === 'balancers') router.push('/dashboard');
     else if (id === 'settings') router.push('/settings');
     else if (id === 'sessions') router.push('/sessions');
+    else if (id === 'pro') router.push('/pro');
+    else if (id === 'payments') router.push('/payments');
   };
 
   const handleLogout = async () => {
@@ -347,6 +361,9 @@ export default function AiRunsPage() {
           hasCloudflareCredentials={user?.hasCloudflareCredentials}
           cloudflareOAuthConnected={user?.cloudflareOAuthConnected}
           isReady={!!user?.hasCloudflareCredentials}
+          isPro={user?.isPro}
+          plan={user?.plan}
+          planExpiresAt={user?.planExpiresAt}
         />
         <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Topbar
@@ -396,7 +413,7 @@ export default function AiRunsPage() {
       </div>
 
       {selectedRunId && (
-        <AiRunDetailModal runId={selectedRunId} onClose={() => setSelectedRunId(null)} />
+        <AiRunDetailModal runId={selectedRunId} onClose={() => setSelectedRunId(null)} isPro={user?.isPro} />
       )}
     </div>
   );

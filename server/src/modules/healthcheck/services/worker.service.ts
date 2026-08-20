@@ -1,4 +1,7 @@
 import { HealthCheckScheduler } from '../../../models/HealthCheckScheduler';
+import { getUserPlan } from '../../payment/services/subscription.service';
+import { PLANS } from '../../../config/plans';
+import { getRedisClient } from '../../../utils/redisClient';
 import { probeOrigin, isHealthyStatus } from './probe.service';
 import { reconcileHealthOrchestrator } from '../orchestrators/reconcile-health.orchestrator';
 
@@ -24,6 +27,22 @@ export async function processHealthCheckJob(loadBalancerId: string): Promise<voi
 
   if (!scheduler || scheduler.enabled !== true) {
     return;
+  }
+
+  // Skip health checks for free users (plan-aware)
+  const { plan } = await getUserPlan(scheduler.userId.toString());
+  if (PLANS[plan].maxHealthCheckLBs === 0) {
+    return;
+  }
+
+  // Dedup: skip if a previous check for this LB is still running
+  try {
+    const redis = await getRedisClient();
+    const lockKey = `hc:lock:${loadBalancerId}`;
+    const acquired = await redis.set(lockKey, '1', { NX: true, EX: scheduler.intervalSeconds });
+    if (!acquired) return;
+  } catch {
+    // Redis down — fail open, run the check anyway
   }
 
   const now = new Date();
@@ -59,10 +78,10 @@ export async function processHealthCheckJob(loadBalancerId: string): Promise<voi
         origin.disabledAt = null;
         reconciled = true;
       }
-      if (previousStatus !== 'healthy') stateChanged = true;
-      console.log(
-        `Health check passed for ${loadBalancerId} origin ${origin.url} (${result.statusCode})`
-      );
+      if (previousStatus !== 'healthy') {
+        stateChanged = true;
+        console.log(`Health check recovered for ${loadBalancerId} origin ${origin.url} (${result.statusCode})`);
+      }
       return;
     }
 
@@ -80,9 +99,11 @@ export async function processHealthCheckJob(loadBalancerId: string): Promise<voi
       );
     } else {
       origin.nextCheckAt = new Date(now.getTime() + delayMsForAttempt(origin.attempts));
-      console.warn(
-        `Health check failed for ${origin.url} (attempt ${origin.attempts}/3): ${result.error ?? `status ${result.statusCode}`}`
-      );
+      if (previousStatus === 'healthy') {
+        console.warn(
+          `Health check failed for ${origin.url} (attempt ${origin.attempts}/3): ${result.error ?? `status ${result.statusCode}`}`
+        );
+      }
     }
   });
 
