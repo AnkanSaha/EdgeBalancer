@@ -83,38 +83,44 @@ describe('LoadBalancerCard — core content', () => {
 
 describe('LoadBalancerCard — analytics display', () => {
   it('shows skeleton loaders when analytics="loading"', () => {
-    const { container } = render(<LoadBalancerCard {...DEFAULT_PROPS} analytics="loading" />);
+    const { container } = render(<LoadBalancerCard {...DEFAULT_PROPS} isPro analytics="loading" />);
     // skeleton divs have the pulse animation class applied via inline style
     const skeletons = container.querySelectorAll('[style*="pulse"]');
     expect(skeletons.length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows analytics stats when analytics data is provided', () => {
-    render(<LoadBalancerCard {...DEFAULT_PROPS} analytics={{ requests: 1200, errors: 6, errorRate: 0.5 }} />);
+    render(<LoadBalancerCard {...DEFAULT_PROPS} isPro analytics={{ requests: 1200, errors: 6, errorRate: 0.5 }} />);
     expect(screen.getByText(/1\.2k/)).toBeInTheDocument();
     expect(screen.getByText(/0\.5%/)).toBeInTheDocument();
   });
 
   it('formats request counts in millions correctly', () => {
-    render(<LoadBalancerCard {...DEFAULT_PROPS} analytics={{ requests: 2_500_000, errors: 0, errorRate: 0 }} />);
+    render(<LoadBalancerCard {...DEFAULT_PROPS} isPro analytics={{ requests: 2_500_000, errors: 0, errorRate: 0 }} />);
     expect(screen.getByText(/2\.5M/)).toBeInTheDocument();
   });
 
   it('shows no analytics row when analytics=null', () => {
-    render(<LoadBalancerCard {...DEFAULT_PROPS} analytics={null} />);
+    render(<LoadBalancerCard {...DEFAULT_PROPS} isPro analytics={null} />);
     expect(screen.queryByText(/req/)).not.toBeInTheDocument();
     expect(screen.queryByText(/err/)).not.toBeInTheDocument();
   });
 
   it('renders the error rate text when above 5%', () => {
-    render(<LoadBalancerCard {...DEFAULT_PROPS} analytics={{ requests: 100, errors: 10, errorRate: 10 }} />);
+    render(<LoadBalancerCard {...DEFAULT_PROPS} isPro analytics={{ requests: 100, errors: 10, errorRate: 10 }} />);
     // error rate > 5% must be shown; the component switches color to var(--red) at this threshold
     expect(screen.getByText(/10\.0%/)).toBeInTheDocument();
   });
 
   it('does not apply red color for error rate at or below 5%', () => {
-    render(<LoadBalancerCard {...DEFAULT_PROPS} analytics={{ requests: 100, errors: 3, errorRate: 3 }} />);
+    render(<LoadBalancerCard {...DEFAULT_PROPS} isPro analytics={{ requests: 100, errors: 3, errorRate: 3 }} />);
     expect(screen.getByText(/3\.0%/)).toBeInTheDocument();
+  });
+
+  it('shows the Pro upsell instead of analytics for non-Pro users', () => {
+    render(<LoadBalancerCard {...DEFAULT_PROPS} analytics={{ requests: 1200, errors: 6, errorRate: 0.5 }} />);
+    expect(screen.getByText(/Analytics available on Pro/i)).toBeInTheDocument();
+    expect(screen.queryByText(/1\.2k/)).not.toBeInTheDocument();
   });
 });
 
