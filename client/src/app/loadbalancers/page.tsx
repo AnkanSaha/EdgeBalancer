@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
@@ -10,9 +10,7 @@ import { Icons } from '@/components/shared/Icons';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { PauseModal } from '@/components/loadbalancers/PauseModal';
 import { DeploymentOverlay, DeploymentSuccessModal } from '@/components/loadbalancers/DeploymentExperience';
-import { AiPromptCard, AiAgentModal, applyAiEvent, initialAiRunState, type AiRunState } from '@/components/dashboard/AiAgentModal';
-import { streamAiGeneration } from '@/lib/aiStream';
-import type { ConversationTurn, LoadBalancer, LoadBalancerAnalytics } from '@/types/api';
+import type { LoadBalancer, LoadBalancerAnalytics } from '@/types/api';
 import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
@@ -23,21 +21,11 @@ export default function DashboardPage() {
   const [isFetching, setIsFetching] = useState(false);
   const [analyticsMap, setAnalyticsMap] = useState<Record<string, LoadBalancerAnalytics | null>>({});
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
-  const [currentNav, setCurrentNav] = useState('balancers');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [pauseModal, setPauseModal] = useState<{ isOpen: boolean; lb: LoadBalancer | null }>({ isOpen: false, lb: null });
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; lb: LoadBalancer | null }>({ isOpen: false, lb: null });
   const [deleteSuccess, setDeleteSuccess] = useState<{ name: string; fullDomain: string } | null>(null);
-
-  // AI Agent state — the conversation chain lives here and is replayed on every call
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [aiMessages, setAiMessages] = useState<ConversationTurn[]>([]);
-  const [aiRun, setAiRun] = useState<AiRunState | null>(null);
-  const aiAbortRef = useRef<AbortController | null>(null);
-  // runId of the conversation's first turn — echoed back so the server keeps one history entry
-  // per conversation instead of one per turn.
-  const aiConversationRef = useRef<string | null>(null);
 
   // Search & filter state
   const [searchValue, setSearchValue] = useState('');
@@ -108,86 +96,19 @@ export default function DashboardPage() {
     if (user && !loading) fetchLoadBalancers();
   }, [searchDebounce, statusFilter]);
 
-  // Re-fetch analytics after pause/resume/delete so stats stay current
+  // Re-fetch analytics after pause/resume/delete so card stats stay current
   const refreshAll = useCallback(() => {
     fetchLoadBalancers();
     fetchAnalytics();
   }, [fetchLoadBalancers, fetchAnalytics]);
 
-  /**
-   * One SSE call of the agent session. `history` is everything said before `prompt` — the server
-   * appends the prompt as the newest user message, so clarification round-trips resume with full
-   * context. The agent's answer is appended to the visible conversation when the turn settles.
-   */
-  const streamAiTurn = useCallback(async (prompt: string, history: ConversationTurn[]) => {
-    const controller = new AbortController();
-    aiAbortRef.current = controller;
-    setAiRun(initialAiRunState);
-
-    try {
-      await streamAiGeneration(prompt, {
-        history,
-        conversationId: aiConversationRef.current,
-        signal: controller.signal,
-        onEvent: (event) => {
-          if (event.name === 'run_start' && !aiConversationRef.current) {
-            aiConversationRef.current = event.payload.runId;
-          }
-          setAiRun((current) => applyAiEvent(current ?? initialAiRunState, event));
-          if (event.name === 'done' || event.name === 'error') {
-            const message = event.payload.message;
-            if (message) setAiMessages((prev) => [...prev, { role: 'assistant', content: message }]);
-          }
-        },
-      });
-    } catch (error: any) {
-      // Aborting closes the request, which the server treats as a cancellation and rolls back.
-      const cancelled = controller.signal.aborted;
-      setAiRun((current) => {
-        const base = current ?? initialAiRunState;
-        return cancelled
-          ? { ...base, phase: 'done', outcome: 'failure', message: 'You cancelled the run. The step in progress was rolled back; anything already finished was kept.' }
-          : applyAiEvent(base, { name: 'error', payload: { message: error.message || 'AI generation failed' } });
-      });
-    } finally {
-      aiAbortRef.current = null;
-    }
-  }, []);
-
-  const cancelAiGeneration = useCallback(() => aiAbortRef.current?.abort(), []);
-
-  const runAiGeneration = useCallback(() => {
-    const prompt = aiPrompt.trim();
-    if (!prompt || aiRun?.phase === 'running') return;
-
-    setAiMessages((prev) => [...prev, { role: 'user', content: prompt }]);
-    void streamAiTurn(prompt, aiMessages);
-    setAiPrompt('');
-  }, [aiPrompt, aiMessages, aiRun, streamAiTurn]);
-
-  // The agent asked something — the reply continues the same conversation chain.
-  const handleAiReply = useCallback((text: string) => {
-    if (aiRun?.phase === 'running') return;
-    setAiMessages((prev) => [...prev, { role: 'user', content: text }]);
-    void streamAiTurn(text, aiMessages);
-  }, [aiMessages, aiRun, streamAiTurn]);
-
-  // A failed run can still have deployed something before it broke, so always resync.
-  const closeAiModal = useCallback(() => {
-    aiAbortRef.current?.abort();
-    aiConversationRef.current = null;
-    setAiMessages([]);
-    setAiRun(null);
-    refreshAll();
-  }, [refreshAll]);
-
   const handleNav = (id: string) => {
-    if (id === 'settings') router.push('/settings');
+    if (id === 'overview') router.push('/overview');
     else if (id === 'sessions') router.push('/sessions');
     else if (id === 'ai-runs') router.push('/ai-runs');
     else if (id === 'pro') router.push('/pro');
     else if (id === 'payments') router.push('/payments');
-    else setCurrentNav(id);
+    else if (id === 'settings') router.push('/settings');
   };
 
   const handleLogout = async () => {
@@ -282,7 +203,7 @@ export default function DashboardPage() {
 
       <div className="app-shell">
         <Sidebar
-          current={currentNav}
+          current="balancers"
           onNav={handleNav}
           onLogout={handleLogout}
           userEmail={user?.email}
@@ -295,7 +216,7 @@ export default function DashboardPage() {
         />
         <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Topbar
-            crumbs={['Dashboard', currentNav]}
+            crumbs={['Overview', 'Load Balancers']}
             title="Load Balancers"
             subtitle="Manage your Cloudflare Worker-based load balancers"
             actions={
@@ -312,40 +233,10 @@ export default function DashboardPage() {
             }
           />
           <div style={{ padding: 'clamp(16px, 4vw, 32px)', overflow: 'auto', flex: 1 }}>
-            <AiPromptCard
-              value={aiPrompt}
-              onChange={setAiPrompt}
-              onSubmit={runAiGeneration}
-              disabled={!!aiRun}
-              isPro={user?.isPro}
-            />
-
             {!hasBalancers && !loading ? (
               <EmptyState onCreate={() => router.push('/loadbalancers/create')} />
             ) : (
               <>
-                {/* Summary */}
-                <div className="dash-stats" style={{
-                  gap: 'clamp(12px, 2vw, 16px)', marginBottom: 'clamp(20px, 4vw, 32px)',
-                }}>
-                  {[
-                    { l: 'Active balancers', v: loadBalancers.filter(b => b.status === 'active').length, sub: `of ${loadBalancers.length} total` },
-                    { l: 'Origins total', v: loadBalancers.reduce((a, b) => a + (b.originCount || 0), 0), sub: 'all checks passing', color: 'var(--green)' },
-                  ].map((s, i) => (
-                    <div
-                      key={i}
-                      className="feature-card animate-slide-up"
-                      style={{ padding: 'clamp(16px, 2vw, 20px)', animationDelay: `${i * 0.08}s` }}
-                    >
-                      <div className="kicker" style={{ fontSize: 'clamp(9px, 2vw, 11px)' }}>{s.l}</div>
-                      <div className="mono" style={{ fontSize: 'clamp(20px, 3vw, 24px)', marginTop: 8, letterSpacing: '-0.02em', color: s.color || 'var(--text)' }}>
-                        {s.v}
-                      </div>
-                      <div style={{ fontSize: 'clamp(11px, 1vw, 12px)', color: 'var(--text-3)', marginTop: 4 }}>{s.sub}</div>
-                    </div>
-                  ))}
-                </div>
-
                 {/* Filter row */}
                 <div className="dash-filters" style={{ gap: 'clamp(8px, 2vw, 12px)', marginBottom: 'clamp(16px, 3vw, 20px)', flexWrap: 'wrap' }}>
                   <div className="dash-search">
@@ -416,15 +307,6 @@ export default function DashboardPage() {
           </div>
         </main>
       </div>
-
-      <AiAgentModal
-        isOpen={!!aiRun}
-        run={aiRun ?? initialAiRunState}
-        messages={aiMessages}
-        onCancel={cancelAiGeneration}
-        onClose={closeAiModal}
-        onReply={handleAiReply}
-      />
 
       <PauseModal
         isOpen={pauseModal.isOpen}

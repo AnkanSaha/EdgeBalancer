@@ -41,6 +41,13 @@ const execute = (prompt = 'create a load balancer', history: any[] = []) =>
   });
 
 describe('runAgent failure handling', () => {
+  // A test whose flow short-circuits would otherwise leave unconsumed `mockResolvedValueOnce`
+  // responses queued, poisoning every later test in the file.
+  beforeEach(() => {
+    mockedInvoke.mockReset();
+    mockedBuildTools.mockReset();
+  });
+
   it('stops after the same tool fails twice instead of looping', async () => {
     const failing = jest.fn(async () => JSON.stringify({ ok: false, error: 'zoneId must be 32 characters' }));
     mockedBuildTools.mockReturnValue([fakeTool('create_load_balancer', failing)]);
@@ -141,19 +148,16 @@ describe('runAgent failure handling', () => {
     expect(flaky).toHaveBeenCalledTimes(3);
   });
 
-  it('ends the turn as needs_input when ask_user fires', async () => {
-    // buildTools is what populates `askedUser`, so mirror that side effect here.
-    const asking = jest.fn(async () => JSON.stringify({ ok: true, data: 'Question delivered.' }));
-    mockedBuildTools.mockImplementation((ctx: any) => {
-      ctx.askedUser.current = { question: 'Delete "edge-api"? This cannot be undone.' };
-      return [fakeTool('ask_user', asking)];
-    });
+  it('treats a plain-text confirmation question as a finished success turn', async () => {
+    // Destructive steps now pause in prose: the model ends its turn with a question and no tool
+    // call. That is not a silent failure — no RCA, outcome success, message is the question.
+    mockedBuildTools.mockReturnValue([fakeTool('delete_load_balancer', jest.fn())]);
 
-    mockedInvoke.mockResolvedValueOnce(aiMessage([call('ask_user', { question: 'Delete "edge-api"?' })]));
+    mockedInvoke.mockResolvedValueOnce(aiMessage([], 'Delete "edge-api"? This cannot be undone.'));
 
     const result = await execute('delete my balancer');
 
-    expect(result.outcome).toBe('needs_input');
+    expect(result.outcome).toBe('success');
     expect(result.message).toBe('Delete "edge-api"? This cannot be undone.');
     // One model call only — nothing runs after the question.
     expect(mockedInvoke).toHaveBeenCalledTimes(1);
@@ -176,13 +180,13 @@ describe('runAgent failure handling', () => {
     expect(text.indexOf('yes, go ahead')).toBeGreaterThan(text.indexOf('Delete "edge-api"?'));
   });
 
-  it('reports refused when the model calls no tools at all', async () => {
+  it('settles a zero-tool-call ending as success — questions are ordinary turns now', async () => {
     mockedBuildTools.mockReturnValue([]);
     mockedInvoke.mockResolvedValueOnce(aiMessage([], 'I need the domain and at least one origin URL.'));
 
     const result = await execute('make me a load balancer');
 
-    expect(result.outcome).toBe('refused');
+    expect(result.outcome).toBe('success');
     expect(result.message).toBe('I need the domain and at least one origin URL.');
   });
 
@@ -253,8 +257,9 @@ describe('runAgent failure handling', () => {
     expect(mockedInvoke.mock.calls[14][0].tools.map((t: any) => t.name)).toEqual(['web_search']);
   });
 
-  it('does not report success when it loaded a create tool but never created anything', async () => {
+  it('treats a loaded-but-uncalled mutating tool as a confirmation pause, not a failure', async () => {
     const zones = jest.fn(async () => JSON.stringify({ ok: true, data: { zones: [] } }));
+    const creating = jest.fn();
     mockedBuildTools.mockImplementation((ctx: any) => [
       fakeTool('find_tools', jest.fn(async () => {
         ctx.unlocked.add('list_zones');
@@ -262,21 +267,22 @@ describe('runAgent failure handling', () => {
         return JSON.stringify({ ok: true, data: 'ready' });
       })),
       fakeTool('list_zones', zones),
-      fakeTool('create_load_balancer', jest.fn()),
-      fakeTool('web_search', jest.fn()),
+      fakeTool('create_load_balancer', creating),
     ]);
 
     mockedInvoke
       .mockResolvedValueOnce(aiMessage([call('find_tools', { names: ['list_zones', 'create_load_balancer'] })]))
       .mockResolvedValueOnce(aiMessage([call('list_zones')]))
-      // No tool failed, but the model stops without ever calling create.
-      .mockResolvedValueOnce(aiMessage([], ''))
-      .mockResolvedValueOnce(aiMessage([], 'I looked up your zones but never created the balancer.'));
+      // Research done, then the model pauses for agreement in plain text.
+      .mockResolvedValueOnce(aiMessage([], 'Create your-lb on example.com round-robin — shall I deploy?'));
 
     const result = await execute();
 
-    expect(result.outcome).toBe('failure');
-    expect(result.message).toBe('I looked up your zones but never created the balancer.');
+    // The pause is a legitimate ending: no RCA detour, nothing deployed behind the user's back.
+    expect(result.outcome).toBe('success');
+    expect(result.message).toBe('Create your-lb on example.com round-robin — shall I deploy?');
+    expect(creating).not.toHaveBeenCalled();
+    expect(mockedInvoke).toHaveBeenCalledTimes(3);
   });
 
   it('reports success when a mutating tool actually ran — a delete leaves nothing touched', async () => {

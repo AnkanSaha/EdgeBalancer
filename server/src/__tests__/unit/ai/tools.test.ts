@@ -56,7 +56,7 @@ const VALID_CONFIG = {
   placement: { smartPlacement: false },
 };
 
-const makeTools = (touched: unknown[] = [], askedUser: { current: { question: string } | null } = { current: null }) =>
+const makeTools = (touched: unknown[] = []) =>
   buildTools({
     runId: 'run-1',
     userId: AUTHENTICATED_USER,
@@ -65,7 +65,6 @@ const makeTools = (touched: unknown[] = [], askedUser: { current: { question: st
     emit: jest.fn(),
     log: { info: jest.fn(), warn: jest.fn() },
     touched,
-    askedUser,
     unlocked: new Set<string>(),
   });
 
@@ -213,27 +212,5 @@ describe('destructive tools execute through their orchestrators', () => {
 
     expect(String(result)).toContain('not found');
     expect(mockedDelete).not.toHaveBeenCalled();
-  });
-});
-
-describe('ask_user tool', () => {
-  it('records the question and ends the turn', async () => {
-    const askedUser: { current: { question: string } | null } = { current: null };
-    const askUser = makeTools([], askedUser).find((t) => t.name === 'ask_user')!;
-
-    const result = await askUser.invoke({ question: 'Which load balancer should I delete?' });
-
-    expect(askedUser.current?.question).toBe('Which load balancer should I delete?');
-    expect(String(result)).toContain('ok');
-  });
-
-  it('rejects an empty question', async () => {
-    const askedUser: { current: { question: string } | null } = { current: null };
-    const askUser = makeTools([], askedUser).find((t) => t.name === 'ask_user')!;
-
-    const result = await askUser.invoke({ question: '   ' });
-
-    expect(String(result)).toContain('required');
-    expect(askedUser.current).toBeNull();
   });
 });

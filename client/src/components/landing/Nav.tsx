@@ -30,8 +30,8 @@ export function Nav() {
         </div>
         {!loading && (
           user ? (
-            <button className="btn btn-primary btn-sm" onClick={() => router.push('/dashboard')} style={{ fontSize: 'clamp(12px, 2vw, 13px)' }}>
-              Dashboard <Icons.Arrow size={14} />
+            <button className="btn btn-primary btn-sm" onClick={() => router.push('/overview')} style={{ fontSize: 'clamp(12px, 2vw, 13px)' }}>
+              Overview <Icons.Arrow size={14} />
             </button>
           ) : (
             <>

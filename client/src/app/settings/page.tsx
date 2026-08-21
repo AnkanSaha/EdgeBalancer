@@ -50,7 +50,8 @@ export default function SettingsPage() {
       <Sidebar
         current="settings"
         onNav={(id) => {
-          if (id === 'balancers') router.push('/dashboard');
+          if (id === 'overview') router.push('/overview');
+    if (id === 'balancers') router.push('/loadbalancers');
           else if (id === 'sessions') router.push('/sessions');
           else if (id === 'ai-runs') router.push('/ai-runs');
           else if (id === 'pro') router.push('/pro');
@@ -67,7 +68,7 @@ export default function SettingsPage() {
       />
       <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <Topbar
-          crumbs={['Dashboard', 'Settings']}
+          crumbs={['Overview', 'Settings']}
           title="Settings"
           subtitle="Manage your Cloudflare integration"
         />

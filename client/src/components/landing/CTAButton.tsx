@@ -22,8 +22,8 @@ export function CTAButton({ className = 'btn btn-primary', size = 'lg', style }:
 
   if (user) {
     return (
-      <button className={`${className} ${size === 'lg' ? 'btn-lg' : 'btn-sm'}`} onClick={() => router.push('/dashboard')} style={style}>
-        Go to Dashboard <Icons.Arrow size={size === 'lg' ? 16 : 14} />
+      <button className={`${className} ${size === 'lg' ? 'btn-lg' : 'btn-sm'}`} onClick={() => router.push('/overview')} style={style}>
+        Go to Overview <Icons.Arrow size={size === 'lg' ? 16 : 14} />
       </button>
     );
   }

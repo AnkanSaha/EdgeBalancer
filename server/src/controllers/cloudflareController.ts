@@ -220,7 +220,7 @@ export const oauthCallback = async (req: Request, res: Response, _next: NextFunc
 
     // Redirect to dashboard with success indicator
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-    res.redirect(`${clientUrl}/dashboard?cf=connected`);
+    res.redirect(`${clientUrl}/loadbalancers?cf=connected`);
   } catch {
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
     res.redirect(`${clientUrl}/onboarding?error=oauth_failed`);

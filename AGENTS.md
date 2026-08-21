@@ -40,8 +40,9 @@ EdgeBalancer/
 app/                         # Next.js App Router pages
   page.tsx                   # Landing page
   layout.tsx                 # Root layout (AuthProvider, ToastProvider)
-  dashboard/page.tsx         # Load balancer list dashboard
+  overview/page.tsx          # AI Agent prompt + fleet stats (active balancers / origins)
   loadbalancers/
+    page.tsx                   # Load balancer list (search, filters, pause/delete)
     create/page.tsx          # Create flow
     [id]/edit/page.tsx       # Edit flow
   sessions/page.tsx          # Deployment history
@@ -410,15 +411,17 @@ still demands a live code, because a code is the only thing that proves possessi
 **SSE events:** `run_start`, `model_active`, `model_switch`, `status`, `tool_start`, `tool_result`,
 `done`, `error`.
 
-**Tools:** `find_tools` (progressive disclosure), `ask_user` (ends the turn with a question),
-`list_zones`, `list_load_balancers`, `create_load_balancer`, `update_load_balancer`,
-`delete_load_balancer`, `pause_load_balancer`, `resume_load_balancer`.
+**Tools:** `find_tools` (progressive disclosure), `list_zones`, `list_load_balancers`,
+`create_load_balancer`, `update_load_balancer`, `delete_load_balancer`, `pause_load_balancer`,
+`resume_load_balancer`. There is no `ask_user` tool — the chat input is always visible, so
+questions are ordinary prose endings and the user's answer arrives as the next message of the chain.
 
 **Every tool executes for real.** All five mutating tools call the same orchestrators the REST
 routes use, so rollback semantics are identical. The safety gate is conversational: before a
-destructive step (`update`, `delete`, `pause`, `resume`) the agent must call `ask_user`; the turn
-ends with outcome `needs_input`, the client shows the reply box, and the user's answer arrives as
-the next message of the chain — only then does the agent call the destructive tool.
+destructive step (`update`, `delete`, `pause`, `resume`) the agent ends its turn with a plain-text
+confirmation question — a zero-tool-call ending that settles as `success` — and only calls the
+tool after a clear yes appears in the conversation. Loading a mutating tool without calling it is
+therefore a legitimate pause, not a silent failure, and never triggers RCA.
 
 **Conversation chain:** the client owns the transcript and replays it on every call
 (`messages: [{role, content}]`, capped at 30 turns × 4000 chars). The server validates it,
@@ -432,26 +435,31 @@ updates that document in place (`turns`, outcome, steps appended via `$push` wit
 `durationMs` accumulated) instead of creating a new one. No schema field — the echoed runId is
 the key. A stale echo falls back to a standalone document. Closing the modal resets the chain.
 
-**Outcomes:** `success`, `failure`, `refused` (out-of-scope), `needs_input` (agent asked
-something). There is no REST confirmation endpoint any more — destructive actions happen inside
+**Outcomes:** `success`, `failure`. Every turn that ends without tools — question, answer,
+acknowledged exit, out-of-scope refusal — settles as `success` with its prose as the message;
+only a broken run is `failure` (a user-cancelled run records `failure` with "Request cancelled").
+Retired values (`refused`, `needs_input`) may still exist in old documents and render via
+fallbacks. There is no REST confirmation endpoint any more — destructive actions happen inside
 the agent run after an in-conversation agreement.
 
 **Failure handling:** a tool that fails twice stops the run; a 409 conflict stops it on the first
 attempt — the agent must never rename or re-target to work around a conflict. Either way a final
 model call with `RCA_PROMPT` (no tools bound) writes the root-cause paragraph shown to the user.
 
-**Model ladder:** the OpenRouter free tier first (`openrouter/free`, the auto-router catch-all,
-last within it), then the metered Mistral tier. Every id on the ladder passed a 3-step compliance
-eval against the real system prompt — `find_tools` → `list_zones` → a mandatory `ask_user` at the
-mid-conversation checkpoint — chained as real turns so each step replays the model's own prior
+**Model ladder:** the OpenRouter free tier first, then the metered Mistral tier. Every id on the
+ladder passed a 3-step compliance
+eval against the real system prompt — `find_tools` → `list_zones` → a mandatory mid-conversation
+checkpoint — chained as real turns so each step replays the model's own prior
 response verbatim (synthetic canned history causes false rejections). Models that answer the
 checkpoint in plain prose dead-end a run, and a dead-end "success" is worse than a 429
 fall-through, so failed models are removed outright; when a whole tier fails, the provider goes
-(OpenCode Zen, then Gemini). The OpenRouter tier is quality-gated — only large-flagship-class
-MoE models are kept (nano/mini/xs variants removed) — and within it models are ordered by P50
-latency, fastest first (openrouter.ai model pages, Aug 21 2026); within Mistral by measured
-requests-per-second allowance, largest first. Free quota is spent before the metered one.
-Failures are classified, and only quota exhaustion is shared with other users:
+(OpenCode Zen, then Gemini). The OpenRouter tier is additionally quality-gated — only
+large-flagship-class MoE models are even considered (nano/mini/xs variants removed) — and the
+Aug 21 2026 eval left `dots-3-note-preview:free` as its sole survivor: nemotron-super and
+nemotron-ultra answered the checkpoint in prose, the `openrouter/free` auto-router skipped the
+mandatory first tool call, and glm-5.2 stayed upstream-saturated. Within Mistral models are
+ordered by measured requests-per-second allowance, largest first. Free quota is spent before the
+metered one. Failures are classified, and only quota exhaustion is shared with other users:
 
 | Disposition | Trigger | Effect |
 |---|---|---|

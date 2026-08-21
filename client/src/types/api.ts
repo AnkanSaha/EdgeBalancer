@@ -176,7 +176,7 @@ export interface CreateLoadBalancerRequest {
 
 // --- AI Agent ---
 
-export type AiOutcome = 'success' | 'failure' | 'refused' | 'needs_input';
+export type AiOutcome = 'success' | 'failure';
 
 /** One turn of the conversation chain replayed to the server on every call. */
 export interface ConversationTurn {

@@ -20,11 +20,11 @@ export type AiEventName =
 export type AiEmitter = (event: AiEventName, payload: Record<string, unknown>) => void;
 
 /**
- * `needs_input` ends the turn with a question for the user — a missing detail or a confirmation
- * before a destructive step. The client shows the reply box; the answer comes back as the next
- * user message in the conversation chain.
+ * How a run settles. Turns that end without tools — questions, answers, refusals — are ordinary
+ * prose endings now: the chat input is always available, so they settle as `success` whose
+ * message is the reply. Only a broken run is `failure`.
  */
-export type AiOutcome = 'success' | 'failure' | 'refused' | 'needs_input';
+export type AiOutcome = 'success' | 'failure';
 
 /** One turn of the client-side conversation chain replayed into the model on every call. */
 export interface ConversationTurn {

@@ -47,7 +47,7 @@ describe('GET /api/ai/runs', () => {
       userId: user._id,
       runId: 'run-1',
       prompt: 'test prompt',
-      outcome: 'needs_input',
+      outcome: 'success',
       durationMs: 1000,
     });
     await AiRun.create({
@@ -78,7 +78,7 @@ describe('GET /api/ai/runs', () => {
       userId: user._id,
       runId: 'run-second',
       prompt: 'second',
-      outcome: 'needs_input',
+      outcome: 'success',
       durationMs: 2000,
     });
 
@@ -97,7 +97,7 @@ describe('GET /api/ai/runs', () => {
         userId: user._id,
         runId: `run-${i}`,
         prompt: `prompt-${i}`,
-        outcome: 'needs_input',
+        outcome: 'success',
         durationMs: 1000,
       });
       ids.push(run._id);
@@ -118,7 +118,7 @@ describe('GET /api/ai/runs', () => {
         userId: user._id,
         runId: `run-${i}`,
         prompt: `prompt-${i}`,
-        outcome: 'needs_input',
+        outcome: 'success',
         durationMs: 1000,
       });
     }
@@ -155,7 +155,7 @@ describe('GET /api/ai/runs', () => {
         ok: true,
         durationMs: 21,
       }],
-      outcome: 'needs_input',
+      outcome: 'success',
       durationMs: 5000,
     });
 
@@ -191,7 +191,7 @@ describe('GET /api/ai/runs/:id', () => {
         ok: true,
         durationMs: 1200,
       }],
-      outcome: 'needs_input',
+      outcome: 'success',
       durationMs: 15000,
       error: null,
     });
@@ -205,7 +205,7 @@ describe('GET /api/ai/runs/:id', () => {
     expect(body.success).toBe(true);
     expect(body.data.run.prompt).toBe('create a loadbalancer named test with origin https://example.com');
     expect(body.data.run.finalModel).toBe('nvidia/nemotron:free');
-    expect(body.data.run.outcome).toBe('needs_input');
+    expect(body.data.run.outcome).toBe('success');
     expect(body.data.run.modelsUsed).toHaveLength(1);
     expect(body.data.run.toolCalls).toHaveLength(1);
     expect(body.data.run.toolCalls[0].args).toEqual({
