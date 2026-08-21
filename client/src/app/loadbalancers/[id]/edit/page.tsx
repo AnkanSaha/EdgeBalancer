@@ -196,11 +196,28 @@ export default function EditLoadBalancerPage() {
 
   const isRawIpUrl = (url: string): boolean => {
     if (!url.trim()) return false;
-    const withProto = /^https?:\/\//i.test(url) ? url : `http://${url}`;
+    const hasProto = /^https?:\/\//i.test(url);
+    let testUrl = url.trim();
+    if (!hasProto) {
+      const hostOnly = testUrl.split('/')[0].split('?')[0].split('#')[0];
+      const cleanHost = hostOnly.replace(/^\[|\]$/g, '');
+      const isIpv6 = cleanHost.includes(':') && /^[a-fA-F0-9:]+$/.test(cleanHost) && (cleanHost.match(/:/g) || []).length >= 2;
+      if (isIpv6) {
+        const bracketed = hostOnly.startsWith('[') ? hostOnly : `[${hostOnly}]`;
+        testUrl = `http://${bracketed}${testUrl.substring(hostOnly.length)}`;
+      } else {
+        testUrl = `http://${testUrl}`;
+      }
+    }
     try {
-      const { hostname } = new URL(withProto);
-      return /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
-    } catch { return false; }
+      const { hostname } = new URL(testUrl);
+      const cleanHost = hostname.replace(/^\[|\]$/g, '');
+      const isIpv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(cleanHost);
+      const isIpv6 = cleanHost.includes(':') && /^[a-fA-F0-9:]+$/.test(cleanHost) && (cleanHost.match(/:/g) || []).length >= 2;
+      return isIpv4 || isIpv6;
+    } catch {
+      return false;
+    }
   };
 
   const findIpRecord = (url: string) => {
@@ -266,7 +283,20 @@ export default function EditLoadBalancerPage() {
         subdomain: trimmedSubdomain || undefined,
         origins: form.origins.map((o) => {
           const url = o.url.trim();
-          const finalUrl = /^https?:\/\//i.test(url) ? url : `http://${url}`;
+          let finalUrl = url;
+          const hasProto = /^https?:\/\//i.test(url);
+          const proto = hasProto ? url.match(/^https?:\/\//i)?.[0] ?? 'http://' : 'http://';
+          const withoutProto = hasProto ? url.substring(proto.length) : url;
+          const hostPart = withoutProto.split('/')[0].split('?')[0].split('#')[0];
+          const cleanHost = hostPart.replace(/^\[|\]$/g, '');
+          const isIpv6 = cleanHost.includes(':') && /^[a-fA-F0-9:]+$/.test(cleanHost) && (cleanHost.match(/:/g) || []).length >= 2;
+          
+          if (isIpv6 && !hostPart.startsWith('[')) {
+            const rest = withoutProto.substring(hostPart.length);
+            finalUrl = `${proto}[${hostPart}]${rest}`;
+          } else if (!hasProto) {
+            finalUrl = `http://${url}`;
+          }
           return {
             url: finalUrl,
             weight: o.weight,

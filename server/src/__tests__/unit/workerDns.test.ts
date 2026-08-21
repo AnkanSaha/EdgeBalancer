@@ -52,8 +52,8 @@ describe('isRawIpOrigin', () => {
     expect(isRawIpOrigin('ftp://18.60.112.44')).toBe(true);
   });
 
-  it('returns false for IPv6 addresses', () => {
-    expect(isRawIpOrigin('http://[::1]')).toBe(false);
+  it('returns true for IPv6 addresses', () => {
+    expect(isRawIpOrigin('http://[::1]')).toBe(true);
   });
 });
 

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { isIP } from 'node:net';
 import { retryWithBackoff } from '../utils/retry';
 import type { OriginServer } from './workerGenerator';
 
@@ -13,7 +14,8 @@ export interface IpOriginRecord {
 export function isRawIpOrigin(url: string): boolean {
   try {
     const { hostname } = new URL(url);
-    return /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
+    const cleanHost = hostname.replace(/^\[|\]$/g, '');
+    return isIP(cleanHost) !== 0;
   } catch {
     return false;
   }
@@ -41,8 +43,10 @@ export async function createIpDnsRecord(params: {
   zoneId: string;
   hostname: string;
   ip: string;
+  isOAuth?: boolean;
 }): Promise<string> {
-  const { apiToken, zoneId, hostname, ip } = params;
+  const { apiToken, zoneId, hostname, ip, isOAuth } = params;
+  const type = isIP(ip) === 6 ? 'AAAA' : 'A';
 
   let response: any;
   try {
@@ -50,7 +54,7 @@ export async function createIpDnsRecord(params: {
       () => axios.post(
         `${CLOUDFLARE_API_BASE}/zones/${zoneId}/dns_records`,
         {
-          type: 'A',
+          type,
           name: hostname,
           content: ip,
           ttl: 1,
@@ -73,7 +77,9 @@ export async function createIpDnsRecord(params: {
     );
   } catch (error: any) {
     if (error.response?.status === 403) {
-      const err = new Error('Your Cloudflare API token is missing the Zone > DNS > Edit permission. Please update your token at dash.cloudflare.com/profile/api-tokens to use raw IP origins.');
+      const err = isOAuth
+        ? new Error('Your Cloudflare connection is missing the Zone > DNS > Edit permission for this domain. Please reconnect your Cloudflare account and ensure it has access to this zone.')
+        : new Error('Your Cloudflare API token is missing the Zone > DNS > Edit permission. Please update your token at dash.cloudflare.com/profile/api-tokens to use raw IP origins.');
       (err as any).statusCode = 422;
       throw err;
     }
@@ -93,14 +99,16 @@ export async function updateIpDnsRecord(params: {
   recordId: string;
   hostname: string;
   newIp: string;
+  isOAuth?: boolean;
 }): Promise<void> {
-  const { apiToken, zoneId, recordId, hostname, newIp } = params;
+  const { apiToken, zoneId, recordId, hostname, newIp, isOAuth } = params;
+  const type = isIP(newIp) === 6 ? 'AAAA' : 'A';
 
   const response = await retryWithBackoff(
     () => axios.put(
       `${CLOUDFLARE_API_BASE}/zones/${zoneId}/dns_records/${recordId}`,
       {
-        type: 'A',
+        type,
         name: hostname,
         content: newIp,
         ttl: 1,
@@ -169,11 +177,12 @@ export async function resolveIpOrigins(params: {
   domain: string;
   zoneId: string;
   apiToken: string;
+  isOAuth?: boolean;
 }): Promise<{
   resolvedOrigins: OriginServer[];
   ipOriginRecords: IpOriginRecord[];
 }> {
-  const { origins, scriptName, domain, zoneId, apiToken } = params;
+  const { origins, scriptName, domain, zoneId, apiToken, isOAuth } = params;
 
   const resolvedOrigins: OriginServer[] = origins.map(({ rawIp: _, ...rest }) => ({ ...rest }));
   const ipOriginRecords: IpOriginRecord[] = [];
@@ -185,9 +194,9 @@ export async function resolveIpOrigins(params: {
 
       if (isRawIpOrigin(origin.url)) {
         // Auto-convert: user submitted raw IP, we generate the hostname
-        const ip = new URL(origin.url).hostname;
+        const ip = new URL(origin.url).hostname.replace(/^\[|\]$/g, '');
         const generatedHostname = buildIpOriginHostname(scriptName, i, domain);
-        const recordId = await createIpDnsRecord({ apiToken, zoneId, hostname: generatedHostname, ip });
+        const recordId = await createIpDnsRecord({ apiToken, zoneId, hostname: generatedHostname, ip, isOAuth });
         createdRecordIds.push(recordId);
 
         resolvedOrigins[i] = { ...resolvedOrigins[i], url: resolveIpUrl(origin.url, generatedHostname) };
@@ -198,8 +207,9 @@ export async function resolveIpOrigins(params: {
         // rawIp holds the original IP to point the DNS record at
         const hostname = new URL(origin.url).hostname;
         const protocol = new URL(origin.url).protocol;
-        const originalUrl = `${protocol}//${origin.rawIp}`;
-        const recordId = await createIpDnsRecord({ apiToken, zoneId, hostname, ip: origin.rawIp });
+        const cleanRawIp = origin.rawIp.replace(/^\[|\]$/g, '');
+        const originalUrl = `${protocol}//${cleanRawIp.includes(':') ? `[${cleanRawIp}]` : cleanRawIp}`;
+        const recordId = await createIpDnsRecord({ apiToken, zoneId, hostname, ip: cleanRawIp, isOAuth });
         createdRecordIds.push(recordId);
 
         // resolvedOrigins[i].url is already the hostname — no substitution needed
@@ -234,13 +244,14 @@ export async function provisionIpDnsChanges(params: {
   domain: string;
   zoneId: string;
   apiToken: string;
+  isOAuth?: boolean;
 }): Promise<{
   resolvedOrigins: OriginServer[];
   ipOriginRecords: IpOriginRecord[];
   createdRecordIds: string[];
   obsoleteRecords: IpOriginRecord[];
 }> {
-  const { newOrigins, existingRecords, scriptName, domain, zoneId, apiToken } = params;
+  const { newOrigins, existingRecords, scriptName, domain, zoneId, apiToken, isOAuth } = params;
 
   const resolvedOrigins: OriginServer[] = newOrigins.map(({ rawIp: _, ...rest }) => ({ ...rest }));
   const newIpOriginRecords: IpOriginRecord[] = [];
@@ -253,23 +264,23 @@ export async function provisionIpDnsChanges(params: {
 
       if (isRawIpOrigin(origin.url)) {
         // Auto-convert: raw IP URL
-        const newIp = new URL(origin.url).hostname;
+        const newIp = new URL(origin.url).hostname.replace(/^\[|\]$/g, '');
         const generatedHostname = buildIpOriginHostname(scriptName, i, domain);
         handledHostnames.add(generatedHostname);
 
         const existing = existingRecords.find(r => r.hostname === generatedHostname);
         if (existing) {
-          const existingIp = new URL(existing.originalUrl).hostname;
+          const existingIp = new URL(existing.originalUrl).hostname.replace(/^\[|\]$/g, '');
           if (existingIp === newIp) {
             resolvedOrigins[i] = { ...resolvedOrigins[i], url: resolveIpUrl(origin.url, generatedHostname) };
             newIpOriginRecords.push(existing);
           } else {
-            await updateIpDnsRecord({ apiToken, zoneId, recordId: existing.dnsRecordId, hostname: generatedHostname, newIp });
+            await updateIpDnsRecord({ apiToken, zoneId, recordId: existing.dnsRecordId, hostname: generatedHostname, newIp, isOAuth });
             resolvedOrigins[i] = { ...resolvedOrigins[i], url: resolveIpUrl(origin.url, generatedHostname) };
             newIpOriginRecords.push({ originalUrl: origin.url, hostname: generatedHostname, dnsRecordId: existing.dnsRecordId });
           }
         } else {
-          const recordId = await createIpDnsRecord({ apiToken, zoneId, hostname: generatedHostname, ip: newIp });
+          const recordId = await createIpDnsRecord({ apiToken, zoneId, hostname: generatedHostname, ip: newIp, isOAuth });
           createdRecordIds.push(recordId);
           resolvedOrigins[i] = { ...resolvedOrigins[i], url: resolveIpUrl(origin.url, generatedHostname) };
           newIpOriginRecords.push({ originalUrl: origin.url, hostname: generatedHostname, dnsRecordId: recordId });
@@ -279,21 +290,22 @@ export async function provisionIpDnsChanges(params: {
         // User clicked "Convert to Domain": url is already the hostname, rawIp is the original IP
         const hostname = new URL(origin.url).hostname;
         const protocol = new URL(origin.url).protocol;
-        const originalUrl = `${protocol}//${origin.rawIp}`;
+        const cleanRawIp = origin.rawIp.replace(/^\[|\]$/g, '');
+        const originalUrl = `${protocol}//${cleanRawIp.includes(':') ? `[${cleanRawIp}]` : cleanRawIp}`;
         handledHostnames.add(hostname);
 
         const existing = existingRecords.find(r => r.hostname === hostname);
         if (existing) {
-          const existingIp = new URL(existing.originalUrl).hostname;
-          if (existingIp === origin.rawIp) {
+          const existingIp = new URL(existing.originalUrl).hostname.replace(/^\[|\]$/g, '');
+          if (existingIp === cleanRawIp) {
             // Same IP — no-op, reuse record
             newIpOriginRecords.push(existing);
           } else {
-            await updateIpDnsRecord({ apiToken, zoneId, recordId: existing.dnsRecordId, hostname, newIp: origin.rawIp });
+            await updateIpDnsRecord({ apiToken, zoneId, recordId: existing.dnsRecordId, hostname, newIp: cleanRawIp, isOAuth });
             newIpOriginRecords.push({ originalUrl, hostname, dnsRecordId: existing.dnsRecordId });
           }
         } else {
-          const recordId = await createIpDnsRecord({ apiToken, zoneId, hostname, ip: origin.rawIp });
+          const recordId = await createIpDnsRecord({ apiToken, zoneId, hostname, ip: cleanRawIp, isOAuth });
           createdRecordIds.push(recordId);
           newIpOriginRecords.push({ originalUrl, hostname, dnsRecordId: recordId });
         }

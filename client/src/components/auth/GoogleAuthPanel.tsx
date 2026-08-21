@@ -55,13 +55,13 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
 
   useEffect(() => {
     if (!authLoading && user) {
-      router.push('/loadbalancers');
+      router.push('/overview');
     }
   }, [user, authLoading, router]);
 
   const finish = () => {
     toast.success(copy.success);
-    router.push('/loadbalancers');
+    router.push('/overview');
   };
 
   // Driven by the events that enter the stage, never by an effect watching it: the challenge

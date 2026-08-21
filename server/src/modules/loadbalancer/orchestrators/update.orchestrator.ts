@@ -140,7 +140,7 @@ export async function updateLoadBalancerOrchestrator(params: {
     : undefined;
 
   // Get credentials
-  const { accountId, apiToken } = await getCloudflareCredentialsForUser(userId);
+  const { accountId, apiToken, isOAuth } = await getCloudflareCredentialsForUser(userId);
 
   // Validate new hostname
   const nextHostname = toHostname(domain, subdomain);
@@ -212,6 +212,7 @@ export async function updateLoadBalancerOrchestrator(params: {
     domain,
     zoneId,
     apiToken,
+    isOAuth,
   });
   await cancellation.throwIfCancelled();
 
