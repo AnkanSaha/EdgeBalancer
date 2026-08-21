@@ -80,7 +80,7 @@ export async function createLoadBalancerOrchestrator(params: {
   let hostname = '';
   let accountId = '';
   let apiToken = '';
-  let isOAuth = false;
+  let isOAuth: boolean | undefined = false;
   let workerCode = '';
   let ipOriginRecords: IpOriginRecord[] = [];
   let nameLock: LockHandle | null = null;
