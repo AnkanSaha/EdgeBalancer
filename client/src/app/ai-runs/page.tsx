@@ -30,14 +30,14 @@ function formatDuration(ms: number): string {
 function outcomeColor(outcome: AiOutcome): string {
   if (outcome === 'success') return 'var(--green)';
   if (outcome === 'failure') return 'var(--red)';
-  if (outcome === 'pending') return 'var(--accent)';
+  if (outcome === 'needs_input') return 'var(--accent)';
   return 'var(--text-3)';
 }
 
 function outcomeLabel(outcome: AiOutcome): string {
   if (outcome === 'success') return 'Success';
   if (outcome === 'failure') return 'Failed';
-  if (outcome === 'pending') return 'Pending';
+  if (outcome === 'needs_input') return 'Waiting for reply';
   return 'Refused';
 }
 
@@ -90,14 +90,56 @@ function AiRunDetailModal({ runId, onClose, isPro }: { runId: string; onClose: (
               <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{relativeTime(run.createdAt)}</span>
               <span style={{ fontSize: 12, color: 'var(--text-3)' }}>· {formatDuration(run.durationMs)}</span>
             </div>
-            <div style={{
-              fontSize: 14, lineHeight: 1.6, padding: 14,
-              background: 'var(--bg-2)', borderRadius: 'var(--radius)',
-              border: '1px solid var(--line)', whiteSpace: 'pre-wrap',
-            }}>
-              {run.prompt}
-            </div>
+            {/* The thread below already opens with this prompt as its first bubble */}
+            {(!run.turns || run.turns.length === 0) && (
+              <div style={{
+                fontSize: 14, lineHeight: 1.6, padding: 14,
+                background: 'var(--bg-2)', borderRadius: 'var(--radius)',
+                border: '1px solid var(--line)', whiteSpace: 'pre-wrap',
+              }}>
+                {run.prompt}
+              </div>
+            )}
           </div>
+
+          {/* Conversation — every clarification round-trip the run went through */}
+          {run.turns && run.turns.length > 0 && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-2)' }}>Conversation</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {run.turns.map((turn, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      alignSelf: turn.role === 'user' ? 'flex-end' : 'flex-start',
+                      maxWidth: '90%',
+                      padding: '8px 12px', borderRadius: 'var(--radius)',
+                      fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap',
+                      ...(turn.role === 'user'
+                        ? { background: 'var(--accent-dim)', border: '1px solid var(--accent)' }
+                        : { background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--text-2)' }),
+                    }}
+                  >
+                    {turn.content}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Final answer or question, as shown to the user */}
+          {run.finalMessage && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-2)' }}>Agent reply</div>
+              <div style={{
+                fontSize: 13.5, lineHeight: 1.65, padding: 14,
+                background: 'var(--bg-2)', borderRadius: 'var(--radius)',
+                border: `1px solid ${outcomeColor(run.outcome)}`, whiteSpace: 'pre-wrap',
+              }}>
+                {run.finalMessage}
+              </div>
+            </div>
+          )}
 
           {/* Error */}
           {run.error && (
@@ -153,7 +195,7 @@ function AiRunDetailModal({ runId, onClose, isPro }: { runId: string; onClose: (
           {run.toolCalls && run.toolCalls.length > 0 && (
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-2)' }}>
-                Tool Calls ({run.toolCalls?.length})
+                Steps ({run.toolCalls?.length})
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {run.toolCalls.map((tc, i) => (
@@ -271,7 +313,7 @@ function AiRunsEmptyState() {
       <Icons.Zap size={32} style={{ color: 'var(--text-3)', marginBottom: 16 }} />
       <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 8 }}>No AI runs yet</div>
       <div style={{ fontSize: 13, color: 'var(--text-3)', maxWidth: 360 }}>
-        Use the AI prompt on the dashboard to create or manage load balancers with natural language. Your runs will appear here.
+        Use the AI Agent prompt on the dashboard to create or manage load balancers with natural language. Every run, its steps and its outcome will appear here.
       </div>
     </div>
   );
@@ -369,7 +411,7 @@ export default function AiRunsPage() {
           <Topbar
             crumbs={['Dashboard', 'AI Runs']}
             title="AI Runs"
-            subtitle="History of every AI provisioning request and its outcome"
+            subtitle="History of every AI Agent request, its steps and its outcome"
           />
           <div style={{ padding: 'clamp(16px, 4vw, 32px)', overflow: 'auto', flex: 1 }}>
             {loading ? (

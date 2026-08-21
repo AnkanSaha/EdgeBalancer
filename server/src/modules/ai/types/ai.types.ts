@@ -9,6 +9,7 @@ export interface ModelDescriptor {
 
 export type AiEventName =
   | 'run_start'
+  | 'model_active'
   | 'model_switch'
   | 'status'
   | 'tool_start'
@@ -18,22 +19,17 @@ export type AiEventName =
 
 export type AiEmitter = (event: AiEventName, payload: Record<string, unknown>) => void;
 
-export type AiOutcome = 'success' | 'failure' | 'pending' | 'refused';
-
-export type PendingActionKind = 'delete' | 'pause' | 'resume' | 'update';
-
 /**
- * A destructive step the agent has resolved but deliberately not performed. The client executes
- * it against the normal REST routes once the user confirms, so the run never has to pause.
+ * `needs_input` ends the turn with a question for the user — a missing detail or a confirmation
+ * before a destructive step. The client shows the reply box; the answer comes back as the next
+ * user message in the conversation chain.
  */
-export interface PendingAction {
-  action: PendingActionKind;
-  loadBalancerId: string;
-  name: string;
-  fullDomain: string;
-  summary: string;
-  /** Body for the follow-up request — the pause mode, or the full config for an update. */
-  payload?: Record<string, unknown>;
+export type AiOutcome = 'success' | 'failure' | 'refused' | 'needs_input';
+
+/** One turn of the client-side conversation chain replayed into the model on every call. */
+export interface ConversationTurn {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 export interface ModelAttempt {

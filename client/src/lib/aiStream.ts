@@ -1,21 +1,35 @@
-import type { AiEvent } from '@/types/api';
+import type { AiEvent, ConversationTurn } from '@/types/api';
 
 const API_BASE = `${process.env.NEXT_PUBLIC_API_URL || 'https://apiedge.nexoral.in'}/api`;
 
 /**
- * Streams an AI provisioning run. Uses fetch rather than the axios singleton in `api.ts`
+ * Streams an AI Agent run. Uses fetch rather than the axios singleton in `api.ts`
  * because axios cannot expose a response body incrementally in the browser, and rather than
- * EventSource because the prompt has to be sent in a POST body.
+ * EventSource because the conversation chain has to be sent in a POST body.
+ *
+ * `history` is everything said so far in this conversation — earlier turns first. The server
+ * appends `prompt` as the newest user message, so a clarification round-trip resumes with full
+ * context.
  */
 export async function streamAiGeneration(
   prompt: string,
-  options: { onEvent: (event: AiEvent) => void; signal?: AbortSignal },
+  options: {
+    history?: ConversationTurn[];
+    /** runId of the conversation's first turn — continuation turns update that history entry. */
+    conversationId?: string | null;
+    onEvent: (event: AiEvent) => void;
+    signal?: AbortSignal;
+  },
 ): Promise<void> {
   const response = await fetch(`${API_BASE}/ai/generate`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({
+      prompt,
+      messages: options.history ?? [],
+      conversationId: options.conversationId ?? undefined,
+    }),
     signal: options.signal,
   });
 

@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { generateWithAi, listAiRuns, getAiRun, completeAiRun } from '../controllers/aiController';
+import { generateWithAi, listAiRuns, getAiRun } from '../controllers/aiController';
 import { authenticate } from '../middleware/auth';
 import { runHandlers } from '../utils/routeRunner';
 import { parseCookies } from '../types/http';
@@ -24,10 +24,11 @@ const keyGenerator = (request: FastifyRequest): string => {
   return `ip:${(request.headers['cf-connecting-ip'] as string | undefined) ?? request.ip}`;
 };
 
-// A single run can fan out into many model calls and Cloudflare writes.
+// One conversation turn costs one call, and a single provisioning chat runs six-plus turns —
+// the cap has to fit several full conversations inside the window.
 const STRICT = TEST
   ? { max: 10000, timeWindow: '1 minute' }
-  : { max: 5, timeWindow: '15 minutes', keyGenerator };
+  : { max: 30, timeWindow: '15 minutes', keyGenerator };
 
 const RELAXED = TEST
   ? { max: 10000, timeWindow: '1 minute' }
@@ -37,5 +38,4 @@ export default async function aiRoutes(app: FastifyInstance) {
   app.post('/generate', { config: { rateLimit: STRICT } }, async (request, reply) => runHandlers([authenticate, generateWithAi], request, reply));
   app.get('/runs', { config: { rateLimit: RELAXED } }, async (request, reply) => runHandlers([authenticate, listAiRuns], request, reply));
   app.get('/runs/:id', { config: { rateLimit: RELAXED } }, async (request, reply) => runHandlers([authenticate, getAiRun], request, reply));
-  app.patch('/runs/:id/complete', { config: { rateLimit: RELAXED } }, async (request, reply) => runHandlers([authenticate, completeAiRun], request, reply));
 }

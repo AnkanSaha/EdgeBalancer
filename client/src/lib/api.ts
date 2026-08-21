@@ -244,11 +244,6 @@ class ApiClient {
     return response.data;
   }
 
-  async completeAiRun(id: string): Promise<ApiResponse> {
-    const response = await this.client.patch(`/ai/runs/${id}/complete`);
-    return response.data;
-  }
-
   // User/Profile endpoints
   async getProfile(): Promise<ApiResponse> {
     const response = await this.client.get('/user/profile');

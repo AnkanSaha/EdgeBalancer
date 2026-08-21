@@ -7,9 +7,13 @@ export const PROVIDER_COOLDOWN_SECONDS = 24 * 60 * 60;
 
 // Mistral enforces two limits per model: requests-per-second, which clears within a second, and
 // tokens-per-minute, which clears within the minute. `tryConsume` already paces us against the
-// former, so a 429 that still gets through is most likely the token budget — hence a full minute.
-// A Retry-After on the response always wins over this default.
-export const MODEL_COOLDOWN_SECONDS = 60;
+// former, so a 429 that still gets through is most likely the token budget — hence ~a minute
+// and a half. A Retry-After on the response always wins over this default.
+export const MODEL_COOLDOWN_SECONDS = 90;
+
+export function modelCooldownFor(_provider: ModelProvider): number {
+  return MODEL_COOLDOWN_SECONDS;
+}
 
 // Never trust an upstream header to park a model for hours.
 const MAX_COOLDOWN_SECONDS = 24 * 60 * 60;
@@ -27,8 +31,12 @@ export async function markProviderExhausted(provider: ModelProvider, seconds?: n
   await write(providerKey(provider), clamp(seconds, PROVIDER_COOLDOWN_SECONDS));
 }
 
-export async function markModelExhausted(model: string, seconds?: number): Promise<void> {
-  await write(modelKey(model), clamp(seconds, MODEL_COOLDOWN_SECONDS));
+export async function markModelExhausted(
+  model: string,
+  seconds?: number,
+  fallbackSeconds: number = MODEL_COOLDOWN_SECONDS,
+): Promise<void> {
+  await write(modelKey(model), clamp(seconds, fallbackSeconds));
 }
 
 const clamp = (seconds: number | undefined, fallback: number): number =>

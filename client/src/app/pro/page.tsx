@@ -19,7 +19,7 @@ const ALL_FEATURES: { free: string | null; student: string | null; pro: string |
   { free: null, student: 'Health Checks (up to 5 LBs)', pro: 'Unlimited Health Checks' },
   { free: null, student: 'Cloudflare analytics per card', pro: 'Cloudflare analytics per card' },
   { free: null, student: 'Download Worker scripts', pro: 'Download Worker scripts' },
-  { free: null, student: null, pro: 'AI Provisioning' },
+  { free: null, student: null, pro: 'AI Agent' },
   { free: null, student: null, pro: 'Rate Limiting' },
 ];
 
@@ -164,7 +164,28 @@ export default function ProPage() {
                 <p style={{ color: 'var(--text-2)', marginTop: 14, fontSize: 15 }}>
                   Your subscription is active until <strong>{expiryDate}</strong>.
                 </p>
-                <p style={{ color: 'var(--text-3)', marginTop: 10, fontSize: 14, lineHeight: 1.7 }}>
+
+                {/* What this plan actually includes */}
+                <div style={{
+                  marginTop: 24, marginBottom: 8, textAlign: 'left',
+                  background: 'var(--bg-1)', border: '1px solid var(--line)',
+                  borderRadius: 'var(--radius)', padding: '20px 22px',
+                }}>
+                  <div style={{
+                    fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text-3)',
+                    textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14,
+                  }}>What you get with {currentPlan === 'pro' ? 'Pro' : currentPlan === 'student' ? "Student's Support" : 'Trial'}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {ALL_FEATURES.filter(f => f[currentPlan as 'free' | 'student' | 'pro']).map(f => (
+                      <div key={f[currentPlan as 'free' | 'student' | 'pro']!} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13.5, color: 'var(--text)' }}>
+                        <Icons.Check size={15} stroke="#f59e0b" style={{ marginTop: 2, flexShrink: 0 }} />
+                        <span>{f[currentPlan as 'free' | 'student' | 'pro']}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <p style={{ color: 'var(--text-3)', marginTop: 16, fontSize: 14, lineHeight: 1.7 }}>
                   When your subscription expires, you will automatically revert to the Free plan.
                   <span style={{ whiteSpace: 'nowrap' }}> You can re-subscribe anytime.</span>
                 </p>

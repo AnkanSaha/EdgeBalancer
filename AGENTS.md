@@ -104,7 +104,7 @@ models/
   User.ts                    # IUser Mongoose schema
   LoadBalancer.ts            # ILoadBalancer Mongoose schema
   Session.ts                 # ISession Mongoose schema
-  AiRun.ts                   # IAiRun — audit trail for AI provisioning runs
+  AiRun.ts                   # IAiRun — audit trail for AI Agent runs
 
 routes/                      # Flat route handlers (auth, cloudflare, user, ai)
   authRoutes.ts
@@ -157,14 +157,14 @@ modules/                     # Domain-module pattern (preferred)
     controllers/
       list.controller.ts
       script.controller.ts
-  ai/                        # Natural-language provisioning agent (LangChain.js)
+  ai/                        # AI Agent — natural-language provisioning (LangChain.js)
                              # routes + controllers live in the flat folders above
     config/
       models.ts              # MISTRAL_MODELS + FREE_MODELS + MODEL_LADDER
       systemPrompt.ts        # guardrails — service scope only, no chat
     services/
-      model-provider.service.ts   # ladder entry → ChatOpenAI (both providers are OpenAI-compatible)
-      quota.service.ts            # global cooldowns — 24h provider, 60s model
+      model-provider.service.ts   # ladder entry → ChatOpenAI (mistral/openrouter baseURL)
+      quota.service.ts            # global cooldowns — 24h provider, 90s model
       rate-limit.service.ts       # per-model rps pacing (falls through, never queues)
       model-router.service.ts     # walk ladder, skip open breakers, fall through on failure
       tools.service.ts            # LB tools, bound to the JWT userId
@@ -400,40 +400,72 @@ still demands a live code, because a code is the only thing that proves possessi
 | GET | `/` | cursor-paginated list (filter: all/active/inactive) |
 | GET | `/:id/script` | raw Worker JS for a session |
 
-### AI (`/api/ai`)
+### AI Agent (`/api/ai`)
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/generate` | `{ prompt }` → SSE stream of the agent run. 3 per 15 min. |
+| POST | `/generate` | `{ prompt, messages? }` → SSE stream of the agent turn. 3 per 15 min. |
+| GET | `/runs` | cursor-paginated run history |
+| GET | `/runs/:id` | single run with full steps |
 
-**SSE events:** `run_start`, `model_switch`, `status`, `tool_start`, `tool_result`, `done`, `error`.
+**SSE events:** `run_start`, `model_active`, `model_switch`, `status`, `tool_start`, `tool_result`,
+`done`, `error`.
 
-**Tools:** `list_zones`, `list_load_balancers`, `create_load_balancer`, `update_load_balancer`,
+**Tools:** `find_tools` (progressive disclosure), `ask_user` (ends the turn with a question),
+`list_zones`, `list_load_balancers`, `create_load_balancer`, `update_load_balancer`,
 `delete_load_balancer`, `pause_load_balancer`, `resume_load_balancer`.
 
-`create_load_balancer` **executes directly** — it calls `createLoadBalancerOrchestrator` which deploys the Worker, attaches the hostname, and saves to MongoDB. The four destructive tools (`update_load_balancer`, `delete_load_balancer`, `pause_load_balancer`, `resume_load_balancer`) **never touch Cloudflare**: they resolve the target and return a `PendingAction` for user confirmation via REST API. Nothing irreversible happens inside an agent run.
+**Every tool executes for real.** All five mutating tools call the same orchestrators the REST
+routes use, so rollback semantics are identical. The safety gate is conversational: before a
+destructive step (`update`, `delete`, `pause`, `resume`) the agent must call `ask_user`; the turn
+ends with outcome `needs_input`, the client shows the reply box, and the user's answer arrives as
+the next message of the chain — only then does the agent call the destructive tool.
+
+**Conversation chain:** the client owns the transcript and replays it on every call
+(`messages: [{role, content}]`, capped at 30 turns × 4000 chars). The server validates it,
+appends `prompt` as the newest user message, and rebuilds model context from it — so a
+clarification ("which balancer?", "are you confirm?") is just another turn.
+
+**One history entry per conversation:** a multi-turn session would otherwise litter `airuns`
+with one document per turn. The client captures the `runId` of the conversation's first
+`run_start` and echoes it back as `conversationId` on every continuation; `recordAiRun` then
+updates that document in place (`turns`, outcome, steps appended via `$push` with `$slice`,
+`durationMs` accumulated) instead of creating a new one. No schema field — the echoed runId is
+the key. A stale echo falls back to a standalone document. Closing the modal resets the chain.
+
+**Outcomes:** `success`, `failure`, `refused` (out-of-scope), `needs_input` (agent asked
+something). There is no REST confirmation endpoint any more — destructive actions happen inside
+the agent run after an in-conversation agreement.
 
 **Failure handling:** a tool that fails twice stops the run; a 409 conflict stops it on the first
 attempt — the agent must never rename or re-target to work around a conflict. Either way a final
 model call with `RCA_PROMPT` (no tools bound) writes the root-cause paragraph shown to the user.
 
-**Model ladder:** the OpenRouter free tier first (`openrouter/free` last within it), then all
-Mistral models best-first — the free quota is capped per day, so it is spent before the metered one.
+**Model ladder:** the OpenRouter free tier first (`openrouter/free`, the auto-router catch-all,
+last within it), then the metered Mistral tier. Every id on the ladder passed a 3-step compliance
+eval against the real system prompt — `find_tools` → `list_zones` → a mandatory `ask_user` at the
+mid-conversation checkpoint — chained as real turns so each step replays the model's own prior
+response verbatim (synthetic canned history causes false rejections). Models that answer the
+checkpoint in plain prose dead-end a run, and a dead-end "success" is worse than a 429
+fall-through, so failed models are removed outright; when a whole tier fails, the provider goes
+(OpenCode Zen, then Gemini). Within the OpenRouter tier models are ordered by P50 latency,
+fastest first (openrouter.ai model pages, Aug 21 2026); within Mistral by measured
+requests-per-second allowance, largest first. Free quota is spent before the metered one.
 Failures are classified, and only quota exhaustion is shared with other users:
 
 | Disposition | Trigger | Effect |
 |---|---|---|
 | `provider-exhausted` | OpenRouter 429 matching `DAILY_QUOTA_PATTERN` | 24h Redis cooldown, **global** |
-| `model-exhausted` | Mistral 429 | 60s Redis cooldown on that model, **global** |
+| `model-exhausted` | Mistral 429 | 90s Redis cooldown on that model, **global** |
 | `provider-dead` | 401/403 | provider skipped for **this run only** |
 | `transient` | anything else, incl. burst 429 | model skipped for **this run only** |
 
 Cooldown durations are defaults: a `Retry-After` header on the 429 overrides them, clamped to 24h.
-Mistral publishes limits **per model** (requests-per-second, which clears in a second, and
-tokens-per-minute, which clears within the minute) and also enforces them per workspace, shared
-across every API key in it — which is why one key means one shared budget for all users here.
+Mistral enforces limits **per model** (requests-per-second, which clears in a second, and
+tokens-per-minute, which clears within the minute) and also per workspace, shared across every API
+key in it — which is why one key means one shared budget for all users here.
 
-Mistral entries carry their published `rps`; `tryConsume` paces them in Redis and the router moves
-down the ladder rather than waiting. Both providers are reached through `ChatOpenAI` with a
+Mistral entries carry their header-measured `rps`; `tryConsume` paces them in Redis and the router
+moves down the ladder rather than waiting. Both providers are reached through `ChatOpenAI` with a
 different `baseURL`.
 
 **Concurrency:** runs are fully independent — separate HTTP calls, separate `trace`, separate tool
@@ -572,8 +604,8 @@ FIREBASE_PROJECT_ID=
 FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
 REDIS_URL=redis://localhost:6379
-MISTRAL_API_KEY=             # AI provisioning — at least one of these two
-OPENROUTER_API_KEY=          # enables POST /api/ai/generate, else it returns 503
+MISTRAL_API_KEY=             # AI Agent — the metered Mistral tier
+OPENROUTER_API_KEY=          # AI Agent — leads the ladder with OpenRouter's free tier
 WEBAUTHN_RP_ID=              # optional — defaults to the CLIENT_URL hostname
 ```
 

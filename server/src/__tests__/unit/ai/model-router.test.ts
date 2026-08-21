@@ -13,6 +13,8 @@ jest.mock('../../../modules/ai/services/model-provider.service', () => ({
 }));
 
 jest.mock('../../../modules/ai/services/quota.service', () => ({
+  MODEL_COOLDOWN_SECONDS: 90,
+  modelCooldownFor: jest.fn(() => 90),
   isProviderExhausted: jest.fn(async () => false),
   isModelExhausted: jest.fn(async () => false),
   markProviderExhausted: jest.fn(async () => undefined),
@@ -160,7 +162,7 @@ describe('quota handling', () => {
 
     await run();
 
-    expect(markModelExhausted).toHaveBeenCalledWith('paid-best', 12);
+    expect(markModelExhausted).toHaveBeenCalledWith('paid-best', 12, 90);
   });
 
   it('reads Retry-After from a Headers-style object too', async () => {
@@ -173,7 +175,7 @@ describe('quota handling', () => {
 
     await run();
 
-    expect(markModelExhausted).toHaveBeenCalledWith('paid-best', 30);
+    expect(markModelExhausted).toHaveBeenCalledWith('paid-best', 30, 90);
   });
 
   it('leaves the cooldown to the default when no Retry-After is sent', async () => {
@@ -184,7 +186,7 @@ describe('quota handling', () => {
 
     await run();
 
-    expect(markModelExhausted).toHaveBeenCalledWith('paid-best', undefined);
+    expect(markModelExhausted).toHaveBeenCalledWith('paid-best', undefined, 90);
   });
 
   it('stands OpenRouter down on a burst 429 too — the free tier is not reliable enough to retry', async () => {
@@ -225,7 +227,7 @@ describe('quota handling', () => {
       .mockImplementation(answers);
 
     expect((await run()).model).toBe('paid-small');
-    expect(markModelExhausted).toHaveBeenCalledWith('paid-best', undefined);
+    expect(markModelExhausted).toHaveBeenCalledWith('paid-best', undefined, 90);
   });
 
   it('skips every model of a provider already in cooldown', async () => {

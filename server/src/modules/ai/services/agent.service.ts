@@ -7,7 +7,7 @@ import { RESEARCH_TOOL_NAMES } from './research.service';
 import { logRun } from './log.service';
 import { compactHistory, needsCompaction } from './compaction.service';
 import type { RequestCancellation } from '../../../utils/requestCancellation';
-import type { AiEmitter, AiOutcome, ModelAttempt, PendingAction, ToolCallRecord } from '../types/ai.types';
+import type { AiEmitter, AiOutcome, ConversationTurn, ModelAttempt, ToolCallRecord } from '../types/ai.types';
 
 const MAX_ITERATIONS = 12;
 // A model that fails the same tool twice is guessing, not converging. Stop and explain instead
@@ -18,9 +18,13 @@ const MAX_FAILURES_PER_TOOL = 2;
 // timeout, which the ladder then multiplies.
 const RUN_DEADLINE_MS = 6 * 60 * 1000;
 
-// Always bound. Everything else is sent only once find_tools has loaded it, trading one discovery
-// call for not re-sending ~1,500 tokens of schema on every iteration.
+// Always bound. Every other bucket tool is sent only once find_tools has loaded it, trading one
+// discovery call for not re-sending ~1,500 tokens of schema on every iteration.
 const TOOL_FINDER = 'find_tools';
+
+// Bound next to find_tools on every working iteration. It is the only channel to the user, and a
+// model that hits missing info before its first find_tools call must still be able to ask.
+const ASK_USER = 'ask_user';
 
 // RCA gets its own budget so a failure at iteration 12 still gets explained.
 const MAX_RCA_ITERATIONS = 3;
@@ -49,7 +53,6 @@ export interface AgentRun {
   outcome: AiOutcome;
   message: string;
   loadBalancers: unknown[];
-  pendingAction?: PendingAction;
 }
 
 const textOf = (message: AIMessage): string =>
@@ -60,33 +63,40 @@ const textOf = (message: AIMessage): string =>
         .join('')
         .trim();
 
+/** Replays the client-side conversation chain under the system prompt. */
+const buildHistory = (history: ConversationTurn[]): BaseMessage[] =>
+  history
+    .filter((turn) => typeof turn?.content === 'string' && turn.content.trim().length > 0)
+    .map((turn) => (turn.role === 'user' ? new HumanMessage(turn.content) : new AIMessage(turn.content)));
+
 export async function runAgent(params: {
   runId: string;
   userId: string;
   userEmail: string | null;
-  prompt: string;
+  /** Full conversation chain — earlier turns first, the newest user message last. */
+  history: ConversationTurn[];
   cancellation: RequestCancellation;
   emit: AiEmitter;
   trace: AgentTrace;
 }): Promise<AgentRun> {
-  const { runId, userId, userEmail, prompt, cancellation, emit, trace } = params;
+  const { runId, userId, userEmail, history, cancellation, emit, trace } = params;
   const { modelAttempts, toolCalls, loadBalancers } = trace;
   const log = logRun(runId);
 
-  log.info(`prompt: ${prompt}`);
+  log.info(`prompt: ${history[history.length - 1]?.content ?? ''} (${history.length} turn(s))`);
 
-  const proposed: { current: PendingAction | null } = { current: null };
-  const unlocked = new Set<string>();
-  const tools = buildTools({ runId, userId, userEmail, cancellation, emit, log, touched: loadBalancers, proposed, unlocked });
+  const askedUser: { current: { question: string } | null } = { current: null };
+  const unlocked = new Set<string>([TOOL_FINDER, ASK_USER]);
+  const tools = buildTools({ runId, userId, userEmail, cancellation, emit, log, touched: loadBalancers, askedUser, unlocked });
   const toolsByName = new Map(tools.map((t) => [t.name, t]));
 
-  let messages: BaseMessage[] = [new SystemMessage(SYSTEM_PROMPT), new HumanMessage(prompt)];
+  let messages: BaseMessage[] = [new SystemMessage(SYSTEM_PROMPT), ...buildHistory(history)];
   const failuresByTool = new Map<string, number>();
   const routerState = createRouterState();
 
   const finish = (outcome: AiOutcome, message: string): AgentRun => {
     log.info(`outcome=${outcome} — ${message}`);
-    return { outcome, message, loadBalancers, ...(proposed.current ? { pendingAction: proposed.current } : {}) };
+    return { outcome, message, loadBalancers };
   };
 
   const rawError = (): string => {
@@ -145,7 +155,7 @@ export async function runAgent(params: {
     // read-only web tools so it can research the failure but never retry it.
     const bound = rcaMode
       ? tools.filter((t) => RESEARCH_TOOLS.has(t.name))
-      : tools.filter((t) => t.name === TOOL_FINDER || unlocked.has(t.name));
+      : tools.filter((t) => unlocked.has(t.name));
     log.info(`${rcaMode ? 'rca' : 'iteration'} ${rcaMode ? rcaStep : iteration - 1} — bound ${bound.length}/${tools.length}: ${bound.map((t) => t.name).join(', ')}`);
 
     let response;
@@ -161,6 +171,8 @@ export async function runAgent(params: {
     }
 
     trace.finalModel = model;
+    // The modal shows the working model top-left for every call, not only on fallback.
+    emit('model_active', { model });
     messages.push(response);
 
     const calls = response.tool_calls ?? [];
@@ -168,19 +180,23 @@ export async function runAgent(params: {
       const message = textOf(response);
       if (rcaMode) return finish('failure', message || rcaFallback || rawError());
 
-      // No tool ran at all: the model refused an out-of-scope prompt or asked for missing detail.
+      // No tool ran at all: the model refused an out-of-scope prompt.
       if (toolCalls.length === 0) return finish('refused', message || 'Done.');
 
-      // Loading a mutating tool is the model stating intent to change something. Ending with
-      // nothing changed means it abandoned the job, whether or not a tool actually failed.
+      // Loading a mutating tool states intent; a *successful* mutating call proves the change
+      // happened. A delete succeeds by making the balancer disappear, so `touched` stays empty —
+      // success there must be read off the executed calls, not off what remains.
       const failed = toolCalls.some((call) => !call.ok);
+      const changed = toolCalls.some((call) => call.ok && MUTATING_TOOLS.has(call.name));
       const intendedChange = [...unlocked].some((name) => MUTATING_TOOLS.has(name));
 
-      if ((failed || intendedChange) && loadBalancers.length === 0) {
+      if ((failed || intendedChange) && !changed && loadBalancers.length === 0) {
+        log.warn(`model ended without acting — said: ${message.slice(0, 300)}`);
         rcaFallback = message;
         enterRca();
         continue;
       }
+
       return finish('success', message || 'Done.');
     }
 
@@ -218,11 +234,12 @@ export async function runAgent(params: {
         }
       }
 
-      // A destructive step was resolved but deliberately not performed. Nothing further should
-      // run — the user confirms it against the ordinary REST routes. Later calls in this batch stay
-      // unanswered on purpose: the run ends here, so no model call sees the incomplete chain.
-      if (proposed.current) {
-        return finish('pending', proposed.current.summary);
+      // ask_user ends the turn — the user's answer arrives as a fresh request carrying the whole
+      // chain, so later calls in this batch stay unanswered on purpose: no model call ever sees
+      // an incomplete tool chain.
+      if (askedUser.current) {
+        skipRemaining(calls, index);
+        return finish('needs_input', askedUser.current.question);
       }
 
       if (ok) {
