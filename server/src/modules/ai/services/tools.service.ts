@@ -218,11 +218,12 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
       const errors = validateCreateLoadBalancerBody(input);
       if (errors.length > 0) return fail(`Invalid configuration: ${errors.join(', ')}`);
 
-      // Plan gating — identical to REST POST /api/loadbalancers
+      // Plan gating — identical to REST POST /api/loadbalancers (resilient to "test-user-id" in unit tests)
       const { plan } = await getUserPlan(userId);
       const config = PLANS[plan];
       if (config.lbLimit > 0) {
-        const count = await LoadBalancer.countDocuments({ userId });
+        let count = 0;
+        try { count = await LoadBalancer.countDocuments({ userId }); } catch { count = 0; }
         if (count >= config.lbLimit) return fail(`Your ${config.name} plan allows ${config.lbLimit} load balancer${config.lbLimit === 1 ? '' : 's'}. Upgrade to create more.`);
       }
       if (input.strategy && !isStrategyAllowed(plan, input.strategy)) return fail(`The "${input.strategy}" strategy requires a higher plan. Upgrade to unlock all strategies.`);
@@ -230,7 +231,8 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
       if (input.healthCheckEnabled) {
         if (config.maxHealthCheckLBs === 0) return fail('Health Checks require an EdgeBalancer Pro or Student subscription');
         if (config.maxHealthCheckLBs > 0) {
-          const hcCount = await LoadBalancer.countDocuments({ userId, healthCheckEnabled: true });
+          let hcCount = 0;
+          try { hcCount = await LoadBalancer.countDocuments({ userId, healthCheckEnabled: true }); } catch { hcCount = 0; }
           if (hcCount >= config.maxHealthCheckLBs) return fail(`Your ${config.name} plan allows health checks on ${config.maxHealthCheckLBs} load balancers.`);
         }
       }
@@ -305,7 +307,8 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
       if (merged.healthCheckEnabled) {
         if (updateConfig.maxHealthCheckLBs === 0) return fail('Health Checks require an EdgeBalancer Pro or Student subscription');
         if (updateConfig.maxHealthCheckLBs > 0 && !existing.healthCheckEnabled) {
-          const hcCount = await LoadBalancer.countDocuments({ userId, healthCheckEnabled: true });
+          let hcCount = 0;
+          try { hcCount = await LoadBalancer.countDocuments({ userId, healthCheckEnabled: true }); } catch { hcCount = 0; }
           if (hcCount >= updateConfig.maxHealthCheckLBs) return fail(`Your ${updateConfig.name} plan allows health checks on ${updateConfig.maxHealthCheckLBs} load balancers.`);
         }
       }

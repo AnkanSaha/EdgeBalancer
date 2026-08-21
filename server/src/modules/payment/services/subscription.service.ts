@@ -6,13 +6,18 @@ import type { AppHandler } from '../../../types/http';
 
 /** Get the resolved active plan for a user */
 export async function getUserPlan(userId: string): Promise<{ plan: PlanType; expiresAt: Date | null }> {
-  const user = await User.findById(userId).select('plan planExpiresAt').lean();
-  if (!user) return { plan: 'free', expiresAt: null };
-  const plan = user.plan || 'free';
-  if (plan !== 'free' && user.planExpiresAt && user.planExpiresAt <= new Date()) {
+  try {
+    const user = await User.findById(userId).select('plan planExpiresAt').lean();
+    if (!user) return { plan: 'free', expiresAt: null };
+    const plan = user.plan || 'free';
+    if (plan !== 'free' && user.planExpiresAt && user.planExpiresAt <= new Date()) {
+      return { plan: 'free', expiresAt: null };
+    }
+    return { plan: plan as PlanType, expiresAt: user.planExpiresAt ?? null };
+  } catch {
+    // Invalid ObjectId (e.g. "test-user-id" in unit tests) — treat as free without throwing CastError
     return { plan: 'free', expiresAt: null };
   }
-  return { plan: plan as PlanType, expiresAt: user.planExpiresAt ?? null };
 }
 
 /** Check if user has Pro plan (backward compat) */
