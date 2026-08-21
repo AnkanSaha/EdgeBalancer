@@ -158,8 +158,9 @@ export default function ProPage() {
               <p style={{ color: 'var(--text-2)', marginTop: 8 }}>Redirecting to dashboard...</p>
             </div>
           ) : isActive ? (() => {
-            const featureKey: 'free' | 'student' | 'pro' = currentPlan?.includes('pro') ? 'pro' : currentPlan?.includes('student') ? 'student' : 'pro';
-            const planLabel = currentPlan?.includes('pro') ? 'PRO' : currentPlan?.includes('student') ? "STUDENT'S SUPPORT" : 'TRIAL';
+            const isTrial = currentPlan === 'trial';
+            const featureKey: 'free' | 'student' | 'pro' = isTrial ? 'student' : currentPlan?.includes('pro') ? 'pro' : currentPlan?.includes('student') ? 'student' : 'pro';
+            const planLabel = isTrial ? 'TRIAL' : currentPlan?.includes('pro') ? 'PRO' : currentPlan?.includes('student') ? "STUDENT'S SUPPORT" : 'TRIAL';
             return (
             <div style={{ maxWidth: 720, width: '100%', margin: '40px auto', textAlign: 'center' }}>
               <div style={{
