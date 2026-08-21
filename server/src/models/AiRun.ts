@@ -29,7 +29,7 @@ export interface IAiRun extends Document {
   modelsUsed: IModelAttempt[];
   finalModel: string | null;
   toolCalls: IAiToolCall[];
-  outcome: 'success' | 'failure' | 'refused' | 'needs_input';
+  outcome: 'success' | 'failure';
   finalMessage: string | null;
   durationMs: number;
   error: string | null;
@@ -101,7 +101,7 @@ const AiRunSchema = new Schema<IAiRun>(
     },
     outcome: {
       type: String,
-      enum: ['success', 'failure', 'refused', 'needs_input'],
+      enum: ['success', 'failure'],
       required: true,
     },
     finalMessage: {

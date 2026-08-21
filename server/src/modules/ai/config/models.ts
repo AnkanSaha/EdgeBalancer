@@ -4,11 +4,9 @@ import type { ModelDescriptor } from '../types/ai.types';
 // variants removed). Ordered fastest-first by P50 latency (openrouter.ai pages, Aug 21 2026).
 // `openrouter/free` is the auto-router catch-all and always runs last.
 export const FREE_MODELS = [
-  'dots-studio/dots-3-note-preview:free', // 280B MoE / 16B active — 1.07s / 72 tok/s
   'nvidia/nemotron-3-super-120b-a12b:free', // 120B MoE / 12B active — 1.25s / 41 tok/s
   'nvidia/nemotron-3-ultra-550b-a55b:free', // 550B MoE / 55B active — 3.06s / 18 tok/s
   'z-ai/glm-5.2:free', // flagship reasoning — 3.60s / 104 tok/s
-  'openrouter/free',
 ];
 
 export const MISTRAL_MODELS = [

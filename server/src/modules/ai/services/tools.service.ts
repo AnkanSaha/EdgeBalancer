@@ -26,8 +26,6 @@ export interface ToolContext {
   log: RunLogger;
   /** Load balancers created or modified during the run, surfaced to the client on completion. */
   touched: unknown[];
-  /** Set when ask_user fires — ends the turn so the user's reply can arrive as a new message. */
-  askedUser: { current: { question: string } | null };
   /** Tool names find_tools has loaded; the agent loop binds only these plus find_tools. */
   unlocked: Set<string>;
 }
@@ -117,11 +115,10 @@ const fail = (message: string) => JSON.stringify({ ok: false, error: message });
  *
  * All handlers — including update, delete, pause and resume — execute for real through the same
  * orchestrators the REST routes use, so rollback semantics stay identical. A destructive step
- * runs only after the user agreed in the conversation (ask_user → reply), which the system
- * prompt enforces.
+ * runs only after the user agreed in the conversation, which the system prompt enforces.
  */
 export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
-  const { runId, userId, userEmail, cancellation, log, touched, askedUser, unlocked } = ctx;
+  const { runId, userId, userEmail, cancellation, log, touched, unlocked } = ctx;
 
   const findOwned = async (id: string) => {
     const lb = await LoadBalancer.findById(id);
@@ -324,32 +321,6 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
     },
   );
 
-  // Ends the turn with a question instead of an action. The user's answer arrives as the next
-  // user message of the conversation chain, so the model resumes with full context. Loadable
-  // like any other tool — the model decides when it needs it.
-  const askUser = tool(
-    async (input: any) => {
-      const question = String(input?.question ?? '').trim();
-      if (!question) return fail('A question is required.');
-
-      askedUser.current = { question };
-      log.info(`ask_user — awaiting reply: ${question}`);
-
-      return ok('Question delivered. The turn ends here; the user\'s next message will contain their reply.');
-    },
-    {
-      name: 'ask_user',
-      description:
-        'Ask the user something and end your turn. Use it when information you cannot look up is missing, or to get explicit confirmation before update_load_balancer, delete_load_balancer, pause_load_balancer or resume_load_balancer. One short question naming exactly what you need.',
-      verboseParsingErrors: true,
-      schema: {
-        type: 'object',
-        properties: { question: { type: 'string', description: 'The question to show the user' } },
-        required: ['question'],
-      },
-    },
-  );
-
   const work = [
     listZones,
     listLoadBalancers,
@@ -358,7 +329,6 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
     deleteLoadBalancer,
     pauseLoadBalancer,
     resumeLoadBalancer,
-    askUser,
     ...buildResearchTools(log),
   ];
   const names = new Set<string>(work.map((t) => t.name));

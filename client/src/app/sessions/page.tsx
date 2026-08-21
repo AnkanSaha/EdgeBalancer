@@ -115,7 +115,8 @@ export default function SessionsPage() {
   };
 
   const handleNav = (id: string) => {
-    if (id === 'balancers') router.push('/dashboard');
+    if (id === 'overview') router.push('/overview');
+    else if (id === 'balancers') router.push('/loadbalancers');
     else if (id === 'settings') router.push('/settings');
     else if (id === 'ai-runs') router.push('/ai-runs');
     else if (id === 'pro') router.push('/pro');
@@ -165,7 +166,7 @@ export default function SessionsPage() {
         />
         <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Topbar
-            crumbs={['Dashboard', 'LB History']}
+            crumbs={['Overview', 'LB History']}
             title="LB History"
             subtitle="Every time you create or edit a load balancer, a snapshot is saved here"
           />

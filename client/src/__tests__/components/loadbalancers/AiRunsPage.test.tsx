@@ -123,7 +123,7 @@ describe('AiRunsPage — runs list', () => {
       data: {
         runs: [
           { _id: 'r1', prompt: 'p1', outcome: 'success', durationMs: 1000, finalModel: 'm1', toolCalls: [{ name: 'list_zones' }], createdAt: new Date().toISOString() },
-          { _id: 'r2', prompt: 'p2', outcome: 'needs_input', durationMs: 2000, finalModel: null, toolCalls: [{ name: 'list_zones' }], createdAt: new Date().toISOString() },
+          { _id: 'r2', prompt: 'p2', outcome: 'failure', durationMs: 2000, finalModel: null, toolCalls: [{ name: 'list_zones' }], createdAt: new Date().toISOString() },
         ],
         nextCursor: null,
         hasMore: false,
@@ -135,17 +135,18 @@ describe('AiRunsPage — runs list', () => {
     await waitFor(() => expect(screen.getByText('2 runs')).toBeInTheDocument());
   });
 
-  it('shows waiting-for-reply outcome for needs_input runs', async () => {
+  it('renders a legacy outcome value instead of crashing on it', async () => {
+    // Runs recorded before 'refused' was retired still exist in the database.
     mockApi.getAiRuns.mockResolvedValue({
       success: true,
       data: {
         runs: [{
           _id: 'r1',
-          prompt: 'delete the load balancer',
-          outcome: 'needs_input',
+          prompt: 'write me a poem',
+          outcome: 'refused' as any,
           durationMs: 3000,
           finalModel: 'mistral-small',
-          toolCalls: [{ name: 'delete_load_balancer' }],
+          toolCalls: [],
           createdAt: new Date().toISOString(),
         }],
         nextCursor: null,
@@ -155,10 +156,11 @@ describe('AiRunsPage — runs list', () => {
     });
 
     render(<AiRunsPage />);
-    await waitFor(() => expect(screen.getByText('Waiting for reply')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('refused')).toBeInTheDocument());
   });
 
-  it('calls getAiRun when a run card is clicked', async () => {
+  it('calls getAiRun when a run card is clicked by a Pro user', async () => {
+    mockUseAuth.mockReturnValue({ user: { ...AUTHED_USER, isPro: true }, loading: false, logout: jest.fn() } as any);
     mockApi.getAiRuns.mockResolvedValue({
       success: true,
       data: {
@@ -184,6 +186,11 @@ describe('AiRunsPage — runs list', () => {
           _id: 'run-abc',
           userId: 'u1',
           prompt: 'test prompt',
+          turns: [
+            { role: 'user', content: 'test prompt' },
+            { role: 'assistant', content: 'Done.' },
+          ],
+          finalMessage: 'Done.',
           modelsUsed: [{ provider: 'mistral', model: 'mistral-small', ok: true, error: null }],
           finalModel: 'mistral-small',
           toolCalls: [{
@@ -210,7 +217,37 @@ describe('AiRunsPage — runs list', () => {
     await waitFor(() => expect(mockApi.getAiRun).toHaveBeenCalledWith('run-abc'));
     await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
     expect(screen.getByText('AI Run Details')).toBeInTheDocument();
-    expect(screen.getByText('mistral/mistral-small')).toBeInTheDocument();
+    // Conversation renders; models used and tool calls are no longer shown.
+    expect(screen.getByText('Conversation')).toBeInTheDocument();
+    expect(screen.getByText('Agent reply')).toBeInTheDocument();
+  });
+
+  it('shows an upsell instead of details when a free user clicks a run card', async () => {
+    mockApi.getAiRuns.mockResolvedValue({
+      success: true,
+      data: {
+        runs: [{
+          _id: 'run-free',
+          prompt: 'free prompt',
+          outcome: 'success',
+          durationMs: 1000,
+          finalModel: 'mistral-small',
+          toolCalls: [],
+          createdAt: new Date().toISOString(),
+        }],
+        nextCursor: null,
+        hasMore: false,
+      },
+      message: 'ok',
+    });
+
+    render(<AiRunsPage />);
+    const card = await screen.findByText(/free prompt/i);
+    fireEvent.click(card.closest('button')!);
+
+    await waitFor(() => expect(screen.getByTestId('modal')).toBeInTheDocument());
+    expect(screen.getByText(/Run details are a Pro feature/i)).toBeInTheDocument();
+    expect(mockApi.getAiRun).not.toHaveBeenCalled();
   });
 });
 

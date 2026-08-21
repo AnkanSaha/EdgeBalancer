@@ -22,10 +22,6 @@ const RUN_DEADLINE_MS = 6 * 60 * 1000;
 // discovery call for not re-sending ~1,500 tokens of schema on every iteration.
 const TOOL_FINDER = 'find_tools';
 
-// Bound next to find_tools on every working iteration. It is the only channel to the user, and a
-// model that hits missing info before its first find_tools call must still be able to ask.
-const ASK_USER = 'ask_user';
-
 // RCA gets its own budget so a failure at iteration 12 still gets explained.
 const MAX_RCA_ITERATIONS = 3;
 const RESEARCH_TOOLS = new Set<string>(RESEARCH_TOOL_NAMES);
@@ -85,9 +81,8 @@ export async function runAgent(params: {
 
   log.info(`prompt: ${history[history.length - 1]?.content ?? ''} (${history.length} turn(s))`);
 
-  const askedUser: { current: { question: string } | null } = { current: null };
-  const unlocked = new Set<string>([TOOL_FINDER, ASK_USER]);
-  const tools = buildTools({ runId, userId, userEmail, cancellation, emit, log, touched: loadBalancers, askedUser, unlocked });
+  const unlocked = new Set<string>([TOOL_FINDER]);
+  const tools = buildTools({ runId, userId, userEmail, cancellation, emit, log, touched: loadBalancers, unlocked });
   const toolsByName = new Map(tools.map((t) => [t.name, t]));
 
   let messages: BaseMessage[] = [new SystemMessage(SYSTEM_PROMPT), ...buildHistory(history)];
@@ -121,6 +116,14 @@ export async function runAgent(params: {
     }
   };
 
+  // Everything that forces a run into RCA:
+  //   - one tool fails MAX_FAILURES_PER_TOOL times,
+  //   - a 409 conflict (terminal — retrying could only succeed by changing what was asked),
+  //   - the model ends its turn after a failed tool call and nothing changed,
+  //   - MAX_ITERATIONS pass while the model is still calling tools.
+  // The deadline is the exception: no budget remains there for extra model calls, so an
+  // over-deadline run finishes as failure immediately instead of entering RCA.
+  //
   // Keeps the same chain — the model explains from the tool results already in it.
   const enterRca = () => {
     messages.push(new HumanMessage(RCA_PROMPT));
@@ -145,9 +148,10 @@ export async function runAgent(params: {
     }
 
     emit('status', {
-      message: rcaMode
-        ? 'Working out what went wrong'
-        : iteration === 1 ? 'Interpreting your request' : 'Deciding the next step',
+      // The first RCA step announces the transition itself; later ones report ongoing diagnosis.
+      message: !rcaMode
+        ? iteration === 1 ? 'Interpreting your request' : 'Deciding the next step'
+        : rcaStep === 1 ? 'Hit a problem — analysing what went wrong' : 'Working out what went wrong',
       progress: rcaMode ? 95 : progressFor(iteration - 1),
     });
 
@@ -180,18 +184,20 @@ export async function runAgent(params: {
       const message = textOf(response);
       if (rcaMode) return finish('failure', message || rcaFallback || rawError());
 
-      // No tool ran at all: the model refused an out-of-scope prompt.
-      if (toolCalls.length === 0) return finish('refused', message || 'Done.');
-
-      // Loading a mutating tool states intent; a *successful* mutating call proves the change
-      // happened. A delete succeeds by making the balancer disappear, so `touched` stays empty —
-      // success there must be read off the executed calls, not off what remains.
+      // A turn that ends without tools is conversational — a question for the user, an answer,
+      // or an out-of-scope refusal. ask_user used to mark questions; now the always-visible chat
+      // input carries them, so every such ending settles as success with its message.
+      //
+      // Exception: a tool call actually failed and nothing changed. The model explaining the
+      // error in prose must not read as a done deal — send it to RCA for the root-cause write-up.
+      // A *successful* mutating call proves the change happened; a delete succeeds by making the
+      // balancer disappear, so `touched` stays empty — success there is read off the executed
+      // calls, not off what remains.
       const failed = toolCalls.some((call) => !call.ok);
       const changed = toolCalls.some((call) => call.ok && MUTATING_TOOLS.has(call.name));
-      const intendedChange = [...unlocked].some((name) => MUTATING_TOOLS.has(name));
 
-      if ((failed || intendedChange) && !changed && loadBalancers.length === 0) {
-        log.warn(`model ended without acting — said: ${message.slice(0, 300)}`);
+      if (failed && !changed && loadBalancers.length === 0) {
+        log.warn(`model ended without acting after a failure — said: ${message.slice(0, 300)}`);
         rcaFallback = message;
         enterRca();
         continue;
@@ -232,14 +238,6 @@ export async function runAgent(params: {
           messages = compacted;
           log.info(`History compacted: ${messages.length} messages retained`);
         }
-      }
-
-      // ask_user ends the turn — the user's answer arrives as a fresh request carrying the whole
-      // chain, so later calls in this batch stay unanswered on purpose: no model call ever sees
-      // an incomplete tool chain.
-      if (askedUser.current) {
-        skipRemaining(calls, index);
-        return finish('needs_input', askedUser.current.question);
       }
 
       if (ok) {

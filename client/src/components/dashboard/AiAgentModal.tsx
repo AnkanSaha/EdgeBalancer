@@ -10,7 +10,6 @@ const MAX_PROMPT_HEIGHT = 220;
 
 const TOOL_LABELS: Record<string, string> = {
   find_tools: 'Loading capabilities',
-  ask_user: 'Asking you a question',
   list_zones: 'Reading your Cloudflare zones',
   list_load_balancers: 'Reading your load balancers',
   create_load_balancer: 'Deploying the load balancer',
@@ -246,25 +245,28 @@ interface AiAgentModalProps {
 const STATUS_COPY: Record<string, { label: string; color: string }> = {
   running: { label: 'Working…', color: 'var(--accent)' },
   success: { label: 'Completed', color: 'var(--green)' },
-  needs_input: { label: 'Waiting for your reply', color: 'var(--accent)' },
-  refused: { label: 'Out of scope', color: 'var(--text-2)' },
   failure: { label: 'Failed', color: 'var(--red)' },
 };
 
 export function AiAgentModal({ isOpen, run, messages, onCancel, onClose, onReply }: AiAgentModalProps) {
   const finished = run.phase === 'done';
   const succeeded = run.outcome === 'success';
-  const needsInput = finished && run.outcome === 'needs_input';
 
   // Hooks must run unconditionally, so the early return comes after them.
   const typed = useTypewriter(finished ? run.message : '');
   const stillTyping = typed.length < run.message.length;
   const [reply, setReply] = useState('');
+  // The box is always open — questions arrive as ordinary messages now. A failed (RCA) run ends
+  // the conversation outright; a successful one allows exactly one follow-up before locking.
+  const [followUpUsed, setFollowUpUsed] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!needsInput) setReply('');
-  }, [needsInput]);
+    if (run.phase === 'running') {
+      setFollowUpUsed(false);
+      setReply('');
+    }
+  }, [run.phase]);
 
   useEffect(() => {
     const el = threadRef.current;
@@ -276,12 +278,21 @@ export function AiAgentModal({ isOpen, run, messages, onCancel, onClose, onReply
   const statusKey = !finished ? 'running' : (run.outcome ?? 'failure');
   const status = STATUS_COPY[statusKey] ?? STATUS_COPY.failure;
   const tone = finished ? status.color : 'var(--accent)';
-  const canSendReply = reply.trim().length > 0;
+  const inputLocked = !finished || run.outcome === 'failure' || followUpUsed;
+  const canSendReply = !inputLocked && reply.trim().length > 0;
+  const placeholder = !finished
+    ? 'The agent is working…'
+    : run.outcome === 'failure'
+      ? 'Run failed — start a new conversation to try again.'
+      : followUpUsed
+        ? 'Follow-up used — start a new conversation to continue.'
+        : 'Reply, give new instructions, or close when done… (Enter to send)';
 
   const submitReply = () => {
     if (!canSendReply) return;
     onReply(reply.trim());
     setReply('');
+    setFollowUpUsed(true);
   };
 
   return (
@@ -424,45 +435,34 @@ export function AiAgentModal({ isOpen, run, messages, onCancel, onClose, onReply
           )}
         </div>
 
-        {/* Reply box — appears only when the agent asked for something */}
-        {needsInput && (
-          <div style={{
-            borderTop: '1px solid var(--line)',
-            padding: 'clamp(12px, 2vw, 16px) clamp(16px, 3vw, 24px)',
-            display: 'flex', gap: 10, alignItems: 'flex-end',
-          }}>
-            <textarea
-              className="textarea"
-              rows={1}
-              autoFocus
-              maxLength={MAX_PROMPT_LENGTH}
-              value={reply}
-              onChange={(e) => setReply(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  submitReply();
-                }
-              }}
-              placeholder="Type your answer… (Enter to send)"
-              style={{ flex: 1, resize: 'none', minHeight: 42, fontSize: 13 }}
-            />
-            <button className="btn btn-primary btn-sm" onClick={submitReply} disabled={!canSendReply}>
-              Send
-            </button>
-          </div>
-        )}
-
-        {/* Footer actions once settled */}
-        {finished && !needsInput && (
-          <div style={{
-            borderTop: '1px solid var(--line)',
-            padding: 'clamp(12px, 2vw, 16px) clamp(16px, 3vw, 24px)',
-            display: 'flex', justifyContent: 'flex-end',
-          }}>
-            <button className="btn btn-primary btn-sm" onClick={onClose}>Back to dashboard</button>
-          </div>
-        )}
+        {/* Input — always visible; locked while the agent works and after the one follow-up.
+            Closing stays in the header (Close appears once the run settles). */}
+        <div style={{
+          borderTop: '1px solid var(--line)',
+          padding: 'clamp(12px, 2vw, 16px) clamp(16px, 3vw, 24px)',
+          display: 'flex', gap: 10, alignItems: 'flex-end',
+        }}>
+          <textarea
+            className="textarea"
+            rows={1}
+            autoFocus
+            maxLength={MAX_PROMPT_LENGTH}
+            value={reply}
+            disabled={inputLocked}
+            onChange={(e) => setReply(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitReply();
+              }
+            }}
+            placeholder={placeholder}
+            style={{ flex: 1, resize: 'none', minHeight: 42, fontSize: 13 }}
+          />
+          <button className="btn btn-primary btn-sm" onClick={submitReply} disabled={!canSendReply}>
+            Send
+          </button>
+        </div>
       </div>
     </div>
   );

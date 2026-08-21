@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { Sidebar, Topbar } from '@/components/dashboard/Sidebar';
 import { Icons } from '@/components/shared/Icons';
 import { Modal } from '@/components/ui/Modal';
-import type { AiRunListItem, AiRunDetail, AiRunToolCall, AiOutcome } from '@/types/api';
+import type { AiRunListItem, AiRunDetail, AiOutcome } from '@/types/api';
 import toast from 'react-hot-toast';
 
 function relativeTime(dateStr: string): string {
@@ -27,26 +28,25 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+// Outcomes are success | failure today; older documents may still carry retired values
+// ('refused', 'needs_input'), which fall through to the neutral styling.
 function outcomeColor(outcome: AiOutcome): string {
   if (outcome === 'success') return 'var(--green)';
   if (outcome === 'failure') return 'var(--red)';
-  if (outcome === 'needs_input') return 'var(--accent)';
   return 'var(--text-3)';
 }
 
 function outcomeLabel(outcome: AiOutcome): string {
   if (outcome === 'success') return 'Success';
   if (outcome === 'failure') return 'Failed';
-  if (outcome === 'needs_input') return 'Waiting for reply';
-  return 'Refused';
+  return String(outcome);
 }
 
 // ─── Detail Modal ──────────────────────────────────────────────────
 
-function AiRunDetailModal({ runId, onClose, isPro }: { runId: string; onClose: () => void; isPro?: boolean }) {
+function AiRunDetailModal({ runId, onClose }: { runId: string; onClose: () => void }) {
   const [run, setRun] = useState<AiRunDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expandedTool, setExpandedTool] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -150,109 +150,6 @@ function AiRunDetailModal({ runId, onClose, isPro }: { runId: string; onClose: (
               {run.error}
             </div>
           )}
-
-          {/* Model attempts */}
-          {run.modelsUsed.length > 0 && (
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-2)' }}>Models Used</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {run.modelsUsed.map((m, i) => (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, padding: '6px 10px',
-                    background: 'var(--bg-2)', borderRadius: 'var(--radius)',
-                    fontFamily: 'var(--mono)',
-                  }}>
-                    <span style={{
-                      width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                      background: m.ok ? 'var(--green)' : 'var(--red)',
-                    }} />
-                    <span style={{ color: 'var(--text-2)' }}>{m.provider}/{m.model}</span>
-                    {!m.ok && m.error && (
-                      <span style={{ color: 'var(--text-3)', marginLeft: 'auto', fontSize: 11 }}>{m.error}</span>
-                    )}
-                    {i === run.modelsUsed.length - 1 && (
-                      <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>FINAL</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Tool calls */}
-          {!isPro && (!run.toolCalls || run.toolCalls.length === 0) && (
-            <div style={{
-              padding: 14, display: 'flex', alignItems: 'center', gap: 10,
-              background: 'var(--bg-2)', border: '1px solid var(--line)',
-              borderRadius: 'var(--radius)',
-            }}>
-              <Icons.Lock size={14} stroke="var(--text-3)" />
-              <span style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                Upgrade to Pro to see full tool call details
-              </span>
-            </div>
-          )}
-          {run.toolCalls && run.toolCalls.length > 0 && (
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-2)' }}>
-                Steps ({run.toolCalls?.length})
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {run.toolCalls.map((tc, i) => (
-                  <div key={i}>
-                    <button
-                      onClick={() => setExpandedTool(expandedTool === i ? null : i)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        width: '100%', fontSize: 12, padding: '8px 10px',
-                        background: 'var(--bg-2)', borderRadius: 'var(--radius)',
-                        border: '1px solid var(--line)', cursor: 'pointer', textAlign: 'left',
-                      }}
-                    >
-                      <span style={{
-                        width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                        background: tc.ok ? 'var(--green)' : 'var(--red)',
-                      }} />
-                      <span style={{ fontFamily: 'var(--mono)', fontWeight: 500, color: 'var(--text)' }}>{tc.name}</span>
-                      <span style={{ color: 'var(--text-3)', marginLeft: 'auto' }}>{formatDuration(tc.durationMs)}</span>
-                      <span style={{
-                        color: 'var(--text-3)', transition: 'transform 0.2s',
-                        transform: expandedTool === i ? 'rotate(180deg)' : 'none',
-                      }}>▾</span>
-                    </button>
-                    {expandedTool === i && (
-                      <div style={{ marginTop: 4, padding: '0 4px' }}>
-                        {tc.args && Object.keys(tc.args).length > 0 && (
-                          <div style={{ marginBottom: 8 }}>
-                            <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4, fontFamily: 'var(--mono)' }}>Arguments</div>
-                            <pre style={{
-                              fontSize: 11, padding: 10, background: 'var(--bg)', borderRadius: 'var(--radius)',
-                              border: '1px solid var(--line)', overflow: 'auto', maxHeight: 200,
-                              fontFamily: 'var(--mono)', margin: 0, whiteSpace: 'pre-wrap',
-                            }}>
-                              {JSON.stringify(tc.args, null, 2)}
-                            </pre>
-                          </div>
-                        )}
-                        {tc.result && (
-                          <div>
-                            <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4, fontFamily: 'var(--mono)' }}>Result</div>
-                            <pre style={{
-                              fontSize: 11, padding: 10, background: 'var(--bg)', borderRadius: 'var(--radius)',
-                              border: '1px solid var(--line)', overflow: 'auto', maxHeight: 300,
-                              fontFamily: 'var(--mono)', margin: 0, whiteSpace: 'pre-wrap',
-                            }}>
-                              {(() => { try { return JSON.stringify(JSON.parse(tc.result), null, 2); } catch { return tc.result; } })()}
-                            </pre>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
     </Modal>
@@ -331,6 +228,7 @@ export default function AiRunsPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [showDetailUpsell, setShowDetailUpsell] = useState(false);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -378,7 +276,8 @@ export default function AiRunsPage() {
   }, [hasMore, loadingMore, loading, fetchRuns]);
 
   const handleNav = (id: string) => {
-    if (id === 'balancers') router.push('/dashboard');
+    if (id === 'overview') router.push('/overview');
+    if (id === 'balancers') router.push('/loadbalancers');
     else if (id === 'settings') router.push('/settings');
     else if (id === 'sessions') router.push('/sessions');
     else if (id === 'pro') router.push('/pro');
@@ -391,6 +290,13 @@ export default function AiRunsPage() {
   };
 
   if (authLoading || !user) return null;
+
+  // Free plan sees the history list; the per-run detail (conversation, outcome) is Pro-only.
+  const isPro = !!user?.isPro;
+  const openRun = (runId: string) => {
+    if (isPro) setSelectedRunId(runId);
+    else setShowDetailUpsell(true);
+  };
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', flexDirection: 'column' }}>
@@ -409,7 +315,7 @@ export default function AiRunsPage() {
         />
         <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Topbar
-            crumbs={['Dashboard', 'AI Runs']}
+            crumbs={['Overview', 'AI Runs']}
             title="AI Runs"
             subtitle="History of every AI Agent request, its steps and its outcome"
           />
@@ -434,7 +340,7 @@ export default function AiRunsPage() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {runs.map(run => (
-                    <AiRunCard key={run._id} run={run} onClick={() => setSelectedRunId(run._id)} />
+                    <AiRunCard key={run._id} run={run} onClick={() => openRun(run._id)} />
                   ))}
                 </div>
                 <div ref={sentinelRef} style={{ height: 1 }} />
@@ -454,8 +360,24 @@ export default function AiRunsPage() {
         </main>
       </div>
 
+      {showDetailUpsell && (
+        <Modal isOpen onClose={() => setShowDetailUpsell(false)} title="AI Run Details" size="sm">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '4px 0 8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Icons.Lock size={15} style={{ color: 'var(--text-3)' }} />
+              <span style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                Run details are a Pro feature — the list stays free.
+              </span>
+            </div>
+            <Link href="/pro" style={{ alignSelf: 'flex-end' }}>
+              <button className="btn btn-primary btn-sm">Upgrade to Pro</button>
+            </Link>
+          </div>
+        </Modal>
+      )}
+
       {selectedRunId && (
-        <AiRunDetailModal runId={selectedRunId} onClose={() => setSelectedRunId(null)} isPro={user?.isPro} />
+        <AiRunDetailModal runId={selectedRunId} onClose={() => setSelectedRunId(null)} />
       )}
     </div>
   );

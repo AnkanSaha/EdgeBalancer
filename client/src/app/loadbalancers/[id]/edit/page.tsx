@@ -138,7 +138,7 @@ export default function EditLoadBalancerPage() {
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to load load balancer');
-      router.push('/dashboard');
+      router.push('/loadbalancers');
     } finally {
       setLoading(false);
     }
@@ -341,13 +341,13 @@ export default function EditLoadBalancerPage() {
         fontSize: 'clamp(12px, 2vw, 13px)',
         overflow: 'auto',
       }} className="hide-md">
-        <button onClick={() => router.push('/dashboard')} style={{
+        <button onClick={() => router.push('/loadbalancers')} style={{
           display: 'flex', alignItems: 'center', gap: 8,
           fontFamily: 'var(--mono)', fontSize: 'clamp(9px, 2vw, 11px)', color: 'var(--text-3)',
           textTransform: 'uppercase', letterSpacing: '0.06em',
           background: 'none', border: 'none', cursor: 'pointer',
         }}>
-          <Icons.Arrow size={12} style={{ transform: 'rotate(180deg)' }} /> Back to dashboard
+          <Icons.Arrow size={12} style={{ transform: 'rotate(180deg)' }} /> Back to Load Balancers
         </button>
 
         <div>
@@ -389,11 +389,11 @@ export default function EditLoadBalancerPage() {
 
       <main style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <Topbar
-          crumbs={['Dashboard', 'Load Balancers', loadBalancer.name]}
+          crumbs={['Overview', 'Load Balancers', loadBalancer.name]}
           title="Edit Load Balancer"
           subtitle="Configuration changes are promoted through Worker version deployments"
           actions={
-            <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard')}>Cancel</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => router.push('/loadbalancers')}>Cancel</button>
           }
         />
 
@@ -1539,7 +1539,7 @@ export default function EditLoadBalancerPage() {
               )}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-ghost" onClick={() => router.push('/dashboard')}>Cancel</button>
+              <button className="btn btn-ghost" onClick={() => router.push('/loadbalancers')}>Cancel</button>
               <button
                 className="btn btn-primary"
                 disabled={!allValid || deploying}
@@ -1593,7 +1593,7 @@ export default function EditLoadBalancerPage() {
           mode="edit"
           name={deploySuccess?.name || loadBalancer.name}
           fullDomain={deploySuccess?.fullDomain || fullHost}
-          onContinue={() => router.push('/dashboard')}
+          onContinue={() => router.push('/loadbalancers')}
         />
       </main>
 

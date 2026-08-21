@@ -298,13 +298,13 @@ export default function CreateLoadBalancerPage() {
         fontSize: 'clamp(12px, 2vw, 13px)',
         overflow: 'auto',
       }} className="hide-md">
-        <button onClick={() => router.push('/dashboard')} style={{
+        <button onClick={() => router.push('/loadbalancers')} style={{
           display: 'flex', alignItems: 'center', gap: 8,
           fontFamily: 'var(--mono)', fontSize: 'clamp(9px, 2vw, 11px)', color: 'var(--text-3)',
           textTransform: 'uppercase', letterSpacing: '0.06em',
           background: 'none', border: 'none', cursor: 'pointer',
         }}>
-          <Icons.Arrow size={12} style={{ transform: 'rotate(180deg)' }} /> Back to dashboard
+          <Icons.Arrow size={12} style={{ transform: 'rotate(180deg)' }} /> Back to Load Balancers
         </button>
 
         <div>
@@ -346,11 +346,11 @@ export default function CreateLoadBalancerPage() {
 
       <main style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <Topbar
-          crumbs={['Dashboard', 'Load Balancers', 'New']}
+          crumbs={['Overview', 'Load Balancers', 'New']}
           title="Create Load Balancer"
           subtitle="Deploy a new Cloudflare Worker-based load balancer with live origin routing."
           actions={
-            <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard')}>Cancel</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => router.push('/loadbalancers')}>Cancel</button>
           }
         />
 
@@ -1471,7 +1471,7 @@ export default function CreateLoadBalancerPage() {
               )}
             </div>
             <div className="deploy-actions" style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-ghost" onClick={() => router.push('/dashboard')}>Cancel</button>
+              <button className="btn btn-ghost" onClick={() => router.push('/loadbalancers')}>Cancel</button>
               <button
                 className="btn btn-primary"
                 disabled={!allValid || deploying}
@@ -1525,7 +1525,7 @@ export default function CreateLoadBalancerPage() {
           mode="create"
           name={deploySuccess?.name || form.name}
           fullDomain={deploySuccess?.fullDomain || fullHost}
-          onContinue={() => router.push('/dashboard')}
+          onContinue={() => router.push('/loadbalancers')}
         />
       </main>
 

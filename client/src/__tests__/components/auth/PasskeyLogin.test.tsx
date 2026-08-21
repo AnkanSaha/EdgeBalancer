@@ -49,5 +49,5 @@ it('runs the passkey ceremony exactly once and reports no error', async () => {
 
   expect(authenticateWithPasskey).toHaveBeenCalledTimes(1);
   expect(toast.error).not.toHaveBeenCalled();
-  expect(push).toHaveBeenCalledWith('/dashboard');
+  expect(push).toHaveBeenCalledWith('/loadbalancers');
 });

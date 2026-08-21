@@ -60,12 +60,13 @@ export default function PaymentsPage() {
   }, [hasMore, nextCursor, fetchPayments]);
 
   const handleNav = (id: string) => {
-    if (id === 'settings') router.push('/settings');
+    if (id === 'overview') router.push('/overview');
+    else if (id === 'settings') router.push('/settings');
     else if (id === 'sessions') router.push('/sessions');
     else if (id === 'ai-runs') router.push('/ai-runs');
     else if (id === 'payments') router.push('/payments');
     else if (id === 'pro') router.push('/pro');
-    else router.push('/dashboard');
+    else router.push('/loadbalancers');
   };
 
   if (authLoading || !user) return null;
@@ -86,7 +87,7 @@ export default function PaymentsPage() {
       />
       <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <Topbar
-          crumbs={['Dashboard', 'Payment History']}
+          crumbs={['Overview', 'Payment History']}
           title="Payment History"
           subtitle="Your EdgeBalancer Pro payment records"
         />

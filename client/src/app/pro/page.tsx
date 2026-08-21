@@ -42,12 +42,13 @@ export default function ProPage() {
   }, [user, authLoading, router]);
 
   const handleNav = (id: string) => {
-    if (id === 'settings') router.push('/settings');
+    if (id === 'overview') router.push('/overview');
+    else if (id === 'settings') router.push('/settings');
     else if (id === 'sessions') router.push('/sessions');
     else if (id === 'ai-runs') router.push('/ai-runs');
     else if (id === 'payments') router.push('/payments');
     else if (id === 'pro') router.push('/pro');
-    else router.push('/dashboard');
+    else router.push('/loadbalancers');
   };
 
   const handleBuyClick = (plan: PlanType) => {
@@ -83,7 +84,7 @@ export default function ProPage() {
         if (latest.data?.user?.isSubscribed) {
           setPolling(false);
           setSuccess(true);
-          setTimeout(() => router.push('/dashboard'), 2000);
+          setTimeout(() => router.push('/loadbalancers'), 2000);
           return;
         }
       }
@@ -121,7 +122,7 @@ export default function ProPage() {
       />
       <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <Topbar
-          crumbs={['Dashboard', 'EdgeBalancer Pro']}
+          crumbs={['Overview', 'EdgeBalancer Pro']}
           title="EdgeBalancer Pro"
           subtitle="Choose the plan that fits your needs"
         />
