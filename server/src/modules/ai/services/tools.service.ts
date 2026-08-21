@@ -12,6 +12,8 @@ import { pauseLoadBalancerOrchestrator } from '../../loadbalancer/orchestrators/
 import { resumeLoadBalancerOrchestrator } from '../../loadbalancer/orchestrators/resume.orchestrator';
 import { toHostname } from '../../loadbalancer/services/hostname.service';
 import { isWeightedStrategy } from '../../loadbalancer/services/strategy.service';
+import { getUserPlan } from '../../payment/services/subscription.service';
+import { PLANS, isStrategyAllowed } from '../../../config/plans';
 import { buildResearchTools } from './research.service';
 import type { RunLogger } from './log.service';
 import type { RequestCancellation } from '../../../utils/requestCancellation';
@@ -216,6 +218,24 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
       const errors = validateCreateLoadBalancerBody(input);
       if (errors.length > 0) return fail(`Invalid configuration: ${errors.join(', ')}`);
 
+      // Plan gating — identical to REST POST /api/loadbalancers
+      const { plan } = await getUserPlan(userId);
+      const config = PLANS[plan];
+      if (config.lbLimit > 0) {
+        const count = await LoadBalancer.countDocuments({ userId });
+        if (count >= config.lbLimit) return fail(`Your ${config.name} plan allows ${config.lbLimit} load balancer${config.lbLimit === 1 ? '' : 's'}. Upgrade to create more.`);
+      }
+      if (input.strategy && !isStrategyAllowed(plan, input.strategy)) return fail(`The "${input.strategy}" strategy requires a higher plan. Upgrade to unlock all strategies.`);
+      if (!config.canEditPlacement) input.placement = { smartPlacement: true };
+      if (input.healthCheckEnabled) {
+        if (config.maxHealthCheckLBs === 0) return fail('Health Checks require an EdgeBalancer Pro or Student subscription');
+        if (config.maxHealthCheckLBs > 0) {
+          const hcCount = await LoadBalancer.countDocuments({ userId, healthCheckEnabled: true });
+          if (hcCount >= config.maxHealthCheckLBs) return fail(`Your ${config.name} plan allows health checks on ${config.maxHealthCheckLBs} load balancers.`);
+        }
+      }
+      if (input.rateLimitEnabled && !config.hasRateLimit) return fail('Rate Limiting requires an EdgeBalancer Pro subscription');
+
       const result = await createLoadBalancerOrchestrator({
         userId,
         userEmail,
@@ -276,6 +296,20 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
 
       const errors = validateCreateLoadBalancerBody(merged);
       if (errors.length > 0) return fail(`Invalid configuration: ${errors.join(', ')}`);
+
+      // Plan gating — identical to REST PUT /api/loadbalancers/:id
+      const { plan: updatePlan } = await getUserPlan(userId);
+      const updateConfig = PLANS[updatePlan];
+      if (merged.strategy && !isStrategyAllowed(updatePlan, merged.strategy)) return fail(`The "${merged.strategy}" strategy requires a higher plan. Upgrade to unlock all strategies.`);
+      if (!updateConfig.canEditPlacement) merged.placement = existing.placement;
+      if (merged.healthCheckEnabled) {
+        if (updateConfig.maxHealthCheckLBs === 0) return fail('Health Checks require an EdgeBalancer Pro or Student subscription');
+        if (updateConfig.maxHealthCheckLBs > 0 && !existing.healthCheckEnabled) {
+          const hcCount = await LoadBalancer.countDocuments({ userId, healthCheckEnabled: true });
+          if (hcCount >= updateConfig.maxHealthCheckLBs) return fail(`Your ${updateConfig.name} plan allows health checks on ${updateConfig.maxHealthCheckLBs} load balancers.`);
+        }
+      }
+      if (merged.rateLimitEnabled && !updateConfig.hasRateLimit) return fail('Rate Limiting requires an EdgeBalancer Pro subscription');
 
       const result = await updateLoadBalancerOrchestrator({
         userId,
