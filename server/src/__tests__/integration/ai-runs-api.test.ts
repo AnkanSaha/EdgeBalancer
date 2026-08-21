@@ -47,7 +47,7 @@ describe('GET /api/ai/runs', () => {
       userId: user._id,
       runId: 'run-1',
       prompt: 'test prompt',
-      outcome: 'pending',
+      outcome: 'needs_input',
       durationMs: 1000,
     });
     await AiRun.create({
@@ -78,7 +78,7 @@ describe('GET /api/ai/runs', () => {
       userId: user._id,
       runId: 'run-second',
       prompt: 'second',
-      outcome: 'pending',
+      outcome: 'needs_input',
       durationMs: 2000,
     });
 
@@ -97,7 +97,7 @@ describe('GET /api/ai/runs', () => {
         userId: user._id,
         runId: `run-${i}`,
         prompt: `prompt-${i}`,
-        outcome: 'pending',
+        outcome: 'needs_input',
         durationMs: 1000,
       });
       ids.push(run._id);
@@ -118,7 +118,7 @@ describe('GET /api/ai/runs', () => {
         userId: user._id,
         runId: `run-${i}`,
         prompt: `prompt-${i}`,
-        outcome: 'pending',
+        outcome: 'needs_input',
         durationMs: 1000,
       });
     }
@@ -155,7 +155,7 @@ describe('GET /api/ai/runs', () => {
         ok: true,
         durationMs: 21,
       }],
-      outcome: 'pending',
+      outcome: 'needs_input',
       durationMs: 5000,
     });
 
@@ -191,7 +191,7 @@ describe('GET /api/ai/runs/:id', () => {
         ok: true,
         durationMs: 1200,
       }],
-      outcome: 'pending',
+      outcome: 'needs_input',
       durationMs: 15000,
       error: null,
     });
@@ -205,7 +205,7 @@ describe('GET /api/ai/runs/:id', () => {
     expect(body.success).toBe(true);
     expect(body.data.run.prompt).toBe('create a loadbalancer named test with origin https://example.com');
     expect(body.data.run.finalModel).toBe('nvidia/nemotron:free');
-    expect(body.data.run.outcome).toBe('pending');
+    expect(body.data.run.outcome).toBe('needs_input');
     expect(body.data.run.modelsUsed).toHaveLength(1);
     expect(body.data.run.toolCalls).toHaveLength(1);
     expect(body.data.run.toolCalls[0].args).toEqual({
@@ -245,95 +245,6 @@ describe('GET /api/ai/runs/:id', () => {
   it('400 when run id is not a valid ObjectId', async () => {
     const { cookie } = await createTestUser();
     const res = await app.inject({ method: 'GET', url: '/api/ai/runs/bad-id', headers: cookie });
-    expect(res.statusCode).toBe(400);
-  });
-});
-
-// ─── PATCH /api/ai/runs/:id/complete ────────────────────────────────────────────
-
-describe('PATCH /api/ai/runs/:id/complete', () => {
-  it('401 when not authenticated', async () => {
-    const fakeId = new (await import('mongoose')).Types.ObjectId().toString();
-    const res = await app.inject({ method: 'PATCH', url: `/api/ai/runs/${fakeId}/complete` });
-    expect(res.statusCode).toBe(401);
-  });
-
-  it('200 updates pending run to success', async () => {
-    const { user, cookie } = await createTestUser();
-
-    await AiRun.create({
-      userId: user._id,
-      runId: 'run-complete-test',
-      prompt: 'delete that load balancer',
-      outcome: 'pending',
-      durationMs: 5000,
-    });
-
-    const { AiRun: AiRunModel } = await import('../../models/AiRun');
-    const run = await AiRunModel.findOne({ userId: user._id });
-    const runId = (run as any).runId;
-
-    const res = await app.inject({ method: 'PATCH', url: `/api/ai/runs/${runId}/complete`, headers: cookie });
-    expect(res.statusCode).toBe(200);
-    const body = res.json();
-    expect(body.success).toBe(true);
-
-    const updated = await AiRunModel.findOne({ runId });
-    expect(updated!.outcome).toBe('success');
-  });
-
-  it('404 when runId does not exist', async () => {
-    const { cookie } = await createTestUser();
-    const res = await app.inject({ method: 'PATCH', url: '/api/ai/runs/nonexistent-complete/complete', headers: cookie });
-    expect(res.statusCode).toBe(404);
-  });
-
-  it('404 when run belongs to different user', async () => {
-    const { user } = await createTestUser();
-    const otherUserId = new (await import('mongoose')).Types.ObjectId().toString();
-    const otherCookieHeader = { cookie: `token=${require('jsonwebtoken').sign({ userId: otherUserId }, process.env.JWT_SECRET!) }` };
-
-    await AiRun.create({
-      userId: user._id,
-      runId: 'run-complete-other-user',
-      prompt: 'test prompt',
-      outcome: 'pending',
-      durationMs: 1000,
-    });
-
-    const { AiRun: AiRunModel } = await import('../../models/AiRun');
-    const run = await AiRunModel.findOne({ userId: user._id });
-
-    const res = await app.inject({
-      method: 'PATCH',
-      url: `/api/ai/runs/${(run as any).runId}/complete`,
-      headers: otherCookieHeader,
-    });
-    expect(res.statusCode).toBe(404);
-  });
-
-  it('404 when run is already completed (not pending)', async () => {
-    const { user, cookie } = await createTestUser();
-
-    await AiRun.create({
-      userId: user._id,
-      runId: 'run-already-done',
-      prompt: 'prompt',
-      outcome: 'success',
-      durationMs: 1000,
-    });
-
-    const res = await app.inject({
-      method: 'PATCH',
-      url: `/api/ai/runs/run-already-done/complete`,
-      headers: cookie,
-    });
-    expect(res.statusCode).toBe(404);
-  });
-
-  it('400 when runId is empty', async () => {
-    const { cookie } = await createTestUser();
-    const res = await app.inject({ method: 'PATCH', url: '/api/ai/runs//complete', headers: cookie });
     expect(res.statusCode).toBe(400);
   });
 });

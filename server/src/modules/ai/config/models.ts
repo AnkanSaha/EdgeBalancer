@@ -1,45 +1,39 @@
 import type { ModelDescriptor } from '../types/ai.types';
 
-// OpenRouter free tier, best-first. `openrouter/free` is the auto-router catch-all.
+// OpenRouter free tier, fastest-first by P50 latency (openrouter.ai model pages, Aug 21 2026).
+// `openrouter/free` is the auto-router catch-all and always runs last.
 export const FREE_MODELS = [
-  'nvidia/nemotron-3-ultra-550b-a55b:free',
-  'nvidia/nemotron-3-super-120b-a12b:free',
-  'google/gemma-4-31b-it:free',
-  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-  'nvidia/nemotron-3-nano-30b-a3b:free',
-  'google/gemma-4-26b-a4b-it:free',
-  'openai/gpt-oss-20b:free',
-  'nvidia/nemotron-nano-12b-v2-vl:free',
-  'nvidia/nemotron-nano-9b-v2:free',
-  'cohere/north-mini-code:free',
-  'poolside/laguna-s-2.1:free',
-  'poolside/laguna-xs-2.1:free',
+  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', // 0.47s / 54 tok/s
+  'google/gemma-4-26b-a4b-it:free', // 0.97s / 40 tok/s
+  'dots-studio/dots-3-note-preview:free', // 1.07s / 72 tok/s
+  'google/gemma-4-31b-it:free', // 1.16s / 30 tok/s
+  'nvidia/nemotron-nano-9b-v2:free', // 1.18s / 31 tok/s
+  'cohere/north-mini-code:free', // 1.23s / 25 tok/s
+  'nvidia/nemotron-3-super-120b-a12b:free', // 1.25s / 41 tok/s
+  'nvidia/nemotron-3.5-lightning:free', // 1.36s / 34 tok/s
+  'poolside/laguna-xs-2.1:free', // 1.40s / 12 tok/s
+  'poolside/laguna-s-2.1:free', // 1.53s / 35 tok/s
+  'nvidia/nemotron-3-ultra-550b-a55b:free', // 3.06s / 18 tok/s
+  'nvidia/nemotron-nano-12b-v2-vl:free', // 3.17s / 13 tok/s
+  'z-ai/glm-5.2:free', // 3.60s / 104 tok/s
+  'nvidia/nemotron-3-nano-30b-a3b:free', // 3.73s / 47 tok/s
+  'openai/gpt-oss-20b:free', // 3.77s / 16 tok/s
   'openrouter/free',
 ];
 
-// Mistral, best-first. `rps` is the account's request-per-second allowance.
 export const MISTRAL_MODELS = [
-  { model: 'mistral-large-2512', rps: 0.07 },
-  { model: 'mistral-medium-latest', rps: 0.83 },
-  { model: 'magistral-medium-2509', rps: 0.08 },
-  { model: 'mistral-medium-2508', rps: 0.38 },
-  { model: 'mistral-medium-2505', rps: 0.42 },
-  { model: 'magistral-small-2509', rps: 0.03 },
-  { model: 'devstral-2512', rps: 0.83 },
-  { model: 'codestral-2508', rps: 2.08 },
-  { model: 'mistral-small-2603', rps: 0.83 },
-  { model: 'mistral-small-2506', rps: 5.0 },
-  { model: 'open-mistral-nemo', rps: 0.5 },
-  { model: 'labs-leanstral-1-5-1', rps: 0.63 },
-  { model: 'ministral-14b-2512', rps: 0.5 },
-  { model: 'ministral-8b-2512', rps: 3.13 },
-  { model: 'ministral-3b-2512', rps: 12.5 },
+  { model: 'mistral-code-latest', rps: 2.08 }, // 125 req/min
+  { model: 'mistral-small-2603', rps: 0.83 }, // 50 req/min
+  { model: 'magistral-small-latest', rps: 0.83 },
+  { model: 'magistral-medium-latest', rps: 0.83 },
+  { model: 'devstral-latest', rps: 0.83 },
+  { model: 'devstral-medium-latest', rps: 0.83 },
+  { model: 'mistral-code-agent-latest', rps: 0.83 },
+  { model: 'mistral-vibe-cli-with-tools', rps: 0.83 },
+  { model: 'mistral-vibe-cli-fast', rps: 0.83 },
+  { model: 'mistral-large-2512', rps: 0.07 }, // 4 req/min
 ];
 
-// OpenRouter's free tier first — it is capped per day, so spend it before it resets and keep
-// the metered Mistral quota in reserve for when that cap runs out. Mistral entries carry their
-// published rps so the router can pace them instead of provoking a 429; OpenRouter's free tier
-// publishes no per-model figure, so those are unpaced.
 export const MODEL_LADDER: ModelDescriptor[] = [
   ...FREE_MODELS.map((model) => ({ provider: 'openrouter' as const, model })),
   ...MISTRAL_MODELS.map(({ model, rps }) => ({ provider: 'mistral' as const, model, rps })),

@@ -75,7 +75,7 @@ describe('AiRunsPage — empty state', () => {
     render(<AiRunsPage />);
     await waitFor(() => expect(screen.getByText('AI Runs')).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText('No AI runs yet')).toBeInTheDocument());
-    expect(screen.getByText(/Your runs will appear here/i)).toBeInTheDocument();
+    expect(screen.getByText(/will appear here/i)).toBeInTheDocument();
   });
 
   it('renders loading spinner while fetching', async () => {
@@ -123,7 +123,7 @@ describe('AiRunsPage — runs list', () => {
       data: {
         runs: [
           { _id: 'r1', prompt: 'p1', outcome: 'success', durationMs: 1000, finalModel: 'm1', toolCalls: [{ name: 'list_zones' }], createdAt: new Date().toISOString() },
-          { _id: 'r2', prompt: 'p2', outcome: 'pending', durationMs: 2000, finalModel: null, toolCalls: [{ name: 'list_zones' }], createdAt: new Date().toISOString() },
+          { _id: 'r2', prompt: 'p2', outcome: 'needs_input', durationMs: 2000, finalModel: null, toolCalls: [{ name: 'list_zones' }], createdAt: new Date().toISOString() },
         ],
         nextCursor: null,
         hasMore: false,
@@ -135,14 +135,14 @@ describe('AiRunsPage — runs list', () => {
     await waitFor(() => expect(screen.getByText('2 runs')).toBeInTheDocument());
   });
 
-  it('shows pending outcome for pending runs', async () => {
+  it('shows waiting-for-reply outcome for needs_input runs', async () => {
     mockApi.getAiRuns.mockResolvedValue({
       success: true,
       data: {
         runs: [{
           _id: 'r1',
           prompt: 'delete the load balancer',
-          outcome: 'pending',
+          outcome: 'needs_input',
           durationMs: 3000,
           finalModel: 'mistral-small',
           toolCalls: [{ name: 'delete_load_balancer' }],
@@ -155,7 +155,7 @@ describe('AiRunsPage — runs list', () => {
     });
 
     render(<AiRunsPage />);
-    await waitFor(() => expect(screen.getByText('Pending')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Waiting for reply')).toBeInTheDocument());
   });
 
   it('calls getAiRun when a run card is clicked', async () => {

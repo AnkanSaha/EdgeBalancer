@@ -15,14 +15,22 @@ export interface IAiToolCall {
   durationMs: number;
 }
 
+export interface IAiTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export interface IAiRun extends Document {
   userId: mongoose.Types.ObjectId;
   runId: string;
   prompt: string;
+  /** The full conversation chain behind this run — earlier turns first, the request last. */
+  turns: IAiTurn[];
   modelsUsed: IModelAttempt[];
   finalModel: string | null;
   toolCalls: IAiToolCall[];
-  outcome: 'success' | 'failure' | 'pending' | 'refused';
+  outcome: 'success' | 'failure' | 'refused' | 'needs_input';
+  finalMessage: string | null;
   durationMs: number;
   error: string | null;
   createdAt: Date;
@@ -50,6 +58,14 @@ const AiToolCallSchema = new Schema<IAiToolCall>(
   { _id: false },
 );
 
+const AiTurnSchema = new Schema<IAiTurn>(
+  {
+    role: { type: String, enum: ['user', 'assistant'], required: true },
+    content: { type: String, required: true },
+  },
+  { _id: false },
+);
+
 const AiRunSchema = new Schema<IAiRun>(
   {
     userId: {
@@ -67,6 +83,10 @@ const AiRunSchema = new Schema<IAiRun>(
       type: String,
       required: [true, 'Prompt is required'],
     },
+    turns: {
+      type: [AiTurnSchema],
+      default: [],
+    },
     modelsUsed: {
       type: [ModelAttemptSchema],
       default: [],
@@ -81,8 +101,12 @@ const AiRunSchema = new Schema<IAiRun>(
     },
     outcome: {
       type: String,
-      enum: ['success', 'failure', 'pending', 'refused'],
+      enum: ['success', 'failure', 'refused', 'needs_input'],
       required: true,
+    },
+    finalMessage: {
+      type: String,
+      default: null,
     },
     durationMs: {
       type: Number,

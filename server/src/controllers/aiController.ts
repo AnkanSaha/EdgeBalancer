@@ -6,12 +6,35 @@ import { openSseChannel } from '../modules/ai/services/sse.service';
 import { createTrace, runAgent } from '../modules/ai/services/agent.service';
 import { recordAiRun } from '../modules/ai/services/audit.service';
 import { AiRun } from '../models/AiRun';
-import { User } from '../models/User';
 import { getUserPlan } from '../modules/payment/services/subscription.service';
 import mongoose from 'mongoose';
+import type { ConversationTurn } from '../modules/ai/types/ai.types';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
 const MAX_PROMPT_LENGTH = 2000;
+// The client replays its whole conversation chain on every call; a cap keeps the payload —
+// and the tokens re-sent to the model each turn — bounded.
+const MAX_HISTORY_TURNS = 30;
+const MAX_TURN_LENGTH = 4000;
+const MAX_CONVERSATION_ID_LENGTH = 64;
+
+/**
+ * Validates the client-side conversation chain. Only plain user/assistant text is accepted —
+ * anything else would let a crafted body inject tool output into the model's context.
+ */
+const parseHistory = (raw: unknown): ConversationTurn[] | null => {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw) || raw.length > MAX_HISTORY_TURNS) return null;
+
+  const turns: ConversationTurn[] = [];
+  for (const item of raw) {
+    const role = item?.role;
+    const content = typeof item?.content === 'string' ? item.content.trim() : '';
+    if ((role !== 'user' && role !== 'assistant') || !content || content.length > MAX_TURN_LENGTH) return null;
+    turns.push({ role, content });
+  }
+  return turns;
+};
 
 export const generateWithAi = async (req: Request, res: Response, next: NextFunction) => {
   const userId = req.user?.userId;
@@ -24,12 +47,12 @@ export const generateWithAi = async (req: Request, res: Response, next: NextFunc
   const { plan } = await getUserPlan(userId);
   if (plan !== 'pro') {
     res.status(403);
-    return next(new Error('AI provisioning requires an EdgeBalancer Pro subscription'));
+    return next(new Error('The AI Agent requires an EdgeBalancer Pro subscription'));
   }
 
   if (!hasAnyProviderConfigured()) {
     res.status(503);
-    return next(new Error('AI provisioning is not configured on this server.'));
+    return next(new Error('The AI Agent is not configured on this server.'));
   }
 
   const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
@@ -41,6 +64,18 @@ export const generateWithAi = async (req: Request, res: Response, next: NextFunc
     res.status(400);
     return next(new Error(`Prompt must not exceed ${MAX_PROMPT_LENGTH} characters`));
   }
+
+  const history = parseHistory(req.body?.messages);
+  if (!history) {
+    res.status(400);
+    return next(new Error('Invalid messages chain'));
+  }
+  // The newest user message is the prompt; earlier turns are context only.
+  const conversation: ConversationTurn[] = [...history, { role: 'user', content: prompt }];
+
+  // Groups every turn of one agent session into a single AiRun history entry.
+  const rawConversationId = typeof req.body?.conversationId === 'string' ? req.body.conversationId.trim() : '';
+  const conversationId = rawConversationId.slice(0, MAX_CONVERSATION_ID_LENGTH) || null;
 
   const runId = randomUUID();
   const cancellation = createRequestCancellation(req, res, runId);
@@ -59,7 +94,7 @@ export const generateWithAi = async (req: Request, res: Response, next: NextFunc
       runId,
       userId,
       userEmail: req.user?.email ?? null,
-      prompt,
+      history: conversation,
       cancellation,
       emit,
       trace,
@@ -69,10 +104,19 @@ export const generateWithAi = async (req: Request, res: Response, next: NextFunc
       outcome: run.outcome,
       message: run.message,
       loadBalancers: run.loadBalancers,
-      pendingAction: run.pendingAction ?? null,
     });
 
-    await recordAiRun({ runId, userId, prompt, trace, outcome: run.outcome, durationMs: Date.now() - startedAt });
+    await recordAiRun({
+      runId,
+      userId,
+      prompt,
+      trace,
+      outcome: run.outcome,
+      durationMs: Date.now() - startedAt,
+      turns: conversation,
+      finalMessage: run.message,
+      conversationId,
+    });
   } catch (error: any) {
     const message = isCancellationError(error) || cancellation.isCancelled()
       ? 'Request cancelled'
@@ -88,6 +132,8 @@ export const generateWithAi = async (req: Request, res: Response, next: NextFunc
       outcome: 'failure',
       durationMs: Date.now() - startedAt,
       error: message,
+      turns: conversation,
+      conversationId,
     });
   } finally {
     close();
@@ -189,32 +235,3 @@ export const getAiRun = async (req: Request, res: Response, next: NextFunction) 
     next(error as Error);
   }
 };
-
-export const completeAiRun = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user?.userId;
-    if (!userId) { res.status(401); throw new Error('Not authenticated'); }
-
-    const runId = req.params?.id;
-    if (!runId) {
-      res.status(400);
-      throw new Error('Run ID is required');
-    }
-
-    const run = await AiRun.findOneAndUpdate(
-      { runId, userId, outcome: 'pending' },
-      { $set: { outcome: 'success' } },
-      { new: true },
-    ).lean();
-
-    if (!run) {
-      res.status(404);
-      throw new Error('AI run not found or already completed');
-    }
-
-    res.json({ success: true, message: 'AI run marked as completed', data: null });
-  } catch (error) {
-    next(error as Error);
-  }
-};
-

@@ -29,12 +29,12 @@ const call = (name: string, args: Record<string, unknown> = {}) => ({ name, args
 
 const fakeTool = (name: string, invoke: jest.Mock) => ({ name, invoke });
 
-const execute = (prompt = 'create a load balancer') =>
+const execute = (prompt = 'create a load balancer', history: any[] = []) =>
   runAgent({
     runId: 'run-1',
     userId: 'user-1',
     userEmail: null,
-    prompt,
+    history: [...history, { role: 'user', content: prompt }],
     cancellation: { isCancelled: () => false, throwIfCancelled: async () => undefined } as any,
     emit: jest.fn(),
     trace: createTrace(),
@@ -141,28 +141,39 @@ describe('runAgent failure handling', () => {
     expect(flaky).toHaveBeenCalledTimes(3);
   });
 
-  it('stops the run as soon as a destructive step is proposed', async () => {
-    // buildTools is what populates `proposed`, so mirror that side effect here.
-    const proposing = jest.fn(async () => JSON.stringify({ ok: true, pendingConfirmation: true }));
+  it('ends the turn as needs_input when ask_user fires', async () => {
+    // buildTools is what populates `askedUser`, so mirror that side effect here.
+    const asking = jest.fn(async () => JSON.stringify({ ok: true, data: 'Question delivered.' }));
     mockedBuildTools.mockImplementation((ctx: any) => {
-      ctx.proposed.current = {
-        action: 'delete',
-        loadBalancerId: 'lb-1',
-        name: 'edge-api',
-        fullDomain: 'api.example.com',
-        summary: 'Permanently delete "edge-api" and its Cloudflare Worker',
-      };
-      return [fakeTool('delete_load_balancer', proposing)];
+      ctx.askedUser.current = { question: 'Delete "edge-api"? This cannot be undone.' };
+      return [fakeTool('ask_user', asking)];
     });
 
-    mockedInvoke.mockResolvedValueOnce(aiMessage([call('delete_load_balancer', { id: 'lb-1' })]));
+    mockedInvoke.mockResolvedValueOnce(aiMessage([call('ask_user', { question: 'Delete "edge-api"?' })]));
 
     const result = await execute('delete my balancer');
 
-    expect(result.outcome).toBe('pending');
-    expect(result.pendingAction).toMatchObject({ action: 'delete', name: 'edge-api' });
-    // One model call only — nothing runs after a proposal.
+    expect(result.outcome).toBe('needs_input');
+    expect(result.message).toBe('Delete "edge-api"? This cannot be undone.');
+    // One model call only — nothing runs after the question.
     expect(mockedInvoke).toHaveBeenCalledTimes(1);
+  });
+
+  it('replays the conversation chain before the newest message', async () => {
+    mockedBuildTools.mockReturnValue([]);
+    mockedInvoke.mockResolvedValueOnce(aiMessage([], 'Yes, deleting it now.'));
+
+    await execute('yes, go ahead', [
+      { role: 'user', content: 'delete my balancer' },
+      { role: 'assistant', content: 'Delete "edge-api"?' },
+    ]);
+
+    const sent = mockedInvoke.mock.calls[0][0].messages;
+    const text = sent.map((m: any) => m.content);
+    expect(text).toContain('delete my balancer');
+    expect(text).toContain('Delete "edge-api"?');
+    // The newest user message comes after every earlier turn.
+    expect(text.indexOf('yes, go ahead')).toBeGreaterThan(text.indexOf('Delete "edge-api"?'));
   });
 
   it('reports refused when the model calls no tools at all', async () => {
@@ -268,6 +279,28 @@ describe('runAgent failure handling', () => {
     expect(result.message).toBe('I looked up your zones but never created the balancer.');
   });
 
+  it('reports success when a mutating tool actually ran — a delete leaves nothing touched', async () => {
+    mockedBuildTools.mockImplementation((ctx: any) => [
+      fakeTool('find_tools', jest.fn(async () => {
+        ctx.unlocked.add('delete_load_balancer');
+        return JSON.stringify({ ok: true, data: 'ready' });
+      })),
+      fakeTool('delete_load_balancer', jest.fn(async () =>
+        JSON.stringify({ ok: true, data: { message: 'Deleted "ankanlb"' } }))),
+      fakeTool('web_search', jest.fn()),
+    ]);
+
+    mockedInvoke
+      .mockResolvedValueOnce(aiMessage([call('find_tools', { names: ['delete_load_balancer'] })]))
+      .mockResolvedValueOnce(aiMessage([call('delete_load_balancer', { id: 'x' })]))
+      .mockResolvedValueOnce(aiMessage([], 'Deleted ankanlb at ls.dhorbo.in.'));
+
+    const result = await execute('delete this one');
+
+    expect(result.outcome).toBe('success');
+    expect(result.message).toBe('Deleted ankanlb at ls.dhorbo.in.');
+  });
+
   it('still reports success for a read-only run that changes nothing', async () => {
     mockedBuildTools.mockImplementation((ctx: any) => [
       fakeTool('find_tools', jest.fn(async () => {
@@ -350,7 +383,7 @@ describe('runAgent failure handling', () => {
       runId: 'run-1',
       userId: 'user-1',
       userEmail: null,
-      prompt: 'read that page',
+      history: [{ role: 'user', content: 'read that page' }],
       cancellation: { isCancelled: () => false, throwIfCancelled: async () => undefined } as any,
       emit: jest.fn(),
       trace,

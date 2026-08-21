@@ -26,7 +26,13 @@ export interface CreateOrderResult {
 }
 
 /** Create a Cashfree order for the Pro subscription */
-export async function createOrder(userId: string, email: string | null | undefined, phone: string, amount: number): Promise<CreateOrderResult> {
+export async function createOrder(
+  userId: string,
+  email: string | null | undefined,
+  phone: string,
+  amount: number,
+  orderNote: string,
+): Promise<CreateOrderResult> {
   const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
   const orderId = `ebp_${randomUUID().replace(/-/g, '').slice(0, 20)}`;
 
@@ -43,7 +49,8 @@ export async function createOrder(userId: string, email: string | null | undefin
       return_url: `${clientUrl}/pro?order_id={order_id}`,
       notify_url: `${process.env.BACKEND_URL || process.env.CLIENT_URL || 'http://localhost:8000'}/api/payments/webhook`,
     },
-    order_note: 'EdgeBalancer Pro - 30 days',
+    // The actual order text — plan name and duration — not a hardcoded default.
+    order_note: orderNote,
   };
 
   const response = await getCashfree().PGCreateOrder(request);

@@ -10,9 +10,9 @@ import { Icons } from '@/components/shared/Icons';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { PauseModal } from '@/components/loadbalancers/PauseModal';
 import { DeploymentOverlay, DeploymentSuccessModal } from '@/components/loadbalancers/DeploymentExperience';
-import { AiPromptCard, AiProgressOverlay, applyAiEvent, initialAiRunState, type AiRunState } from '@/components/dashboard/AiBuilder';
+import { AiPromptCard, AiAgentModal, applyAiEvent, initialAiRunState, type AiRunState } from '@/components/dashboard/AiAgentModal';
 import { streamAiGeneration } from '@/lib/aiStream';
-import type { LoadBalancer, LoadBalancerAnalytics } from '@/types/api';
+import type { ConversationTurn, LoadBalancer, LoadBalancerAnalytics } from '@/types/api';
 import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
@@ -30,13 +30,14 @@ export default function DashboardPage() {
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; lb: LoadBalancer | null }>({ isOpen: false, lb: null });
   const [deleteSuccess, setDeleteSuccess] = useState<{ name: string; fullDomain: string } | null>(null);
 
-  // AI provisioning state
+  // AI Agent state — the conversation chain lives here and is replayed on every call
   const [aiPrompt, setAiPrompt] = useState('');
+  const [aiMessages, setAiMessages] = useState<ConversationTurn[]>([]);
   const [aiRun, setAiRun] = useState<AiRunState | null>(null);
-  const [actionPending, setActionPending] = useState(false);
-  const aiRunRef = useRef<AiRunState | null>(null);
   const aiAbortRef = useRef<AbortController | null>(null);
-  aiRunRef.current = aiRun;
+  // runId of the conversation's first turn — echoed back so the server keeps one history entry
+  // per conversation instead of one per turn.
+  const aiConversationRef = useRef<string | null>(null);
 
   // Search & filter state
   const [searchValue, setSearchValue] = useState('');
@@ -113,18 +114,31 @@ export default function DashboardPage() {
     fetchAnalytics();
   }, [fetchLoadBalancers, fetchAnalytics]);
 
-  const runAiGeneration = useCallback(async () => {
-    const prompt = aiPrompt.trim();
-    if (!prompt) return;
-
+  /**
+   * One SSE call of the agent session. `history` is everything said before `prompt` — the server
+   * appends the prompt as the newest user message, so clarification round-trips resume with full
+   * context. The agent's answer is appended to the visible conversation when the turn settles.
+   */
+  const streamAiTurn = useCallback(async (prompt: string, history: ConversationTurn[]) => {
     const controller = new AbortController();
     aiAbortRef.current = controller;
     setAiRun(initialAiRunState);
 
     try {
       await streamAiGeneration(prompt, {
+        history,
+        conversationId: aiConversationRef.current,
         signal: controller.signal,
-        onEvent: (event) => setAiRun((current) => applyAiEvent(current ?? initialAiRunState, event)),
+        onEvent: (event) => {
+          if (event.name === 'run_start' && !aiConversationRef.current) {
+            aiConversationRef.current = event.payload.runId;
+          }
+          setAiRun((current) => applyAiEvent(current ?? initialAiRunState, event));
+          if (event.name === 'done' || event.name === 'error') {
+            const message = event.payload.message;
+            if (message) setAiMessages((prev) => [...prev, { role: 'assistant', content: message }]);
+          }
+        },
       });
     } catch (error: any) {
       // Aborting closes the request, which the server treats as a cancellation and rolls back.
@@ -138,45 +152,31 @@ export default function DashboardPage() {
     } finally {
       aiAbortRef.current = null;
     }
-  }, [aiPrompt]);
+  }, []);
 
   const cancelAiGeneration = useCallback(() => aiAbortRef.current?.abort(), []);
 
-  // The agent only ever prepares a destructive step. Running it is a plain REST call from here,
-  // through the same endpoints the dashboard buttons already use.
-  const confirmAiAction = useCallback(async () => {
-    const pending = aiRunRef.current?.pendingAction;
-    if (!pending) return;
+  const runAiGeneration = useCallback(() => {
+    const prompt = aiPrompt.trim();
+    if (!prompt || aiRun?.phase === 'running') return;
 
-    const { action, loadBalancerId, payload } = pending;
-    setActionPending(true);
-    try {
-      if (action === 'delete') await api.deleteLoadBalancer(loadBalancerId);
-      else if (action === 'pause') await api.pauseLoadBalancer(loadBalancerId, (payload?.mode as 'release-domain' | 'keep-domain') ?? 'keep-domain');
-      else if (action === 'resume') await api.resumeLoadBalancer(loadBalancerId);
-      else await api.updateLoadBalancer(loadBalancerId, payload ?? {});
+    setAiMessages((prev) => [...prev, { role: 'user', content: prompt }]);
+    void streamAiTurn(prompt, aiMessages);
+    setAiPrompt('');
+  }, [aiPrompt, aiMessages, aiRun, streamAiTurn]);
 
-      // Mark the AI run as success now that the action is confirmed
-      const runId = aiRunRef.current?.runId;
-      if (runId) {
-        try { await api.completeAiRun(runId); } catch {}
-      }
-
-      toast.success(`${pending.name} updated`);
-      setAiPrompt('');
-      setAiRun(null);
-      refreshAll();
-    } catch (error: any) {
-      toast.error(error.message || 'Action failed');
-    } finally {
-      setActionPending(false);
-    }
-  }, [refreshAll]);
+  // The agent asked something — the reply continues the same conversation chain.
+  const handleAiReply = useCallback((text: string) => {
+    if (aiRun?.phase === 'running') return;
+    setAiMessages((prev) => [...prev, { role: 'user', content: text }]);
+    void streamAiTurn(text, aiMessages);
+  }, [aiMessages, aiRun, streamAiTurn]);
 
   // A failed run can still have deployed something before it broke, so always resync.
-  const closeAiOverlay = useCallback((clearPrompt: boolean) => {
+  const closeAiModal = useCallback(() => {
     aiAbortRef.current?.abort();
-    if (clearPrompt) setAiPrompt('');
+    aiConversationRef.current = null;
+    setAiMessages([]);
     setAiRun(null);
     refreshAll();
   }, [refreshAll]);
@@ -417,14 +417,13 @@ export default function DashboardPage() {
         </main>
       </div>
 
-      <AiProgressOverlay
+      <AiAgentModal
         isOpen={!!aiRun}
         run={aiRun ?? initialAiRunState}
-        actionPending={actionPending}
-        onConfirmAction={confirmAiAction}
+        messages={aiMessages}
         onCancel={cancelAiGeneration}
-        onClose={() => closeAiOverlay(aiRun?.outcome === 'success')}
-        onRetry={() => closeAiOverlay(false)}
+        onClose={closeAiModal}
+        onReply={handleAiReply}
       />
 
       <PauseModal

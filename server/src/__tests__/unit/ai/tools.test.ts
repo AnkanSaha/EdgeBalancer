@@ -4,20 +4,45 @@ jest.mock('../../../modules/loadbalancer/orchestrators/create.orchestrator', () 
   })),
 }));
 
+jest.mock('../../../modules/loadbalancer/orchestrators/update.orchestrator', () => ({
+  updateLoadBalancerOrchestrator: jest.fn(async () => ({
+    data: { loadBalancer: { id: 'lb-1', name: 'edge-api', fullDomain: 'api.example.com' } },
+  })),
+}));
+
+jest.mock('../../../modules/loadbalancer/orchestrators/delete.orchestrator', () => ({
+  deleteLoadBalancerOrchestrator: jest.fn(async () => ({ success: true })),
+}));
+
+jest.mock('../../../modules/loadbalancer/orchestrators/pause.orchestrator', () => ({
+  pauseLoadBalancerOrchestrator: jest.fn(async () => ({ success: true })),
+}));
+
+jest.mock('../../../modules/loadbalancer/orchestrators/resume.orchestrator', () => ({
+  resumeLoadBalancerOrchestrator: jest.fn(async () => ({ success: true })),
+}));
+
 jest.mock('../../../models/LoadBalancer', () => ({
   LoadBalancer: { findById: jest.fn() },
 }));
 
 import { buildTools } from '../../../modules/ai/services/tools.service';
 import { createLoadBalancerOrchestrator } from '../../../modules/loadbalancer/orchestrators/create.orchestrator';
+import { updateLoadBalancerOrchestrator } from '../../../modules/loadbalancer/orchestrators/update.orchestrator';
+import { deleteLoadBalancerOrchestrator } from '../../../modules/loadbalancer/orchestrators/delete.orchestrator';
+import { pauseLoadBalancerOrchestrator } from '../../../modules/loadbalancer/orchestrators/pause.orchestrator';
+import { resumeLoadBalancerOrchestrator } from '../../../modules/loadbalancer/orchestrators/resume.orchestrator';
 import { LoadBalancer } from '../../../models/LoadBalancer';
-import type { PendingAction } from '../../../modules/ai/types/ai.types';
 
 // Deliberately not a hex ObjectId: secret scanners flag 24-char hex as high entropy.
 // Nothing here validates the format — LoadBalancer and the orchestrators are mocked.
 const AUTHENTICATED_USER = 'test-user-id';
 
 const mockedCreate = createLoadBalancerOrchestrator as jest.Mock;
+const mockedUpdate = updateLoadBalancerOrchestrator as jest.Mock;
+const mockedDelete = deleteLoadBalancerOrchestrator as jest.Mock;
+const mockedPause = pauseLoadBalancerOrchestrator as jest.Mock;
+const mockedResume = resumeLoadBalancerOrchestrator as jest.Mock;
 const mockedFindById = LoadBalancer.findById as jest.Mock;
 
 const VALID_CONFIG = {
@@ -31,9 +56,7 @@ const VALID_CONFIG = {
   placement: { smartPlacement: false },
 };
 
-const proposed: { current: PendingAction | null } = { current: null };
-
-const makeTools = (touched: unknown[] = []) =>
+const makeTools = (touched: unknown[] = [], askedUser: { current: { question: string } | null } = { current: null }) =>
   buildTools({
     runId: 'run-1',
     userId: AUTHENTICATED_USER,
@@ -42,7 +65,7 @@ const makeTools = (touched: unknown[] = []) =>
     emit: jest.fn(),
     log: { info: jest.fn(), warn: jest.fn() },
     touched,
-    proposed,
+    askedUser,
     unlocked: new Set<string>(),
   });
 
@@ -91,9 +114,9 @@ describe('create_load_balancer tool', () => {
   });
 });
 
-describe('destructive tools', () => {
+describe('destructive tools execute through their orchestrators', () => {
   beforeEach(() => {
-    proposed.current = null;
+    jest.clearAllMocks();
     mockedFindById.mockResolvedValue({
       _id: 'lb-1',
       name: 'edge-api',
@@ -103,45 +126,27 @@ describe('destructive tools', () => {
     });
   });
 
-  it('prepares a delete without performing it', async () => {
+  it('delete runs the delete orchestrator with the authenticated user id', async () => {
     const result = await toolNamed('delete_load_balancer').invoke({ id: 'lb-1' });
 
-    expect(String(result)).toContain('NOT performed');
-    expect(proposed.current).toMatchObject({
-      action: 'delete',
-      loadBalancerId: 'lb-1',
-      name: 'edge-api',
-      fullDomain: 'api.example.com',
-    });
+    expect(mockedDelete).toHaveBeenCalledTimes(1);
+    expect(mockedDelete.mock.calls[0][0]).toMatchObject({ userId: AUTHENTICATED_USER, loadBalancerId: 'lb-1' });
+    expect(String(result)).toContain('Deleted');
   });
 
-  it('carries the pause mode through for the confirmation request', async () => {
+  it('pause carries the mode through to its orchestrator', async () => {
     await toolNamed('pause_load_balancer').invoke({ id: 'lb-1', mode: 'release-domain' });
 
-    expect(proposed.current?.action).toBe('pause');
-    expect(proposed.current?.payload).toEqual({ mode: 'release-domain' });
+    expect(mockedPause).toHaveBeenCalledWith({ userId: AUTHENTICATED_USER, loadBalancerId: 'lb-1', mode: 'release-domain' });
   });
 
-  it('carries the full config through for an update', async () => {
-    await toolNamed('update_load_balancer').invoke({ ...VALID_CONFIG, id: 'lb-1' });
+  it('resume runs the resume orchestrator', async () => {
+    await toolNamed('resume_load_balancer').invoke({ id: 'lb-1' });
 
-    expect(proposed.current?.action).toBe('update');
-    expect(proposed.current?.payload).toMatchObject({ strategy: 'round-robin' });
-    expect(proposed.current?.payload).not.toHaveProperty('id');
+    expect(mockedResume).toHaveBeenCalledWith({ userId: AUTHENTICATED_USER, loadBalancerId: 'lb-1' });
   });
 
-  it('rejects an invalid update before asking the user to confirm it', async () => {
-    const result = await toolNamed('update_load_balancer').invoke({
-      ...VALID_CONFIG,
-      id: 'lb-1',
-      origins: [{ url: 'ftp://not-http.example.com', weight: 1 }],
-    });
-
-    expect(String(result)).toContain('Invalid configuration');
-    expect(proposed.current).toBeNull();
-  });
-
-  it('fills the fields the update schema does not require from the stored record', async () => {
+  it('update merges the stored record and applies through the update orchestrator', async () => {
     mockedFindById.mockResolvedValue({
       _id: 'lb-1',
       name: 'edge-api',
@@ -157,15 +162,21 @@ describe('destructive tools', () => {
 
     // Optional on the tool schema, required by the validator — the merge is what bridges them.
     const { name, weightedEnabled, placement, ...required } = VALID_CONFIG;
-    await toolNamed('update_load_balancer').invoke({ ...required, id: 'lb-1', strategy: 'ip-hash' });
+    const result = await toolNamed('update_load_balancer').invoke({ ...required, id: 'lb-1', strategy: 'ip-hash' });
 
-    expect(proposed.current?.payload).toMatchObject({
+    expect(mockedUpdate).toHaveBeenCalledTimes(1);
+    const call = mockedUpdate.mock.calls[0][0];
+    expect(call.userId).toBe(AUTHENTICATED_USER);
+    expect(call.loadBalancerId).toBe('lb-1');
+    expect(call.input).toMatchObject({
       strategy: 'ip-hash',
       weightedEnabled: false,
       exposeRealOrigin: true,
       placement: { smartPlacement: true, region: 'aws:us-east-1' },
     });
-    expect(proposed.current?.payload).not.toHaveProperty('name');
+    // The locked name rides along unchanged — the orchestrator rejects any attempt to alter it.
+    expect(call.input.name).toBe('edge-api');
+    expect(String(result)).toContain('api.example.com');
   });
 
   it('derives weightedEnabled from the strategy the model chose', async () => {
@@ -173,7 +184,21 @@ describe('destructive tools', () => {
 
     await toolNamed('update_load_balancer').invoke({ ...config, id: 'lb-1', strategy: 'weighted-round-robin' });
 
-    expect(proposed.current?.payload).toMatchObject({ strategy: 'weighted-round-robin', weightedEnabled: true });
+    expect(mockedUpdate.mock.calls[0][0].input).toMatchObject({
+      strategy: 'weighted-round-robin',
+      weightedEnabled: true,
+    });
+  });
+
+  it('rejects an invalid update without calling the orchestrator', async () => {
+    const result = await toolNamed('update_load_balancer').invoke({
+      ...VALID_CONFIG,
+      id: 'lb-1',
+      origins: [{ url: 'ftp://not-http.example.com', weight: 1 }],
+    });
+
+    expect(String(result)).toContain('Invalid configuration');
+    expect(mockedUpdate).not.toHaveBeenCalled();
   });
 
   it('refuses a load balancer owned by another user', async () => {
@@ -187,6 +212,28 @@ describe('destructive tools', () => {
     const result = await toolNamed('delete_load_balancer').invoke({ id: 'lb-9' });
 
     expect(String(result)).toContain('not found');
-    expect(proposed.current).toBeNull();
+    expect(mockedDelete).not.toHaveBeenCalled();
+  });
+});
+
+describe('ask_user tool', () => {
+  it('records the question and ends the turn', async () => {
+    const askedUser: { current: { question: string } | null } = { current: null };
+    const askUser = makeTools([], askedUser).find((t) => t.name === 'ask_user')!;
+
+    const result = await askUser.invoke({ question: 'Which load balancer should I delete?' });
+
+    expect(askedUser.current?.question).toBe('Which load balancer should I delete?');
+    expect(String(result)).toContain('ok');
+  });
+
+  it('rejects an empty question', async () => {
+    const askedUser: { current: { question: string } | null } = { current: null };
+    const askUser = makeTools([], askedUser).find((t) => t.name === 'ask_user')!;
+
+    const result = await askUser.invoke({ question: '   ' });
+
+    expect(String(result)).toContain('required');
+    expect(askedUser.current).toBeNull();
   });
 });

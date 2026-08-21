@@ -8,6 +8,7 @@ import {
   isProviderExhausted,
   markModelExhausted,
   markProviderExhausted,
+  modelCooldownFor,
 } from './quota.service';
 import { tryConsume } from './rate-limit.service';
 import type { RunLogger } from './log.service';
@@ -154,8 +155,9 @@ export async function invokeWithFallback(params: {
         await markProviderExhausted(provider);
         log.warn(`${provider} rate limited — standing the whole provider down for 24h`);
       } else if (disposition === 'model-exhausted') {
-        await markModelExhausted(model, retryAfter);
-        log.warn(`${model} rate limited — cooling down for ${retryAfter ?? 60}s`);
+        const cooldown = modelCooldownFor(provider);
+        await markModelExhausted(model, retryAfter, cooldown);
+        log.warn(`${model} rate limited — cooling down for ${retryAfter ?? cooldown}s`);
       } else {
         skippedModels.add(model);
       }

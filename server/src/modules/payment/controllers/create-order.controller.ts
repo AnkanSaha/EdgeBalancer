@@ -49,7 +49,10 @@ export const createPaymentOrder: AppHandler = async (req, res) => {
   let order;
   try {
     const phone = (req.body?.phone as string)?.trim() || '0000000000';
-    order = await createOrder(userId, req.user?.email, phone, amount);
+    // The note shown on the gateway checkout carries the real plan and duration.
+    const planLabel = plan === 'trial' ? 'Trial' : config.name;
+    const orderNote = `EdgeBalancer ${planLabel} - ${durationDays} days pass`;
+    order = await createOrder(userId, req.user?.email, phone, amount, orderNote);
   } catch (err: any) {
     const cfMessage = err?.response?.data?.message || err?.message || 'Unknown error';
     console.error('Cashfree createOrder failed:', cfMessage);

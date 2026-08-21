@@ -21,6 +21,7 @@ import {
   isProviderExhausted,
   markModelExhausted,
   markProviderExhausted,
+  modelCooldownFor,
 } from '../../../modules/ai/services/quota.service';
 
 describe('quota cooldowns', () => {
@@ -48,7 +49,7 @@ describe('quota cooldowns', () => {
 
     expect(await isModelExhausted('mistral-large-2512')).toBe(true);
     expect(store.get('ai:quota:model:mistral-large-2512')).toBe(MODEL_COOLDOWN_SECONDS);
-    expect(await isModelExhausted('ministral-3b-2512')).toBe(false);
+    expect(await isModelExhausted('mistral-small-2603')).toBe(false);
   });
 
   it('honours a Retry-After over the default', async () => {
@@ -82,5 +83,11 @@ describe('quota cooldowns', () => {
     expect(await isProviderExhausted('openrouter')).toBe(false);
     expect(await isModelExhausted('anything')).toBe(false);
     await expect(markProviderExhausted('mistral')).resolves.toBeUndefined();
+  });
+});
+
+describe('modelCooldownFor', () => {
+  it('keeps Mistral on the short default — its limits clear within the minute', () => {
+    expect(modelCooldownFor('mistral')).toBe(MODEL_COOLDOWN_SECONDS);
   });
 });

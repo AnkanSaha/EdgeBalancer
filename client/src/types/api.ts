@@ -174,29 +174,24 @@ export interface CreateLoadBalancerRequest {
   placement: PlacementConfig;
 }
 
-// --- AI provisioning ---
+// --- AI Agent ---
 
-export type AiOutcome = 'success' | 'failure' | 'pending' | 'refused';
+export type AiOutcome = 'success' | 'failure' | 'refused' | 'needs_input';
 
-export type PendingActionKind = 'delete' | 'pause' | 'resume' | 'update';
-
-/** A destructive step the agent resolved but did not perform — the user confirms it. */
-export interface PendingAction {
-  action: PendingActionKind;
-  loadBalancerId: string;
-  name: string;
-  fullDomain: string;
-  summary: string;
-  payload?: Record<string, unknown>;
+/** One turn of the conversation chain replayed to the server on every call. */
+export interface ConversationTurn {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 export type AiEvent =
   | { name: 'run_start'; payload: { runId: string } }
+  | { name: 'model_active'; payload: { model: string } }
   | { name: 'model_switch'; payload: { from: string; to: string; reason: string } }
   | { name: 'status'; payload: { message: string; progress: number } }
   | { name: 'tool_start'; payload: { name: string; args: Record<string, unknown> } }
   | { name: 'tool_result'; payload: { name: string; ok: boolean; summary: string } }
-  | { name: 'done'; payload: { outcome: AiOutcome; message: string; loadBalancers: LoadBalancer[]; pendingAction: PendingAction | null } }
+  | { name: 'done'; payload: { outcome: AiOutcome; message: string; loadBalancers: LoadBalancer[] } }
   | { name: 'error'; payload: { message: string } };
 
 export interface AiStep {
@@ -234,14 +229,21 @@ export interface AiRunToolCall {
   durationMs: number;
 }
 
+export interface AiRunTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export interface AiRunDetail {
   _id: string;
   userId: string;
   prompt: string;
+  turns: AiRunTurn[];
   modelsUsed: AiRunModelAttempt[];
   finalModel: string | null;
   toolCalls: AiRunToolCall[];
   outcome: AiOutcome;
+  finalMessage: string | null;
   durationMs: number;
   error: string | null;
   createdAt: string;
