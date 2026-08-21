@@ -30,7 +30,7 @@ export const hasSecondFactor = (user: IUser): boolean => availableMethods(user).
 export const toUserPayload = (user: IUser) => {
   const plan: PlanType = resolvePlan(user.plan, user.planExpiresAt);
   const isSubscribed = plan !== 'free';
-  const isPro = plan === 'pro';
+  const isPro = plan === 'pro' || plan === 'pro-annual';
 
   return {
     id: user._id,

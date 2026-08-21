@@ -200,6 +200,10 @@ export async function updateLoadBalancerOrchestrator(params: {
 
   // Provision DNS records for raw IP origins (create new, update changed — safe before deploy)
   // Deletion of obsolete records happens after DB update to keep old worker valid during rollback window
+
+  // No OAuth preflight — same reason as create.orchestrator: TXT probe caused false negatives
+  // while manual REST with identical OAuth token + IP + zoneId succeeded at creating A records.
+
   const {
     resolvedOrigins,
     ipOriginRecords: nextIpOriginRecords,

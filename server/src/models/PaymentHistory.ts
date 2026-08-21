@@ -54,7 +54,7 @@ const PaymentHistorySchema = new Schema<IPaymentHistory>(
     },
     plan: {
       type: String,
-      enum: ['trial', 'student', 'pro'],
+      enum: ['trial', 'student', 'pro', 'student-annual', 'pro-annual'],
       required: true,
     },
     paymentMethod: {

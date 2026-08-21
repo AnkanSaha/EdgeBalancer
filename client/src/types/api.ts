@@ -19,7 +19,7 @@ export interface User {
   totpDevices?: Credential[];
   passkeys?: Credential[];
   preferredSecondFactor?: SecondFactorMethod | null;
-  plan?: 'free' | 'trial' | 'student' | 'pro';
+  plan?: 'free' | 'trial' | 'student' | 'pro' | 'student-annual' | 'pro-annual';
   planExpiresAt?: string | null;
   isPro?: boolean;
   isSubscribed?: boolean;

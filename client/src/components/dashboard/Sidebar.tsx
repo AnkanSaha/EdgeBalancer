@@ -41,37 +41,37 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail, hasCloudflareCred
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '8px 14px', borderRadius: 'var(--radius)',
-            background: plan === 'pro'
+            background: plan?.includes('pro')
               ? 'linear-gradient(135deg, #f59e0b22, #f9731622)'
-              : plan === 'student'
+              : plan?.includes('student')
               ? 'linear-gradient(135deg, #3b82f622, #6366f122)'
               : 'linear-gradient(135deg, #8b5cf622, #a855f722)',
-            border: plan === 'pro'
+            border: plan?.includes('pro')
               ? '1px solid #f59e0b55'
-              : plan === 'student'
+              : plan?.includes('student')
               ? '1px solid #3b82f655'
               : '1px solid #8b5cf655',
             marginTop: 10,
-            boxShadow: plan === 'pro' ? '0 0 20px #f59e0b15' : 'none',
+            boxShadow: plan?.includes('pro') ? '0 0 20px #f59e0b15' : 'none',
           }}>
             <div style={{
               width: 28, height: 28, borderRadius: '50%',
-              background: plan === 'pro'
+              background: plan?.includes('pro')
                 ? 'linear-gradient(135deg, #f59e0b, #f97316)'
-                : plan === 'student'
+                : plan?.includes('student')
                 ? 'linear-gradient(135deg, #3b82f6, #6366f1)'
                 : 'linear-gradient(135deg, #8b5cf6, #a855f7)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: plan === 'pro' ? '0 2px 8px #f59e0b44' : 'none',
+              boxShadow: plan?.includes('pro') ? '0 2px 8px #f59e0b44' : 'none',
             }}>
               <Icons.Crown size={14} fill="#fff" stroke="#fff" />
             </div>
             <div style={{ minWidth: 0 }}>
               <div style={{
                 fontSize: 13, fontWeight: 700,
-                color: plan === 'pro' ? '#f59e0b' : plan === 'student' ? '#3b82f6' : '#8b5cf6',
+                color: plan?.includes('pro') ? '#f59e0b' : plan?.includes('student') ? '#3b82f6' : '#8b5cf6',
                 fontFamily: 'var(--mono)', letterSpacing: '0.04em',
-              }}>{plan === 'pro' ? 'Pro User' : plan === 'student' ? 'Student' : 'Trial'}</div>
+              }}>{plan?.includes('pro') ? 'Pro User' : plan?.includes('student') ? 'Student' : 'Trial'}</div>
               <div style={{
                 fontSize: 11, color: 'var(--text-3)', marginTop: 2,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',

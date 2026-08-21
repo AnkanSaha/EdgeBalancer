@@ -77,15 +77,30 @@ export class CloudflareClient {
     return !!script;
   }
 
-  async testDnsEditPermission(accountId: string): Promise<boolean> {
+  async testDnsEditPermission(accountId: string, zoneId?: string): Promise<boolean> {
     try {
-      const zones = await this.getZones(accountId);
-      const firstZone = zones?.result?.[0];
-      if (!firstZone?.id) return true; // no zones available to test against — skip
-      await retryWithBackoff(
-        () => this.client.get(`/zones/${firstZone.id}/dns_records?per_page=1`),
+      let testZoneId = zoneId;
+      if (!testZoneId) {
+        const zones = await this.getZones(accountId);
+        const firstZone = zones?.result?.[0];
+        if (!firstZone?.id) return true; // no zones available to test against — skip
+        testZoneId = firstZone.id;
+      }
+      // Test actual WRITE permission by creating a throwaway TXT record
+      const testRecordName = `_edgebalancer-dnstest-${Date.now()}`;
+      const createRes = await retryWithBackoff(
+        () => this.client.post(`/zones/${testZoneId}/dns_records`, {
+          type: 'TXT',
+          name: testRecordName,
+          content: 'edgebalancer-permission-check',
+          ttl: 60,
+        }),
         { maxRetries: 2 }
       );
+      // Clean up the test record
+      if (createRes.data?.result?.id) {
+        await this.client.delete(`/zones/${testZoneId}/dns_records/${createRes.data.result.id}`).catch(() => {});
+      }
       return true;
     } catch {
       return false;

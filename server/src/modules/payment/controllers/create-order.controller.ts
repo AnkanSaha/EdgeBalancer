@@ -2,10 +2,11 @@ import { PaymentHistory } from '../../../models/PaymentHistory';
 import { User } from '../../../models/User';
 import { PLANS, type PlanType } from '../../../config/plans';
 import { createOrder } from '../services/cashfree.service';
+import { activatePlan } from '../services/subscription.service';
 import type { AppHandler } from '../../../types/http';
 import { resolvePlan } from '../../../config/plans';
 
-const VALID_PLANS: PlanType[] = ['trial', 'student', 'pro'];
+const VALID_PLANS: PlanType[] = ['trial', 'student', 'pro', 'student-annual', 'pro-annual'];
 
 /** POST /api/payments — Create a Cashfree order for a subscription plan */
 export const createPaymentOrder: AppHandler = async (req, res) => {
@@ -43,14 +44,36 @@ export const createPaymentOrder: AppHandler = async (req, res) => {
     throw new Error('Trial is only available for first-time subscribers');
   }
 
-  const durationDays = plan === 'trial' ? 7 : config.durationDays;
+  const durationDays = config.durationDays;
   const amount = config.price;
+
+  // Free trial: skip Cashfree, activate directly
+  if (amount === 0) {
+    await activatePlan(userId, plan);
+
+    await PaymentHistory.create({
+      userId,
+      orderId: `trial-${userId}-${Date.now()}`,
+      amount: 0,
+      currency: 'INR',
+      status: 'SUCCESS',
+      plan,
+      expiresAt: new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000),
+    });
+
+    res.json({
+      success: true,
+      message: 'Trial activated',
+      data: { orderId: null, paymentSessionId: null, plan, amount: 0, trialActivated: true },
+    });
+    return;
+  }
 
   let order;
   try {
     const phone = (req.body?.phone as string)?.trim() || '0000000000';
     // The note shown on the gateway checkout carries the real plan and duration.
-    const planLabel = plan === 'trial' ? 'Trial' : config.name;
+    const planLabel = config.name;
     const orderNote = `EdgeBalancer ${planLabel} - ${durationDays} days pass`;
     order = await createOrder(userId, req.user?.email, phone, amount, orderNote);
   } catch (err: any) {

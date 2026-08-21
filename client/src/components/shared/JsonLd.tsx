@@ -37,9 +37,11 @@ export function SoftwareApplicationSchema() {
       "Deploy Cloudflare Worker-based load balancers in under 90 seconds. 7 routing strategies, health checks, per-origin traffic weighting. No code required.",
     url: "https://edge.nexoral.in",
     offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "USD",
+      "@type": "AggregateOffer",
+      lowPrice: "0",
+      highPrice: "299",
+      priceCurrency: "INR",
+      offerCount: 3,
     },
     featureList: [
       "7 routing strategies (round-robin, weighted, IP hash, cookie sticky, failover, geo-steering)",

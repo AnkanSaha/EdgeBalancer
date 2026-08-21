@@ -12,6 +12,8 @@ import { pauseLoadBalancerOrchestrator } from '../../loadbalancer/orchestrators/
 import { resumeLoadBalancerOrchestrator } from '../../loadbalancer/orchestrators/resume.orchestrator';
 import { toHostname } from '../../loadbalancer/services/hostname.service';
 import { isWeightedStrategy } from '../../loadbalancer/services/strategy.service';
+import { getUserPlan } from '../../payment/services/subscription.service';
+import { PLANS, isStrategyAllowed } from '../../../config/plans';
 import { buildResearchTools } from './research.service';
 import type { RunLogger } from './log.service';
 import type { RequestCancellation } from '../../../utils/requestCancellation';
@@ -52,14 +54,15 @@ const CONFIG_PROPERTIES = {
   origins: { type: 'array', items: ORIGIN_SCHEMA, minItems: 1 },
   strategy: {
     type: 'string',
-    enum: ['round-robin', 'weighted-round-robin', 'ip-hash', 'cookie-sticky', 'weighted-cookie-sticky', 'failover', 'geo-steering'],
+    enum: ['round-robin', 'weighted-round-robin', 'ip-hash', 'cookie-sticky', 'weighted-cookie-sticky', 'failover', 'geo-steering', 'rr', 'wrr', 'geo'],
+    description: 'Use full name: round-robin (or rr), weighted-round-robin, ip-hash, cookie-sticky, weighted-cookie-sticky, failover, geo-steering',
   },
   weightedEnabled: { type: 'boolean', description: 'true only for weighted-round-robin and weighted-cookie-sticky' },
   exposeRealOrigin: { type: 'boolean' },
   corsEnabled: { type: 'boolean' },
   corsOrigins: { type: 'array', items: { type: 'string' } },
   rateLimitEnabled: { type: 'boolean', description: 'true to enforce requests-per-minute rate limiting per client IP' },
-  rateLimitRequestsPerMinute: { type: 'integer', minimum: 1, maximum: 100000, description: 'requests allowed per minute per client IP; required when rateLimitEnabled is true' },
+  rateLimitRequestsPerMinute: { type: 'integer', minimum: 0, maximum: 100000, description: 'requests allowed per minute per client IP; required and >=1 when rateLimitEnabled is true, omit or 0 otherwise' },
   pathRoutes: {
     type: 'array',
     description: 'Path-based routing rules. Each maps a URL path pattern to a specific origin by index. First matching rule wins (checked by priority). Optional.',
@@ -87,7 +90,7 @@ const CONFIG_PROPERTIES = {
     },
   },
   healthCheckEnabled: { type: 'boolean', description: 'true to probe each origin and stop routing to failed backends' },
-  healthCheckIntervalSeconds: { type: 'integer', minimum: 5, maximum: 3600, description: 'health checks only: probe interval in seconds; required when healthCheckEnabled is true, default 30' },
+  healthCheckIntervalSeconds: { type: 'integer', minimum: 0, maximum: 3600, description: 'health checks only: probe interval in seconds; required and >=5 when healthCheckEnabled is true, omit or 0 otherwise' },
   placement: {
     type: 'object',
     properties: {
@@ -105,6 +108,26 @@ export const MUTATING_TOOL_NAMES = [
   'pause_load_balancer',
   'resume_load_balancer',
 ] as const;
+
+const STRATEGY_ALIASES: Record<string, string> = {
+  rr: 'round-robin',
+  'round robin': 'round-robin',
+  wrr: 'weighted-round-robin',
+  'weighted-rr': 'weighted-round-robin',
+  ip_hash: 'ip-hash',
+  'ip hash': 'ip-hash',
+  sticky: 'cookie-sticky',
+  'cookie sticky': 'cookie-sticky',
+  'weighted sticky': 'weighted-cookie-sticky',
+  fo: 'failover',
+  geo: 'geo-steering',
+};
+
+const normalizeStrategyAlias = (s: unknown): unknown => {
+  if (typeof s !== 'string') return s;
+  const lower = s.trim().toLowerCase();
+  return STRATEGY_ALIASES[lower] ?? s;
+};
 
 const ok = (data: unknown) => JSON.stringify({ ok: true, data });
 const fail = (message: string) => JSON.stringify({ ok: false, error: message });
@@ -165,8 +188,53 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
 
   const createLoadBalancer = tool(
     async (input: any) => {
+      // Normalize common shorthands models hallucinate before validation
+      if (input.strategy) input.strategy = normalizeStrategyAlias(input.strategy);
+      // Auto-resolve zoneId if model omitted it: same lookup manual form does via dropdown
+      if (!input.zoneId && input.domain) {
+        try {
+          const creds = await getCloudflareCredentials(userId);
+          if (creds) {
+            const client = new CloudflareClient(creds.apiToken);
+            const resp = await client.getZones(creds.accountId);
+            const match = (resp.result as any[]).find((z) => z.name === input.domain || input.domain.endsWith(`.${z.name}`));
+            if (match) {
+              input.zoneId = match.id;
+              if (!input.domain.endsWith(match.name)) {
+                // subdomain case: ensure domain is the zone name, subdomain holds prefix
+                const prefix = input.domain.slice(0, -match.name.length - 1);
+                if (prefix && !input.subdomain) {
+                  input.domain = match.name;
+                  input.subdomain = prefix;
+                }
+              }
+            }
+          }
+        } catch {}
+      }
+      // Normalize conditional fields the model often hallucinates as 0 when disabled
+      if (input.rateLimitEnabled !== true && input.rateLimitRequestsPerMinute === 0) delete input.rateLimitRequestsPerMinute;
+      if (input.healthCheckEnabled !== true && input.healthCheckIntervalSeconds === 0) delete input.healthCheckIntervalSeconds;
       const errors = validateCreateLoadBalancerBody(input);
       if (errors.length > 0) return fail(`Invalid configuration: ${errors.join(', ')}`);
+
+      // Plan gating — identical to REST POST /api/loadbalancers
+      const { plan } = await getUserPlan(userId);
+      const config = PLANS[plan];
+      if (config.lbLimit > 0) {
+        const count = await LoadBalancer.countDocuments({ userId });
+        if (count >= config.lbLimit) return fail(`Your ${config.name} plan allows ${config.lbLimit} load balancer${config.lbLimit === 1 ? '' : 's'}. Upgrade to create more.`);
+      }
+      if (input.strategy && !isStrategyAllowed(plan, input.strategy)) return fail(`The "${input.strategy}" strategy requires a higher plan. Upgrade to unlock all strategies.`);
+      if (!config.canEditPlacement) input.placement = { smartPlacement: true };
+      if (input.healthCheckEnabled) {
+        if (config.maxHealthCheckLBs === 0) return fail('Health Checks require an EdgeBalancer Pro or Student subscription');
+        if (config.maxHealthCheckLBs > 0) {
+          const hcCount = await LoadBalancer.countDocuments({ userId, healthCheckEnabled: true });
+          if (hcCount >= config.maxHealthCheckLBs) return fail(`Your ${config.name} plan allows health checks on ${config.maxHealthCheckLBs} load balancers.`);
+        }
+      }
+      if (input.rateLimitEnabled && !config.hasRateLimit) return fail('Rate Limiting requires an EdgeBalancer Pro subscription');
 
       const result = await createLoadBalancerOrchestrator({
         userId,
@@ -197,6 +265,9 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
   const updateLoadBalancer = tool(
     async (input: any) => {
       const { id, ...config } = input;
+      if (config.strategy) config.strategy = normalizeStrategyAlias(config.strategy);
+      if (config.rateLimitEnabled !== true && config.rateLimitRequestsPerMinute === 0) delete config.rateLimitRequestsPerMinute;
+      if (config.healthCheckEnabled !== true && config.healthCheckIntervalSeconds === 0) delete config.healthCheckIntervalSeconds;
       const existing = await findOwned(id);
       if (!existing) return fail('Load balancer not found.');
 
@@ -225,6 +296,20 @@ export function buildTools(ctx: ToolContext): StructuredToolInterface[] {
 
       const errors = validateCreateLoadBalancerBody(merged);
       if (errors.length > 0) return fail(`Invalid configuration: ${errors.join(', ')}`);
+
+      // Plan gating — identical to REST PUT /api/loadbalancers/:id
+      const { plan: updatePlan } = await getUserPlan(userId);
+      const updateConfig = PLANS[updatePlan];
+      if (merged.strategy && !isStrategyAllowed(updatePlan, merged.strategy)) return fail(`The "${merged.strategy}" strategy requires a higher plan. Upgrade to unlock all strategies.`);
+      if (!updateConfig.canEditPlacement) merged.placement = existing.placement;
+      if (merged.healthCheckEnabled) {
+        if (updateConfig.maxHealthCheckLBs === 0) return fail('Health Checks require an EdgeBalancer Pro or Student subscription');
+        if (updateConfig.maxHealthCheckLBs > 0 && !existing.healthCheckEnabled) {
+          const hcCount = await LoadBalancer.countDocuments({ userId, healthCheckEnabled: true });
+          if (hcCount >= updateConfig.maxHealthCheckLBs) return fail(`Your ${updateConfig.name} plan allows health checks on ${updateConfig.maxHealthCheckLBs} load balancers.`);
+        }
+      }
+      if (merged.rateLimitEnabled && !updateConfig.hasRateLimit) return fail('Rate Limiting requires an EdgeBalancer Pro subscription');
 
       const result = await updateLoadBalancerOrchestrator({
         userId,
