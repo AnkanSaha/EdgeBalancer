@@ -447,8 +447,9 @@ mid-conversation checkpoint — chained as real turns so each step replays the m
 response verbatim (synthetic canned history causes false rejections). Models that answer the
 checkpoint in plain prose dead-end a run, and a dead-end "success" is worse than a 429
 fall-through, so failed models are removed outright; when a whole tier fails, the provider goes
-(OpenCode Zen, then Gemini). Within the OpenRouter tier models are ordered by P50 latency,
-fastest first (openrouter.ai model pages, Aug 21 2026); within Mistral by measured
+(OpenCode Zen, then Gemini). The OpenRouter tier is quality-gated — only large-flagship-class
+MoE models are kept (nano/mini/xs variants removed) — and within it models are ordered by P50
+latency, fastest first (openrouter.ai model pages, Aug 21 2026); within Mistral by measured
 requests-per-second allowance, largest first. Free quota is spent before the metered one.
 Failures are classified, and only quota exhaustion is shared with other users:
 

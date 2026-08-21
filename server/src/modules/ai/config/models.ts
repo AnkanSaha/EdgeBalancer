@@ -1,23 +1,13 @@
 import type { ModelDescriptor } from '../types/ai.types';
 
-// OpenRouter free tier, fastest-first by P50 latency (openrouter.ai model pages, Aug 21 2026).
+// OpenRouter free tier, quality-gated: only large-flagship-class models survive (nano/mini/xs
+// variants removed). Ordered fastest-first by P50 latency (openrouter.ai pages, Aug 21 2026).
 // `openrouter/free` is the auto-router catch-all and always runs last.
 export const FREE_MODELS = [
-  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', // 0.47s / 54 tok/s
-  'google/gemma-4-26b-a4b-it:free', // 0.97s / 40 tok/s
-  'dots-studio/dots-3-note-preview:free', // 1.07s / 72 tok/s
-  'google/gemma-4-31b-it:free', // 1.16s / 30 tok/s
-  'nvidia/nemotron-nano-9b-v2:free', // 1.18s / 31 tok/s
-  'cohere/north-mini-code:free', // 1.23s / 25 tok/s
-  'nvidia/nemotron-3-super-120b-a12b:free', // 1.25s / 41 tok/s
-  'nvidia/nemotron-3.5-lightning:free', // 1.36s / 34 tok/s
-  'poolside/laguna-xs-2.1:free', // 1.40s / 12 tok/s
-  'poolside/laguna-s-2.1:free', // 1.53s / 35 tok/s
-  'nvidia/nemotron-3-ultra-550b-a55b:free', // 3.06s / 18 tok/s
-  'nvidia/nemotron-nano-12b-v2-vl:free', // 3.17s / 13 tok/s
-  'z-ai/glm-5.2:free', // 3.60s / 104 tok/s
-  'nvidia/nemotron-3-nano-30b-a3b:free', // 3.73s / 47 tok/s
-  'openai/gpt-oss-20b:free', // 3.77s / 16 tok/s
+  'dots-studio/dots-3-note-preview:free', // 280B MoE / 16B active — 1.07s / 72 tok/s
+  'nvidia/nemotron-3-super-120b-a12b:free', // 120B MoE / 12B active — 1.25s / 41 tok/s
+  'nvidia/nemotron-3-ultra-550b-a55b:free', // 550B MoE / 55B active — 3.06s / 18 tok/s
+  'z-ai/glm-5.2:free', // flagship reasoning — 3.60s / 104 tok/s
   'openrouter/free',
 ];
 
