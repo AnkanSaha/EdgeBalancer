@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Sidebar, Topbar } from '@/components/dashboard/Sidebar';
+import { Sidebar } from '@/components/dashboard/Sidebar';
 import { Icons } from '@/components/shared/Icons';
 import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api';
@@ -11,19 +11,20 @@ import { openCashfreeCheckout } from '@/lib/cashfree';
 
 // All features — one entry per feature, with plan-specific labels
 const ALL_FEATURES: { free: string | null; student: string | null; pro: string | null }[] = [
-  { free: 'Up to 3 load balancers', student: 'Up to 10 load balancers', pro: 'Unlimited load balancers' },
-  { free: '3 traffic strategies', student: 'All 7 traffic strategies', pro: 'All 7 traffic strategies' },
+  { free: 'Up to 5 load balancers', student: 'Up to 10 load balancers', pro: 'Unlimited load balancers' },
+  { free: 'All 7 traffic strategies', student: 'All 7 traffic strategies', pro: 'All 7 traffic strategies' },
+  { free: 'Health Checks (up to 2 LBs)', student: 'Health Checks (up to 5 LBs)', pro: 'Unlimited Health Checks' },
   { free: 'Smart Placement (auto, locked)', student: 'Custom Smart Placement', pro: 'Custom Smart Placement' },
   { free: 'Pause / resume load balancers', student: 'Pause / resume load balancers', pro: 'Pause / resume load balancers' },
   { free: 'Deployment history', student: 'Deployment history', pro: 'Deployment history' },
-  { free: null, student: 'Health Checks (up to 5 LBs)', pro: 'Unlimited Health Checks' },
   { free: null, student: 'Cloudflare analytics per card', pro: 'Cloudflare analytics per card' },
   { free: null, student: 'Download Worker scripts', pro: 'Download Worker scripts' },
   { free: null, student: null, pro: 'AI Agent' },
   { free: null, student: null, pro: 'Rate Limiting' },
 ];
 
-type PlanType = 'trial' | 'student' | 'pro';
+type PlanType = 'trial' | 'student' | 'pro' | 'student-annual' | 'pro-annual';
+type BillingPeriod = 'monthly' | 'annual';
 
 export default function ProPage() {
   const { user, loading: authLoading, refreshUser } = useAuth();
@@ -35,6 +36,7 @@ export default function ProPage() {
   const [currentNav, setCurrentNav] = useState('pro');
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanType>('student');
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
   const [phone, setPhone] = useState('');
 
   useEffect(() => {
@@ -121,11 +123,6 @@ export default function ProPage() {
         planExpiresAt={user.planExpiresAt}
       />
       <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Topbar
-          crumbs={['Overview', 'EdgeBalancer Pro']}
-          title="EdgeBalancer Pro"
-          subtitle="Choose the plan that fits your needs"
-        />
         <div style={{ padding: 'clamp(16px, 4vw, 32px)', overflow: 'auto', flex: 1 }}>
 
           {success ? (
@@ -207,12 +204,11 @@ export default function ProPage() {
                 }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
-                      Try Student&apos;s Support — <span style={{ textDecoration: 'line-through', color: 'var(--text-3)' }}>₹89</span>{' '}
-                      <span style={{ color: '#f59e0b', fontWeight: 700 }}>₹10</span>{' '}
-                      <span style={{ fontSize: 13, color: 'var(--text-3)' }}>for 7 days</span>
+                      Try Pro — <span style={{ color: '#f59e0b', fontWeight: 700 }}>FREE</span>{' '}
+                      <span style={{ fontSize: 13, color: 'var(--text-3)' }}>for 14 days</span>
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
-                      First-time only. After trial, regular prices apply.
+                      First-time only. No credit card required. All Pro features except AI.
                     </div>
                   </div>
                   <button
@@ -225,13 +221,44 @@ export default function ProPage() {
                       color: '#fff', cursor: 'pointer',
                     }}
                   >
-                    <span style={{ textDecoration: 'line-through', opacity: 0.7, marginRight: 6 }}>₹89</span>
-                    ₹10 — Start Trial
+                    <span style={{ textDecoration: 'line-through', opacity: 0.7, marginRight: 6 }}>₹299</span>
+                    FREE — Start Trial
                   </button>
                 </div>
               )}
 
               {/* Plan cards */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
+                <div style={{
+                  display: 'inline-flex', padding: 4, borderRadius: 'var(--radius)',
+                  background: 'var(--bg-1)', border: '1px solid var(--line)',
+                }}>
+                  <button
+                    onClick={() => setBillingPeriod('monthly')}
+                    style={{
+                      padding: '8px 20px', fontSize: 13, fontWeight: 600, borderRadius: 'calc(var(--radius) - 2px)',
+                      border: 'none', cursor: 'pointer', transition: 'all 200ms',
+                      background: billingPeriod === 'monthly' ? 'var(--accent)' : 'transparent',
+                      color: billingPeriod === 'monthly' ? '#fff' : 'var(--text-3)',
+                    }}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setBillingPeriod('annual')}
+                    style={{
+                      padding: '8px 20px', fontSize: 13, fontWeight: 600, borderRadius: 'calc(var(--radius) - 2px)',
+                      border: 'none', cursor: 'pointer', transition: 'all 200ms',
+                      background: billingPeriod === 'annual' ? 'var(--accent)' : 'transparent',
+                      color: billingPeriod === 'annual' ? '#fff' : 'var(--text-3)',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    Annual <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 999, background: billingPeriod === 'annual' ? 'rgba(255,255,255,0.2)' : 'var(--green)', color: billingPeriod === 'annual' ? '#fff' : '#000', fontWeight: 700 }}>SAVE 20%</span>
+                  </button>
+                </div>
+              </div>
+
               <div style={{
                 display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16,
                 marginBottom: 32,
@@ -273,8 +300,17 @@ export default function ProPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Student&apos;s Support</div>
                   </div>
-                  <div style={{ fontSize: 36, fontWeight: 700, marginTop: 8 }}>₹89</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 24 }}>for 30 days</div>
+                  <div style={{ fontSize: 36, fontWeight: 700, marginTop: 8 }}>
+                    {billingPeriod === 'monthly' ? '₹49' : '₹470'}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 24 }}>
+                    {billingPeriod === 'monthly' ? 'for 30 days' : 'for 365 days'}
+                  </div>
+                  {billingPeriod === 'annual' && (
+                    <div style={{ fontSize: 12, color: 'var(--green)', marginTop: -16, marginBottom: 16 }}>
+                      ₹39/mo — save 20%
+                    </div>
+                  )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {ALL_FEATURES.filter(f => f.student).map(f => (
                       <div key={f.student!} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: 'var(--text)' }}>
@@ -290,7 +326,7 @@ export default function ProPage() {
                     ))}
                   </div>
                   <button
-                    onClick={() => handleBuyClick('student')}
+                    onClick={() => handleBuyClick(billingPeriod === 'monthly' ? 'student' : 'student-annual')}
                     disabled={loading || polling}
                     style={{
                       width: '100%', padding: '12px', marginTop: 24, fontSize: 14, fontWeight: 600,
@@ -299,7 +335,7 @@ export default function ProPage() {
                       color: '#fff', cursor: 'pointer',
                     }}
                   >
-                    Get Student&apos;s Support — ₹89
+                    Get Student&apos;s Support — {billingPeriod === 'monthly' ? '₹49' : '₹470'}
                   </button>
                 </div>
 
@@ -322,8 +358,17 @@ export default function ProPage() {
                       color: '#fff', fontWeight: 600,
                     }}>BEST VALUE</div>
                   </div>
-                  <div style={{ fontSize: 36, fontWeight: 700, marginTop: 8 }}>₹199</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 24 }}>for 30 days</div>
+                  <div style={{ fontSize: 36, fontWeight: 700, marginTop: 8 }}>
+                    {billingPeriod === 'monthly' ? '₹299' : '₹2,870'}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 24 }}>
+                    {billingPeriod === 'monthly' ? 'for 30 days' : 'for 365 days'}
+                  </div>
+                  {billingPeriod === 'annual' && (
+                    <div style={{ fontSize: 12, color: 'var(--green)', marginTop: -16, marginBottom: 16 }}>
+                      ₹239/mo — save 20%
+                    </div>
+                  )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {ALL_FEATURES.map(f => (
                       <div key={f.pro!} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>
@@ -333,7 +378,7 @@ export default function ProPage() {
                     ))}
                   </div>
                   <button
-                    onClick={() => handleBuyClick('pro')}
+                    onClick={() => handleBuyClick(billingPeriod === 'monthly' ? 'pro' : 'pro-annual')}
                     disabled={loading || polling}
                     style={{
                       width: '100%', padding: '12px', marginTop: 24, fontSize: 14, fontWeight: 600,
@@ -343,7 +388,7 @@ export default function ProPage() {
                       boxShadow: '0 4px 24px #f59e0b44',
                     }}
                   >
-                    Get Pro — ₹199
+                    Get Pro — {billingPeriod === 'monthly' ? '₹299' : '₹2,870'}
                   </button>
                 </div>
               </div>
@@ -413,7 +458,7 @@ export default function ProPage() {
               onClick={handleConfirmBuy}
               style={{ background: 'linear-gradient(135deg, #f59e0b, #f97316)', border: 'none', color: '#fff' }}
             >
-              {selectedPlan === 'trial' ? 'Pay ₹10' : selectedPlan === 'student' ? 'Pay ₹89' : 'Pay ₹199'}
+              {selectedPlan === 'trial' ? 'Start Free Trial' : selectedPlan === 'student' ? 'Pay ₹49' : selectedPlan === 'pro' ? 'Pay ₹299' : selectedPlan === 'student-annual' ? 'Pay ₹470' : 'Pay ₹2,870'}
             </button>
           </div>
         </div>

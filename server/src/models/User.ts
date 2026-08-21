@@ -46,7 +46,7 @@ export interface IUser extends Document {
   totpDevices: Types.DocumentArray<ITotpDevice>;
   passkeys: Types.DocumentArray<IPasskey>;
   preferredSecondFactor?: SecondFactorMethod | null;
-  plan?: 'free' | 'trial' | 'student' | 'pro';
+  plan?: 'free' | 'trial' | 'student' | 'pro' | 'student-annual' | 'pro-annual';
   planExpiresAt?: Date | null;
   hasEverSubscribed?: boolean;
   createdAt: Date;
@@ -189,7 +189,7 @@ const UserSchema = new Schema<IUser>(
     },
     plan: {
       type: String,
-      enum: ['free', 'trial', 'student', 'pro'],
+      enum: ['free', 'trial', 'student', 'pro', 'student-annual', 'pro-annual'],
       default: 'free',
     },
     planExpiresAt: {

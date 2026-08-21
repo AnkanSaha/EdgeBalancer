@@ -1,4 +1,4 @@
-export type PlanType = 'free' | 'trial' | 'student' | 'pro';
+export type PlanType = 'free' | 'trial' | 'student' | 'pro' | 'student-annual' | 'pro-annual';
 
 export interface PlanConfig {
   name: string;
@@ -23,9 +23,9 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     label: 'Free',
     price: 0,
     durationDays: 0,
-    lbLimit: 3,
-    allowedStrategies: ['round-robin', 'cookie-sticky', 'ip-hash'],
-    maxHealthCheckLBs: 0,
+    lbLimit: 5,
+    allowedStrategies: ALL_STRATEGIES,
+    maxHealthCheckLBs: 2,
     hasAnalytics: false,
     hasScriptDownload: false,
     hasAi: false,
@@ -35,8 +35,8 @@ export const PLANS: Record<PlanType, PlanConfig> = {
   trial: {
     name: "Student's Support — Trial",
     label: 'Trial',
-    price: 10,
-    durationDays: 7,
+    price: 0,
+    durationDays: 14,
     lbLimit: 10,
     allowedStrategies: ALL_STRATEGIES,
     maxHealthCheckLBs: 5,
@@ -49,7 +49,7 @@ export const PLANS: Record<PlanType, PlanConfig> = {
   student: {
     name: "Student's Support",
     label: 'Student',
-    price: 89,
+    price: 49,
     durationDays: 30,
     lbLimit: 10,
     allowedStrategies: ALL_STRATEGIES,
@@ -63,8 +63,36 @@ export const PLANS: Record<PlanType, PlanConfig> = {
   pro: {
     name: 'Pro',
     label: 'Pro',
-    price: 199,
+    price: 299,
     durationDays: 30,
+    lbLimit: 0,
+    allowedStrategies: ALL_STRATEGIES,
+    maxHealthCheckLBs: -1,
+    hasAnalytics: true,
+    hasScriptDownload: true,
+    hasAi: true,
+    hasRateLimit: true,
+    canEditPlacement: true,
+  },
+  'student-annual': {
+    name: "Student's Support (Annual)",
+    label: 'Student',
+    price: 470,
+    durationDays: 365,
+    lbLimit: 10,
+    allowedStrategies: ALL_STRATEGIES,
+    maxHealthCheckLBs: 5,
+    hasAnalytics: true,
+    hasScriptDownload: true,
+    hasAi: false,
+    hasRateLimit: false,
+    canEditPlacement: true,
+  },
+  'pro-annual': {
+    name: 'Pro (Annual)',
+    label: 'Pro',
+    price: 2870,
+    durationDays: 365,
     lbLimit: 0,
     allowedStrategies: ALL_STRATEGIES,
     maxHealthCheckLBs: -1,

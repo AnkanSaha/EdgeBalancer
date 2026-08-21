@@ -5,7 +5,7 @@ import { createOrder } from '../services/cashfree.service';
 import type { AppHandler } from '../../../types/http';
 import { resolvePlan } from '../../../config/plans';
 
-const VALID_PLANS: PlanType[] = ['trial', 'student', 'pro'];
+const VALID_PLANS: PlanType[] = ['trial', 'student', 'pro', 'student-annual', 'pro-annual'];
 
 /** POST /api/payments — Create a Cashfree order for a subscription plan */
 export const createPaymentOrder: AppHandler = async (req, res) => {
@@ -43,7 +43,7 @@ export const createPaymentOrder: AppHandler = async (req, res) => {
     throw new Error('Trial is only available for first-time subscribers');
   }
 
-  const durationDays = plan === 'trial' ? 7 : config.durationDays;
+  const durationDays = config.durationDays;
   const amount = config.price;
 
   let order;

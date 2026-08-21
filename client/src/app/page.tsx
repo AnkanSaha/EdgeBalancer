@@ -242,9 +242,9 @@ export default function LandingPage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'clamp(12px, 2vw, 16px)' }}>
               {[
-                { v: '100k', l: 'free requests / day', s: 'No credit card. Real production traffic.' },
-                { v: '$5', l: 'paid plan / month', s: 'Includes 10M req + 30M CPU-ms.' },
-                { v: '$0.30', l: 'per million req', s: 'Beyond the included pool.' },
+                { v: '5', l: 'free load balancers', s: 'All 7 strategies included.' },
+                { v: '₹49', l: 'student plan / month', s: '10 LBs, analytics, health checks.' },
+                { v: '₹299', l: 'pro plan / month', s: 'Unlimited LBs, AI, rate limiting.' },
                 { v: '~0ms', l: 'cold start', s: 'Isolates, not containers.' },
               ].map((s, i) => (
                 <div key={i} className="feature-card animate-on-scroll scale-in" style={{ padding: 24, animationDelay: `${i * 0.1}s` }}>
@@ -262,56 +262,60 @@ export default function LandingPage() {
           position: 'relative', zIndex: 5,
           maxWidth: 'min(1800px, 100vw)', margin: '0 auto', padding: '32px clamp(16px, 4vw, 48px) 96px',
         }}>
-          <div className="kicker" style={{ marginBottom: 12 }}>// the math</div>
+          <div className="kicker" style={{ marginBottom: 12 }}>// pricing</div>
           <h2 style={{ fontSize: 'clamp(26px, 3vw, 36px)', margin: 0, letterSpacing: '-0.02em', fontWeight: 600 }}>
-            AWS ALB vs. Cloudflare Workers
+            Simple pricing. No surprises.
           </h2>
           <p style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 8, marginBottom: 32, maxWidth: 640 }}>
-            Modeled on a small API — ~1 LCU/hr steady traffic, 15M requests/mo, 7ms avg CPU.
+            Start free, upgrade when you need more. All plans include 7 routing strategies and health checks.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: 16, alignItems: 'stretch' }} className="cmp-grid">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, alignItems: 'stretch' }} className="pricing-grid">
+            {/* Free */}
             <div className="feature-card animate-on-scroll fade-in-up" style={{ padding: 24 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div>
-                  <div className="kicker">// option a</div>
-                  <div style={{ fontSize: 18, fontWeight: 600, marginTop: 6 }}>AWS Application Load Balancer</div>
-                </div>
-                <span className="chip mono" style={{ color: 'var(--text-3)' }}>hourly + LCU</span>
+              <div className="kicker">// free</div>
+              <div style={{ fontSize: 36, fontWeight: 700, marginTop: 8 }}>₹0</div>
+              <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20 }}>forever</div>
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {['Up to 5 load balancers', 'All 7 traffic strategies', 'Health Checks (up to 2 LBs)', 'Deployment history', 'Pause / resume'].map((f, i) => (
+                  <div key={i} style={{ fontSize: 13, color: 'var(--text-2)', display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span style={{ color: 'var(--green)' }}>✓</span> {f}
+                  </div>
+                ))}
               </div>
-              <table style={{ width: '100%', fontSize: 13, fontFamily: 'var(--mono)', borderCollapse: 'collapse' }}>
-                <tbody>
-                  <tr style={{ borderBottom: '1px solid var(--line)' }}><td style={{ padding: '10px 0', color: 'var(--text-3)' }}>Base hourly</td><td style={{ padding: '10px 0', textAlign: 'right' }}>$0.0225 × 730h</td><td style={{ padding: '10px 0', textAlign: 'right' }}>$16.43</td></tr>
-                  <tr style={{ borderBottom: '1px solid var(--line)' }}><td style={{ padding: '10px 0', color: 'var(--text-3)' }}>LCU usage</td><td style={{ padding: '10px 0', textAlign: 'right' }}>1 × $0.008 × 730h</td><td style={{ padding: '10px 0', textAlign: 'right' }}>$5.84</td></tr>
-                  <tr style={{ borderBottom: '1px solid var(--line)' }}><td style={{ padding: '10px 0', color: 'var(--text-3)' }}>Idle fee</td><td style={{ padding: '10px 0', textAlign: 'right' }}>yes</td><td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--red)' }}>charged</td></tr>
-                  <tr><td style={{ padding: '16px 0 0', fontSize: 11, textTransform: 'uppercase', color: 'var(--text-3)' }}>Est. monthly</td><td></td><td style={{ padding: '16px 0 0', textAlign: 'right', fontSize: 22, color: 'var(--red)', letterSpacing: '-0.02em' }}>~$22.27</td></tr>
-                </tbody>
-              </table>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)' }} className="vs-col">vs</div>
-            <div className="feature-card animate-on-scroll fade-in-up" style={{ border: '1px solid var(--accent)', padding: 24, position: 'relative', boxShadow: '0 0 40px #f59e0b40', animationDelay: '0.1s' }}>
-              <div style={{ position: 'absolute', top: -1, right: 16, padding: '4px 10px', backgroundImage: 'linear-gradient(to right, var(--accent), var(--orange))', color: '#fff', fontFamily: 'var(--mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', borderRadius: '0 0 6px 6px', fontWeight: 600 }}>recommended</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div>
-                  <div className="kicker">// option b</div>
-                  <div style={{ fontSize: 18, fontWeight: 600, marginTop: 6 }}>Cloudflare Workers via EdgeBalancer</div>
-                </div>
-                <span className="chip mono" style={{ color: 'var(--accent)' }}>request-based</span>
+            {/* Student */}
+            <div className="feature-card animate-on-scroll fade-in-up" style={{ padding: 24, border: '2px solid #3b82f6', animationDelay: '0.1s' }}>
+              <div className="kicker" style={{ color: '#3b82f6' }}>// student&apos;s support</div>
+              <div style={{ fontSize: 36, fontWeight: 700, marginTop: 8 }}>₹49<span style={{ fontSize: 14, fontWeight: 400, color: 'var(--text-3)' }}>/mo</span></div>
+              <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20 }}>30 days</div>
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {['Up to 10 load balancers', 'All 7 traffic strategies', 'Health Checks (up to 5 LBs)', 'Analytics & script download', 'Custom Smart Placement'].map((f, i) => (
+                  <div key={i} style={{ fontSize: 13, color: 'var(--text-2)', display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span style={{ color: '#3b82f6' }}>✓</span> {f}
+                  </div>
+                ))}
               </div>
-              <table style={{ width: '100%', fontSize: 13, fontFamily: 'var(--mono)', borderCollapse: 'collapse' }}>
-                <tbody>
-                  <tr style={{ borderBottom: '1px solid var(--line)' }}><td style={{ padding: '10px 0', color: 'var(--text-3)' }}>Subscription</td><td style={{ padding: '10px 0', textAlign: 'right' }}>Workers Paid</td><td style={{ padding: '10px 0', textAlign: 'right' }}>$5.00</td></tr>
-                  <tr style={{ borderBottom: '1px solid var(--line)' }}><td style={{ padding: '10px 0', color: 'var(--text-3)' }}>Requests</td><td style={{ padding: '10px 0', textAlign: 'right' }}>5M × $0.30/M</td><td style={{ padding: '10px 0', textAlign: 'right' }}>$1.50</td></tr>
-                  <tr style={{ borderBottom: '1px solid var(--line)' }}><td style={{ padding: '10px 0', color: 'var(--text-3)' }}>Idle fee</td><td style={{ padding: '10px 0', textAlign: 'right' }}>never</td><td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--green)' }}>$0.00</td></tr>
-                  <tr><td style={{ padding: '16px 0 0', fontSize: 11, textTransform: 'uppercase', color: 'var(--text-3)' }}>Est. monthly</td><td></td><td style={{ padding: '16px 0 0', textAlign: 'right', fontSize: 22, color: 'var(--green)', letterSpacing: '-0.02em' }}>~$8.00</td></tr>
-                </tbody>
-              </table>
+            </div>
+            {/* Pro */}
+            <div className="feature-card animate-on-scroll fade-in-up" style={{ padding: 24, border: '1px solid var(--accent)', boxShadow: '0 0 40px #f59e0b20', position: 'relative', animationDelay: '0.2s' }}>
+              <div style={{ position: 'absolute', top: -1, right: 16, padding: '4px 10px', backgroundImage: 'linear-gradient(to right, var(--accent), var(--orange))', color: '#fff', fontFamily: 'var(--mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', borderRadius: '0 0 6px 6px', fontWeight: 600 }}>best value</div>
+              <div className="kicker">// pro</div>
+              <div style={{ fontSize: 36, fontWeight: 700, marginTop: 8 }}>₹299<span style={{ fontSize: 14, fontWeight: 400, color: 'var(--text-3)' }}>/mo</span></div>
+              <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20 }}>30 days</div>
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {['Unlimited load balancers', 'All 7 traffic strategies', 'Unlimited Health Checks', 'AI Agent', 'Rate Limiting', 'Analytics & script download'].map((f, i) => (
+                  <div key={i} style={{ fontSize: 13, color: 'var(--text-2)', display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span style={{ color: 'var(--accent)' }}>✓</span> {f}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           <div className="feature-card" style={{ marginTop: 24, padding: 20, display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
             <div className="mono" style={{ fontSize: 13, color: 'var(--text-2)' }}>
-              Savings: <span style={{ color: 'var(--accent)' }}>~64%</span> — under 100k req/day, <span style={{ color: 'var(--green)' }}>$0/month</span>.
+              Free trial available — <span style={{ color: 'var(--accent)' }}>no credit card required</span>.
             </div>
-            <CTAButton className="btn btn-primary" size="sm" />
+            <a href="/pro" className="btn btn-primary" style={{ fontSize: 13 }}>View all plans →</a>
           </div>
         </section>
 
