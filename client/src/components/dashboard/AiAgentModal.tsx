@@ -198,7 +198,13 @@ export function AiPromptCard({ value, onChange, onSubmit, disabled, isPro }: AiP
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Create a round-robin load balancer named api-edge on mysite.com with origins https://a.mysite.com and https://b.mysite.com, enable CORS for https://app.mysite.com, rate limit 100 req/min globally and 10 req/min on /login/*, path route /api/* to origin 2, enable health checks every 30s, and use smart placement…"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (!disabled && value.trim().length > 0) onSubmit();
+          }
+        }}
+        placeholder="Create a round-robin load balancer named api-edge on mysite.com with origins https://a.mysite.com and https://b.mysite.com, enable CORS for https://app.mysite.com, rate limit 100 req/min globally and 10 req/min on /login/*, path route /api/* to origin 2, enable health checks every 30s, and use smart placement… (Enter to send, Shift+Enter for newline)"
         style={{
           width: '100%',
           resize: 'none',
