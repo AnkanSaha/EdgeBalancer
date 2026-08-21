@@ -77,9 +77,17 @@ export async function createIpDnsRecord(params: {
     );
   } catch (error: any) {
     if (error.response?.status === 403) {
-      const err = isOAuth
-        ? new Error('Your Cloudflare connection is missing the Zone > DNS > Edit permission for this domain. Please reconnect your Cloudflare account and ensure it has access to this zone.')
-        : new Error('Your Cloudflare API token is missing the Zone > DNS > Edit permission. Please update your token at dash.cloudflare.com/profile/api-tokens to use raw IP origins.');
+      if (isOAuth) {
+        const err = new Error(
+          'Your Cloudflare OAuth connection cannot create DNS records for this zone. ' +
+          'OAuth tokens may not have DNS write access for all zones. ' +
+          'To fix this, go to Settings > Cloudflare and connect a manual API token instead. ' +
+          'Create one at dash.cloudflare.com/profile/api-tokens with Zone > DNS > Edit permission for the relevant zone.'
+        );
+        (err as any).statusCode = 422;
+        throw err;
+      }
+      const err = new Error('Your Cloudflare API token is missing the Zone > DNS > Edit permission. Please update your token at dash.cloudflare.com/profile/api-tokens to use raw IP origins.');
       (err as any).statusCode = 422;
       throw err;
     }

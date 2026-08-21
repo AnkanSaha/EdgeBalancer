@@ -76,7 +76,7 @@ export async function getUserPlan(userId: string): Promise<UserPlanInfo> {
 /** Backward-compatible: check if user has Pro plan */
 export async function isUserPro(userId: string): Promise<boolean> {
   const { plan } = await getUserPlan(userId);
-  return plan === 'pro';
+  return plan === 'pro' || plan === 'pro-annual';
 }
 
 /** Check if user has any paid plan (student, trial, or pro) */

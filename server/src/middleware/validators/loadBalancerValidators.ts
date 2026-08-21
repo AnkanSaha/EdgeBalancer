@@ -180,7 +180,7 @@ export const validateCreateLoadBalancerBody: ValidationFunction = (body) => {
   }
 
   const healthCheckIntervalSeconds = body?.healthCheckIntervalSeconds;
-  if (healthCheckIntervalSeconds !== undefined) {
+  if (healthCheckIntervalSeconds !== undefined && healthCheckIntervalSeconds !== null) {
     if (
       !Number.isInteger(healthCheckIntervalSeconds) ||
       healthCheckIntervalSeconds < 5 ||
@@ -204,7 +204,7 @@ export const validateCreateLoadBalancerBody: ValidationFunction = (body) => {
     ) {
       errors.push('rateLimitRequestsPerMinute must be an integer between 1 and 100000 when rate limiting is enabled');
     }
-  } else if (rateLimitRequestsPerMinute !== undefined && !Number.isInteger(rateLimitRequestsPerMinute)) {
+  } else if (rateLimitRequestsPerMinute !== undefined && rateLimitRequestsPerMinute !== null && !Number.isInteger(rateLimitRequestsPerMinute)) {
     errors.push('rateLimitRequestsPerMinute must be an integer');
   }
 

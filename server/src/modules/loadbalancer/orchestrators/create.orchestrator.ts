@@ -142,12 +142,16 @@ export async function createLoadBalancerOrchestrator(params: {
     });
     await cancellation.throwIfCancelled();
 
-    // Step 3: Resolve raw IP origins to internal grey-cloud DNS hostnames
+    // Step 3: Resolve raw IP origins to internal grey-cloud DNS hostnames (same path as manual form)
+    // No OAuth preflight — manual form proves OAuth with dns.write CAN create DNS for dhorbo.in;
+    // the TXT-based preflight was producing false negatives (TXT vs A, name qualification) and
+    // blocking the AI while the REST path with identical inputs succeeded. Let the real
+    // createIpDnsRecord surface the actual Cloudflare error if it fails.
     const resolved = await resolveIpOrigins({ origins, scriptName, domain, zoneId, apiToken, isOAuth });
     ipOriginRecords = resolved.ipOriginRecords;
     await cancellation.throwIfCancelled();
 
-    // Step 4: Generate Worker code using resolved origins (hostnames, not raw IPs)
+    // Step 5: Generate Worker code using resolved origins (hostnames, not raw IPs)
     workerCode = await generateWorkerCode({
       origins: resolved.resolvedOrigins,
       strategy: nextStrategy,

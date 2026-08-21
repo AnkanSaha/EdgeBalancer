@@ -6,7 +6,7 @@ import { openSseChannel } from '../modules/ai/services/sse.service';
 import { createTrace, runAgent } from '../modules/ai/services/agent.service';
 import { recordAiRun } from '../modules/ai/services/audit.service';
 import { AiRun } from '../models/AiRun';
-import { getUserPlan } from '../modules/payment/services/subscription.service';
+import { isUserPro } from '../utils/proCache';
 import mongoose from 'mongoose';
 import type { ConversationTurn } from '../modules/ai/types/ai.types';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
@@ -44,8 +44,7 @@ export const generateWithAi = async (req: Request, res: Response, next: NextFunc
   }
 
   // Pro check — gate AI feature
-  const { plan } = await getUserPlan(userId);
-  if (plan !== 'pro') {
+  if (!(await isUserPro(userId))) {
     res.status(403);
     return next(new Error('The AI Agent requires an EdgeBalancer Pro subscription'));
   }
@@ -201,9 +200,9 @@ export const getAiRun = async (req: Request, res: Response, next: NextFunction) 
     }
 
     // Free users see limited data — only prompt, time, models used summary
-    const { plan: userPlan } = await getUserPlan(userId);
+    const pro = await isUserPro(userId);
 
-    if (userPlan !== 'pro') {
+    if (!pro) {
       res.json({
         success: true,
         message: 'AI run retrieved',

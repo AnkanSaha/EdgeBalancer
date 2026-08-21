@@ -57,19 +57,36 @@ export default function ProPage() {
     setError('');
     setPhone('');
     setSelectedPlan(plan);
+    // Free trial: skip phone modal, activate directly
+    if (plan === 'trial') {
+      handleConfirmBuy('trial');
+      return;
+    }
     setShowModal(true);
   };
 
-  const handleConfirmBuy = async () => {
-    if (!phone.trim() || phone.trim().length < 10) {
-      setError('Please enter a valid phone number');
-      return;
+  const handleConfirmBuy = async (planOverride?: PlanType) => {
+    const plan = planOverride || selectedPlan;
+    if (plan !== 'trial') {
+      if (!phone.trim() || phone.trim().length < 10) {
+        setError('Please enter a valid phone number');
+        return;
+      }
     }
     setError('');
     setShowModal(false);
     setLoading(true);
     try {
-      const res = await api.createOrder(selectedPlan, phone.trim());
+      const res = await api.createOrder(plan, phone.trim() || '0000000000');
+
+      // Free trial: no Cashfree checkout needed
+      if (res.data?.trialActivated) {
+        await refreshUser();
+        setSuccess(true);
+        setTimeout(() => router.push('/loadbalancers'), 2000);
+        return;
+      }
+
       if (!res.success || !res.data?.paymentSessionId) {
         setError(res.message || 'Failed to create order');
         setLoading(false);
@@ -140,7 +157,10 @@ export default function ProPage() {
               <h2 style={{ color: 'var(--green)', margin: 0 }}>Welcome!</h2>
               <p style={{ color: 'var(--text-2)', marginTop: 8 }}>Redirecting to dashboard...</p>
             </div>
-          ) : isActive ? (
+          ) : isActive ? (() => {
+            const featureKey: 'free' | 'student' | 'pro' = currentPlan?.includes('pro') ? 'pro' : currentPlan?.includes('student') ? 'student' : 'pro';
+            const planLabel = currentPlan?.includes('pro') ? 'PRO' : currentPlan?.includes('student') ? "STUDENT'S SUPPORT" : 'TRIAL';
+            return (
             <div style={{ maxWidth: 720, width: '100%', margin: '40px auto', textAlign: 'center' }}>
               <div style={{
                 padding: '48px 40px', background: 'linear-gradient(135deg, #f59e0b11, #f9731611)',
@@ -158,7 +178,7 @@ export default function ProPage() {
                 <div style={{
                   fontSize: 24, fontWeight: 700, color: '#f59e0b',
                   fontFamily: 'var(--mono)', letterSpacing: '0.06em',
-                }}>{currentPlan === 'pro' ? 'PRO' : currentPlan === 'student' ? "STUDENT'S SUPPORT" : 'TRIAL'} ACTIVE</div>
+                }}>{planLabel} ACTIVE</div>
                 <p style={{ color: 'var(--text-2)', marginTop: 14, fontSize: 15 }}>
                   Your subscription is active until <strong>{expiryDate}</strong>.
                 </p>
@@ -172,12 +192,12 @@ export default function ProPage() {
                   <div style={{
                     fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text-3)',
                     textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14,
-                  }}>What you get with {currentPlan === 'pro' ? 'Pro' : currentPlan === 'student' ? "Student's Support" : 'Trial'}</div>
+                  }}>What you get with {planLabel === 'PRO' ? 'Pro' : planLabel === "STUDENT'S SUPPORT" ? "Student's Support" : 'Trial'}</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {ALL_FEATURES.filter(f => f[currentPlan as 'free' | 'student' | 'pro']).map(f => (
-                      <div key={f[currentPlan as 'free' | 'student' | 'pro']!} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13.5, color: 'var(--text)' }}>
+                    {ALL_FEATURES.filter(f => f[featureKey]).map(f => (
+                      <div key={f[featureKey]!} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13.5, color: 'var(--text)' }}>
                         <Icons.Check size={15} stroke="#f59e0b" style={{ marginTop: 2, flexShrink: 0 }} />
-                        <span>{f[currentPlan as 'free' | 'student' | 'pro']}</span>
+                        <span>{f[featureKey]}</span>
                       </div>
                     ))}
                   </div>
@@ -192,7 +212,7 @@ export default function ProPage() {
                 </p>
               </div>
             </div>
-          ) : (
+            ); })() : (
             <div style={{ maxWidth: 1000, margin: '0 auto' }}>
               {/* Trial banner */}
               {canTrial && (
@@ -455,7 +475,7 @@ export default function ProPage() {
             <button className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
             <button
               className="btn btn-primary"
-              onClick={handleConfirmBuy}
+              onClick={() => handleConfirmBuy()}
               style={{ background: 'linear-gradient(135deg, #f59e0b, #f97316)', border: 'none', color: '#fff' }}
             >
               {selectedPlan === 'trial' ? 'Start Free Trial' : selectedPlan === 'student' ? 'Pay ₹49' : selectedPlan === 'pro' ? 'Pay ₹299' : selectedPlan === 'student-annual' ? 'Pay ₹470' : 'Pay ₹2,870'}
