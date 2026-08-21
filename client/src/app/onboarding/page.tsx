@@ -72,7 +72,7 @@ export default function OnboardingPage() {
       await api.saveCloudflareCredentials({ accountId, apiToken });
       toast.success('Cloudflare account connected');
       await refreshUser();
-      router.push('/loadbalancers');
+      router.push('/overview');
     } catch (error: any) {
       toast.error(error.message || 'Could not verify those credentials');
     } finally {

@@ -80,6 +80,7 @@ export async function createLoadBalancerOrchestrator(params: {
   let hostname = '';
   let accountId = '';
   let apiToken = '';
+  let isOAuth = false;
   let workerCode = '';
   let ipOriginRecords: IpOriginRecord[] = [];
   let nameLock: LockHandle | null = null;
@@ -116,7 +117,7 @@ export async function createLoadBalancerOrchestrator(params: {
 
   try {
     // Step 1: Get Cloudflare credentials
-    ({ accountId, apiToken } = await getCloudflareCredentialsForUser(userId));
+    ({ accountId, apiToken, isOAuth } = await getCloudflareCredentialsForUser(userId));
 
     // Step 2: Generate script name and validate availability
     scriptName = generateScriptName(name);
@@ -142,7 +143,7 @@ export async function createLoadBalancerOrchestrator(params: {
     await cancellation.throwIfCancelled();
 
     // Step 3: Resolve raw IP origins to internal grey-cloud DNS hostnames
-    const resolved = await resolveIpOrigins({ origins, scriptName, domain, zoneId, apiToken });
+    const resolved = await resolveIpOrigins({ origins, scriptName, domain, zoneId, apiToken, isOAuth });
     ipOriginRecords = resolved.ipOriginRecords;
     await cancellation.throwIfCancelled();
 

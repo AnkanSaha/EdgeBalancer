@@ -12,6 +12,7 @@ import { refreshOAuthToken, isOAuthTokenExpired } from '../../../services/oauth.
 export interface CloudflareCredentials {
   accountId: string;
   apiToken: string;
+  isOAuth?: boolean;
 }
 
 /**
@@ -57,6 +58,7 @@ export async function getCloudflareCredentialsForUser(userId: string): Promise<C
     return {
       accountId: decrypt(user.cloudflareAccountId!, user.cloudflareAccountIdIv!, user.cloudflareAccountIdTag!),
       apiToken: accessToken,
+      isOAuth: true,
     };
   }
 
@@ -77,5 +79,6 @@ export async function getCloudflareCredentialsForUser(userId: string): Promise<C
   return {
     accountId: decrypt(user.cloudflareAccountId, user.cloudflareAccountIdIv, user.cloudflareAccountIdTag),
     apiToken: decrypt(user.cloudflareApiToken, user.cloudflareTokenIv, user.cloudflareTokenTag),
+    isOAuth: false,
   };
 }

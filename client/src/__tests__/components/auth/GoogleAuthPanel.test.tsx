@@ -45,7 +45,7 @@ describe('GoogleAuthPanel', () => {
     expect(document.querySelectorAll('input')).toHaveLength(0);
   });
 
-  it('signs in and redirects to load balancers', async () => {
+  it('signs in and redirects to overview', async () => {
     const loginWithGoogle = jest.fn().mockResolvedValue({ twoFactorRequired: false, methods: [], preferred: null });
     mockUseAuth.mockReturnValue(authState({ loginWithGoogle }));
 
@@ -53,7 +53,7 @@ describe('GoogleAuthPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: /Continue with Google/i }));
 
     await waitFor(() => expect(loginWithGoogle).toHaveBeenCalledTimes(1));
-    expect(push).toHaveBeenCalledWith('/loadbalancers');
+    expect(push).toHaveBeenCalledWith('/overview');
   });
 
   const challenge = (methods: string[], preferred: string | null) =>
@@ -83,7 +83,7 @@ describe('GoogleAuthPanel', () => {
 
     expect(await screen.findByText(/Fetching Passkey/i)).toBeInTheDocument();
     await waitFor(() => expect(verifyPasskey).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/loadbalancers'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/overview'));
   });
 
   it('offers "Try another way" from both methods and switches between them', async () => {
@@ -130,7 +130,7 @@ describe('GoogleAuthPanel', () => {
     await userEvent.type(field, '123456');
 
     await waitFor(() => expect(verifyTotp).toHaveBeenCalledWith('123456'));
-    expect(push).toHaveBeenCalledWith('/loadbalancers');
+    expect(push).toHaveBeenCalledWith('/overview');
   });
 
   // Without a password fallback, an unconfigured Firebase is a dead end — the
@@ -146,6 +146,6 @@ describe('GoogleAuthPanel', () => {
   it('redirects an already-authenticated visitor away', async () => {
     mockUseAuth.mockReturnValue(authState({ user: { id: '1', name: 'Ada', email: 'ada@example.com' } as any }));
     render(<GoogleAuthPanel mode="signin" />);
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/loadbalancers'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/overview'));
   });
 });
