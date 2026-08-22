@@ -15,8 +15,8 @@ export function createLoadBalancerTool(ctx: ToolContext) {
     async (input: any) => {
       // Normalize common shorthands models hallucinate before validation
       if (input.strategy) input.strategy = normalizeStrategyAlias(input.strategy);
-      // Auto-resolve zoneId if model omitted it: same lookup manual form does via dropdown
-      if (!input.zoneId && input.domain) {
+      // Auto-resolve/correct zoneId and split subdomain: model often sends domain as full hostname (e.g. api.example.com)
+      if (input.domain) {
         try {
           const creds = await getCloudflareCredentials(ctx.userId);
           if (creds) {
@@ -25,10 +25,9 @@ export function createLoadBalancerTool(ctx: ToolContext) {
             const match = (resp.result as any[]).find((z) => z.name === input.domain || input.domain.endsWith(`.${z.name}`));
             if (match) {
               input.zoneId = match.id;
-              if (!input.domain.endsWith(match.name)) {
-                // subdomain case: ensure domain is the zone name, subdomain holds prefix
+              if (input.domain !== match.name && !input.subdomain) {
                 const prefix = input.domain.slice(0, -match.name.length - 1);
-                if (prefix && !input.subdomain) {
+                if (prefix) {
                   input.domain = match.name;
                   input.subdomain = prefix;
                 }

@@ -8,6 +8,8 @@ import { ensureWorkerNameAvailability } from '../services/validation.service';
 import { toHostname, assertHostnameAvailable } from '../../loadbalancer/services/hostname.service';
 import { formatGateway } from '../services/formatter.service';
 import { buildGatewayWorkerConfig, encryptJwtSecret } from '../services/config-builder.service';
+import { resolveIpOrigins, deleteIpDnsRecord } from '../../../services/workerDns';
+import type { IpOriginRecord } from '../../../services/workerDns';
 import { createSession } from '../../../services/sessionService';
 import { acquireLock, releaseLock, type LockHandle } from '../../../utils/resourceLock';
 import type { RequestCancellation } from '../../../utils/requestCancellation';
@@ -27,7 +29,9 @@ export async function createGatewayOrchestrator(params: {
   let hostname = '';
   let accountId = '';
   let apiToken = '';
+  let isOAuth: boolean | undefined = false;
   let workerCode = '';
+  let ipOriginRecords: IpOriginRecord[] = [];
   let nameLock: LockHandle | null = null;
 
   const {
@@ -51,7 +55,7 @@ export async function createGatewayOrchestrator(params: {
   } = input;
 
   try {
-    ({ accountId, apiToken } = await getCloudflareCredentialsForUser(userId));
+    ({ accountId, apiToken, isOAuth } = await getCloudflareCredentialsForUser(userId));
 
     scriptName = generateScriptName(name);
     nameLock = await acquireLock(`gw:create:${accountId}:${scriptName}`);
@@ -64,12 +68,16 @@ export async function createGatewayOrchestrator(params: {
     await ensureWorkerNameAvailability({ userId, accountId, apiToken, scriptName });
     await cancellation.throwIfCancelled();
 
+    const resolved = await resolveIpOrigins({ origins: upstreams as any, scriptName, domain, zoneId, apiToken, isOAuth });
+    ipOriginRecords = resolved.ipOriginRecords;
+    await cancellation.throwIfCancelled();
+
     const rateLimit = rateLimitEnabled && rateLimitRequestsPerMinute
       ? { enabled: true as const, requestsPerMinute: rateLimitRequestsPerMinute }
       : undefined;
 
     const workerConfig = buildGatewayWorkerConfig({
-      upstreams, pathRoutes, corsEnabled, corsOrigins, jwtAuth: jwtAuth as any,
+      upstreams: resolved.resolvedOrigins as any, pathRoutes, corsEnabled, corsOrigins, jwtAuth: jwtAuth as any,
       headerTransforms: headerTransforms as any, cacheConfig: cacheConfig as any,
       canary: canary as any, ipRules: ipRules as any, mockRoutes: mockRoutes as any,
       rateLimitEnabled, rateLimitRequestsPerMinute, pathRateLimits,
@@ -118,9 +126,10 @@ export async function createGatewayOrchestrator(params: {
       };
     }
 
+    const upstreamsForDb = upstreams.map(({ rawIp: _, ...rest }: any) => rest);
     createdGateway = await Gateway.create({
       userId, name, scriptName, domain, subdomain: subdomain || undefined, zoneId,
-      upstreams, pathRoutes: pathRoutes ?? [],
+      upstreams: upstreamsForDb, pathRoutes: pathRoutes ?? [],
       corsEnabled: corsEnabled ?? false, corsOrigins: corsOrigins ?? [],
       jwtAuth: jwtDoc,
       headerTransforms: {
@@ -144,6 +153,7 @@ export async function createGatewayOrchestrator(params: {
       rateLimitEnabled: rateLimitEnabled ?? false,
       rateLimitRequestsPerMinute: rateLimitRequestsPerMinute ?? null,
       pathRateLimits: pathRateLimits ?? [],
+      ipOriginRecords,
       status: 'active',
       workerUrl,
     });
@@ -168,6 +178,9 @@ export async function createGatewayOrchestrator(params: {
   } catch (error) {
     if (nameLock && accountId && apiToken && scriptName) {
       try {
+        await Promise.allSettled(
+          ipOriginRecords.map(r => deleteIpDnsRecord({ apiToken, zoneId, recordId: r.dnsRecordId }))
+        );
         if (createdGateway?._id) await Gateway.findByIdAndDelete(createdGateway._id);
         await deleteWorker({ accountId, apiToken, scriptName, hostname: hostname || undefined });
       } catch (e: any) {

@@ -41,6 +41,7 @@ export function formatGateway(gateway: any) {
     rateLimitEnabled: gateway.rateLimitEnabled ?? false,
     rateLimitRequestsPerMinute: gateway.rateLimitRequestsPerMinute ?? null,
     pathRateLimits: Array.isArray(gateway.pathRateLimits) ? gateway.pathRateLimits : [],
+    ipOriginRecords: Array.isArray(gateway.ipOriginRecords) ? gateway.ipOriginRecords : [],
     status: gateway.status,
     workerUrl: gateway.workerUrl,
     createdAt: gateway.createdAt,

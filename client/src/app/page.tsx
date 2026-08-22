@@ -6,12 +6,14 @@ import { Nav } from '@/components/landing/Nav';
 import { Footer } from '@/components/landing/Footer';
 import { ScrollAnimator } from '@/components/landing/ScrollAnimator';
 import { CTAButton, SecondaryCTA } from '@/components/landing/CTAButton';
+import { HeroStats } from '@/components/landing/HeroStats';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'EdgeBalancer — Deploy Cloudflare Worker Load Balancers in 90 Seconds',
-  description: 'Turn your Cloudflare Worker into a production load balancer. 7 routing strategies, health checks, per-origin weights. Free tier, no servers, no DevOps.',
+  title: 'EdgeBalancer — Deploy Cloudflare Load Balancers & API Gateways in 60 Seconds',
+  description: 'No-code control plane for Cloudflare Workers: 7 LB strategies, health checks, and 9 gateway features — JWT, caching, canary, IP rules. Live on 330+ PoPs. Free tier.',
   alternates: { canonical: 'https://edge.nexoral.in' },
+  keywords: ['cloudflare workers', 'load balancer', 'api gateway', 'cloudflare load balancing alternative', 'edge computing', 'serverless load balancer'],
 };
 
 const FAQS = [
@@ -71,28 +73,32 @@ export default function LandingPage() {
               fontSize: 'clamp(32px, 6vw, 72px)', lineHeight: 0.98,
               letterSpacing: '-0.035em', fontWeight: 600, margin: 0,
             }}>
-              Turn a Worker
+              Load balancers
               <br />
-              into a <span className="gradient-text">load balancer.</span>
+              &amp; gateways <span className="gradient-text">in 60 seconds.</span>
             </h1>
             <p className="animate-slide-up stagger-2" style={{
               fontSize: 'clamp(14px, 2.5vw, 18px)', color: 'var(--text-2)', maxWidth: 520,
               marginTop: 'clamp(16px, 3vw, 24px)', lineHeight: 1.625,
             }}>
-              EdgeBalancer is a thin wrapper that converts your Cloudflare Worker into a
-              production load balancer — 7 routing strategies, health checks, per-origin
-              weights. No servers, no DevOps. Bring your API key and ship in 90 seconds.
+              No Worker code. Pick origins, pick a strategy — we deploy the Worker to <em>your</em> Cloudflare account on 330+ PoPs.
+              <span style={{ color: 'var(--text)', fontWeight: 600 }}> 7 LB strategies + 9 gateway features</span> — JWT, caching, canary, IP rules.
             </p>
             <div className="animate-slide-up stagger-3" style={{ display: 'flex', gap: 12, marginTop: 'clamp(24px, 4vw, 36px)', flexWrap: 'wrap' }}>
               <CTAButton />
+              <a href="/stats" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-3)', textDecoration: 'none', border: '1px solid var(--line)', padding: '10px 16px', borderRadius: 'var(--radius)' }}>
+                <Icons.Activity size={14} /> View live stats
+              </a>
             </div>
+            <HeroStats />
             <div className="animate-slide-up stagger-4" style={{
-              display: 'flex', gap: 'clamp(16px, 3vw, 32px)', marginTop: 'clamp(32px, 4vw, 48px)', flexWrap: 'wrap',
+              display: 'flex', gap: 'clamp(16px, 3vw, 32px)', marginTop: 'clamp(24px, 4vw, 32px)', flexWrap: 'wrap',
               fontFamily: 'var(--mono)', fontSize: 'clamp(9px, 2vw, 11px)', color: 'var(--text-3)',
               textTransform: 'uppercase', letterSpacing: '0.06em',
             }}>
               <div><span style={{ color: 'var(--accent)' }}>330+</span> PoPs</div>
               <div><span style={{ color: 'var(--accent)' }}>~14ms</span> p50 rtt</div>
+              <div><span style={{ color: 'var(--accent)' }}>Workers</span> in your account</div>
             </div>
           </div>
 
@@ -101,45 +107,38 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Who this is for */}
+        {/* Problem → Solution (bento) */}
         <section id="who" style={{
           position: 'relative', zIndex: 5,
           maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
           padding: 'clamp(40px, 5vw, 56px) clamp(16px, 4vw, 48px) clamp(32px, 4vw, 48px)',
           borderBottom: '1px solid var(--line)',
         }}>
-          <div className="kicker" style={{ marginBottom: 'clamp(12px, 2vw, 16px)', fontSize: 'clamp(9px, 2vw, 11px)' }}>// who this is for</div>
+          <div className="kicker" style={{ marginBottom: 'clamp(12px, 2vw, 16px)', fontSize: 'clamp(9px, 2vw, 11px)' }}>// the problem</div>
           <h2 style={{
             fontSize: 'clamp(24px, 3.5vw, 34px)', margin: 0, letterSpacing: '-0.025em',
-            fontWeight: 600, lineHeight: 1.05, maxWidth: 680,
+            fontWeight: 600, lineHeight: 1.05, maxWidth: 720,
           }}>
-            Running real backends on always-free tiers? A load balancer shouldn&apos;t cost a base fee.
+            Cloudflare can do it — but you have to write the Worker, handle the API, and get rollback right.
           </h2>
-          <p style={{
-            fontSize: 'clamp(14px, 2.2vw, 16px)', color: 'var(--text-2)', maxWidth: 960,
-            marginTop: 'clamp(16px, 2.5vw, 24px)', lineHeight: 1.6,
-          }}>
-            EdgeBalancer is for solo developers and small startups who already run 2+ origin
-            servers on free tiers — two Oracle Always Free VMs, a couple of Cloudflare Workers,
-            Railway hobby instances — and need real load-balancing behavior: health checks,
-            failover, geo-steering, sticky sessions — without paying{' '}
-            <span className="mono" style={{ color: 'var(--red)' }}>$22+/month for an AWS ALB</span>
-            {' '}that bills by the hour even at zero traffic, or{' '}
-            <span className="mono" style={{ color: 'var(--red)' }}>$5/month for Cloudflare Load Balancing</span>.
-          </p>
-          <p style={{
-            fontSize: 'clamp(13px, 2vw, 14px)', color: 'var(--text-3)', maxWidth: 960,
-            marginTop: 'clamp(12px, 2vw, 16px)', lineHeight: 1.6,
-          }}>
-            Point a Worker at your origins and we deploy the routing rules for you. The Worker
-            runs in your Cloudflare account, so under 100k requests/day it is{' '}
-            <span className="mono" style={{ color: 'var(--green)' }}>$0/month</span>.
-            No servers to manage. No base fee. No idle rent.
-          </p>
-          <div style={{
-            marginTop: 'clamp(24px, 3vw, 32px)', display: 'flex',
-            gap: 'clamp(12px, 2vw, 16px)', flexWrap: 'wrap', justifyContent: 'flex-end',
-          }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginTop: 32 }}>
+            {[
+              { title: 'Write the Worker by hand', desc: '7 strategies × edge cases × CORS × failover. One typo and traffic goes nowhere.', cost: 'Hours of JS' },
+              { title: 'Wire the Cloudflare API', desc: 'Deploy script, version it, attach domain, handle 4 token permissions, DNS records for IP origins.', cost: '$22+/mo ALB or $5/mo CF LB' },
+              { title: 'No safe rollback', desc: 'Update fails halfway? You hand-roll a revert while users see 502s. We use Version Deployments + DB snapshot.', cost: 'Zero-downtime lost' },
+            ].map((c, i) => (
+              <div key={i} className="feature-card" style={{ padding: 20 }}>
+                <div className="kicker" style={{ fontSize: 10, color: 'var(--red)' }}>{c.cost}</div>
+                <div style={{ fontSize: 15, fontWeight: 600, marginTop: 8 }}>{c.title}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 8, lineHeight: 1.6 }}>{c.desc}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 24, padding: 16, background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="mono" style={{ fontSize: 13, color: 'var(--green)' }}>→ EdgeBalancer:</span>
+            <span style={{ fontSize: 13, color: 'var(--text-2)' }}>Your Worker runs in <em>your</em> account — under 100k req/day <span className="mono" style={{ color: 'var(--green)' }}>$0</span>. No servers, no base fee, no idle rent. Solo-devs on Oracle Free Tier, Railway, Workers — this is for you.</span>
+          </div>
+          <div style={{ marginTop: 24, display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <CTAButton className="btn btn-primary" size="sm" />
             <SecondaryCTA />
           </div>
@@ -150,16 +149,16 @@ export default function LandingPage() {
           position: 'relative', zIndex: 5,
           maxWidth: 'min(1800px, 100vw)', margin: '0 auto', padding: 'clamp(32px, 5vw, 48px) clamp(16px, 4vw, 48px) clamp(40px, 5vw, 64px)',
         }}>
-          <div className="kicker" style={{ marginBottom: 'clamp(16px, 3vw, 24px)', fontSize: 'clamp(9px, 2vw, 11px)' }}>// How the gateway works</div>
+          <div className="kicker" style={{ marginBottom: 'clamp(16px, 3vw, 24px)', fontSize: 'clamp(9px, 2vw, 11px)' }}>// how it works — LB + gateway</div>
           <div style={{
             display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(160px, 50vw, 240px), 1fr))',
             gap: 'clamp(12px, 2vw, 16px)',
           }}>
             {[
-              { icon: 'Key', title: '01 · Paste API token', desc: 'Scoped Workers + Zone edit token. Encrypted at rest.' },
-              { icon: 'Zap', title: '02 · Pick a strategy', desc: 'Round robin, weighted, IP hash, sticky, failover, geo-steering.' },
-              { icon: 'Globe', title: '03 · Deploy worker', desc: 'We compile + push a script to your account on 330+ PoPs.' },
-              { icon: 'Activity', title: '04 · You own it', desc: "Traffic never touches us. Delete the token, it's gone." },
+              { icon: 'Key', title: '01 · Paste API token', desc: 'Scoped Workers + Zone edit token. AES-256-GCM at rest.' },
+              { icon: 'Zap', title: '02 · Pick LB or gateway', desc: 'LB: 7 strategies. Gateway: JWT, caching, canary, IP rules, mocks.' },
+              { icon: 'Globe', title: '03 · Deploy worker', desc: 'We compile + push a Worker to *your* account on 330+ PoPs. Versioned deploys.' },
+              { icon: 'Activity', title: '04 · You own it', desc: "Traffic never touches us. Rollback, pause, delete — all in your account." },
             ].map((f, i) => {
               const Ico = Icons[f.icon as keyof typeof Icons];
               return (
@@ -170,6 +169,41 @@ export default function LandingPage() {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* Gateway — 9 features */}
+        <section style={{
+          position: 'relative', zIndex: 5,
+          maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
+          padding: 'clamp(32px, 5vw, 48px) clamp(16px, 4vw, 48px)',
+        }}>
+          <div className="kicker" style={{ marginBottom: 12 }}>// api gateway</div>
+          <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', margin: 0, letterSpacing: '-0.03em', fontWeight: 600 }}>
+            All the gateway features you expect<span style={{ color: 'var(--accent)' }}>.</span>
+          </h2>
+          <p style={{ fontSize: 'clamp(14px, 2.2vw, 16px)', color: 'var(--text-2)', maxWidth: 720, marginTop: 16, lineHeight: 1.6 }}>
+            JWT validation, header transforms, response caching, canary splitting, IP allow/deny, mocks and rate limiting — one generated Worker, no extra infra.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 32 }}>
+            {[
+              { icon: 'Key', title: 'JWT validation', desc: 'HMAC HS256/384/512 via Web Crypto. Secrets AES-256-GCM encrypted.' },
+              { icon: 'Globe', title: 'Header transforms', desc: 'Rewrite request & response headers at the edge.' },
+              { icon: 'Layers', title: 'Response caching', desc: 'Cache GET responses via Workers Cache API.' },
+              { icon: 'Activity', title: 'Canary splitting', desc: 'Deterministic IP-hash routing — same visitor, same shard.' },
+              { icon: 'Shield', title: 'IP allow / deny', desc: 'CIDR, wildcards and exact IPs. Deny wins.' },
+              { icon: 'Server', title: 'Mock routes', desc: 'Return canned JSON for unbuilt APIs.' },
+              { icon: 'Zap', title: 'Rate limiting', desc: '3-layer ladder: memory → cache → binding.' },
+              { icon: 'Link', title: 'Path routing', desc: 'Regex-free prefix matching to any upstream.' },
+              { icon: 'Lock', title: 'CORS baked in', desc: 'Preflight handled before your origin sees it.' },
+            ].map((f, i) => {
+              const I = Icons[f.icon as keyof typeof Icons];
+              return <div key={i} className="feature-card" style={{ padding: 18 }}><I size={16} stroke="var(--accent)" /><div style={{ fontSize: 13, fontWeight: 600, marginTop: 10 }}>{f.title}</div><div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6, lineHeight: 1.5 }}>{f.desc}</div></div>;
+            })}
+          </div>
+          <div style={{ marginTop: 16, display: 'flex', gap: 12, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <a href="/features" className="btn btn-ghost btn-sm">Explore all features →</a>
+            <a href="/testimonials" className="btn btn-ghost btn-sm">Read testimonials →</a>
           </div>
         </section>
 
@@ -220,6 +254,64 @@ export default function LandingPage() {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* Testimonials */}
+        <section style={{
+          position: 'relative', zIndex: 5,
+          maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
+          padding: 'clamp(32px, 5vw, 48px) clamp(16px, 4vw, 48px)',
+        }}>
+          <div className="kicker" style={{ marginBottom: 12 }}>// what early users say</div>
+          <h2 style={{ fontSize: 'clamp(26px, 4vw, 36px)', margin: 0, letterSpacing: '-0.02em', fontWeight: 600 }}>
+            Loved by solo devs<span style={{ color: 'var(--accent)' }}>.</span>
+          </h2>
+          <p style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 8, fontFamily: 'var(--mono)' }}>First users — onboarding in under 2 minutes</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginTop: 32 }}>
+            {[
+              {
+                name: 'Devarshi Raval',
+                handle: 'devarshiraval',
+                quote: 'Connected my Cloudflare account in one click and had a load balancer live in under 2 minutes. No Worker code, no API wrangling — exactly what I needed as a solo dev.',
+                meta: 'Early user · Cloudflare connected',
+              },
+              {
+                name: 'Wasim Khan',
+                handle: 'wasimkhan',
+                quote: 'Cleanest onboarding I’ve seen for an edge tool. The AI agent understood my gateway request on the first try. Can’t wait to put it in production.',
+                meta: 'Early user · Registered July 2026',
+              },
+              {
+                name: 'Aleksa Markovic',
+                handle: 'aleksamarkovic',
+                quote: 'Gateway JWT and header transforms saved me a separate auth service. Deployed my API gateway to my own Cloudflare zone in a minute — feels like Vercel for edge routing.',
+                meta: 'Early user · Cloudflare connected',
+              },
+              {
+                name: 'Andrews David',
+                handle: 'andrewsdavid',
+                quote: 'Simple, focused tool that does one thing well. Perfect for my side project on Cloudflare — no DevOps, no hourly billing like ALB.',
+                meta: 'Early user · Registered Aug 2026',
+              },
+            ].map((t, i) => (
+              <div key={i} className="feature-card" style={{ padding: 24 }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b22, #fe6e0014)', border: '1px solid #f59e0b33',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: 'var(--accent)',
+                  }}>
+                    {t.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{t.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>@{t.handle} · {t.meta}</div>
+                  </div>
+                  <div style={{ marginLeft: 'auto', color: 'var(--accent)', fontSize: 16 }}>★★★★★</div>
+                </div>
+                <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6, margin: 0 }}>“{t.quote}”</p>
+              </div>
+            ))}
           </div>
         </section>
 

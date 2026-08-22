@@ -51,6 +51,12 @@ export interface IGatewayJwtAuth {
   secretTag?: string | null;
 }
 
+export interface IGatewayIpRecord {
+  originalUrl: string;
+  hostname: string;
+  dnsRecordId: string;
+}
+
 export interface IGateway extends Document {
   userId: mongoose.Types.ObjectId;
   name: string;
@@ -71,6 +77,7 @@ export interface IGateway extends Document {
   rateLimitEnabled: boolean;
   rateLimitRequestsPerMinute: number | null;
   pathRateLimits: Array<{ path: string; requestsPerMinute: number; priority: number }>;
+  ipOriginRecords: IGatewayIpRecord[];
   status: 'active' | 'paused' | 'inactive';
   pauseMode?: 'release-domain' | 'keep-domain';
   workerUrl: string;
@@ -227,6 +234,16 @@ const GatewaySchema = new Schema<IGateway>(
           path: { type: String, required: true },
           requestsPerMinute: { type: Number, required: true, min: 1, max: 100000 },
           priority: { type: Number, required: true, min: 1 },
+        },
+      ],
+      default: [],
+    },
+    ipOriginRecords: {
+      type: [
+        {
+          originalUrl: { type: String, required: true },
+          hostname: { type: String, required: true },
+          dnsRecordId: { type: String, required: true },
         },
       ],
       default: [],
