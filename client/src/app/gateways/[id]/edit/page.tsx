@@ -390,10 +390,10 @@ export default function EditGatewayPage() {
           <Icons.Arrow size={12} style={{ transform: 'rotate(180deg)' }} /> Back to Gateways
         </button>
         <div>
-          <div className="kicker" style={{ marginBottom: 8, fontSize: 'clamp(9px, 2vw, 11px)' }}>// create new</div>
-          <h2 style={{ margin: 0, fontSize: 'clamp(18px, 3vw, 20px)', letterSpacing: '-0.02em', fontWeight: 500 }}>API Gateway</h2>
+          <div className="kicker" style={{ marginBottom: 8, fontSize: 'clamp(9px, 2vw, 11px)' }}>// edit gateway</div>
+          <h2 style={{ margin: 0, fontSize: 'clamp(18px, 3vw, 20px)', letterSpacing: '-0.02em', fontWeight: 500 }}>{form.name ? form.name : 'Edit API Gateway'}</h2>
           <div style={{ color: 'var(--text-3)', fontSize: 'clamp(11px, 2vw, 12px)', marginTop: 6, lineHeight: 1.5 }}>
-            Deploy a Cloudflare Worker gateway with routing, auth, and transforms.
+            Update routing, auth and transforms — then redeploy to Cloudflare.
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -415,23 +415,20 @@ export default function EditGatewayPage() {
 
       <main style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <Topbar
-          crumbs={['Overview', 'API Gateways', 'New']}
-          title="Create API Gateway"
-          subtitle="Configure routing, auth, caching and edge rules — then deploy to Cloudflare."
+          crumbs={['Overview', 'API Gateways', form.name ? form.name : 'Edit']}
+          title={`Edit API Gateway${form.name ? ` — ${form.name}` : ''}`}
+          subtitle={loadingGateway ? 'Loading gateway...' : 'Update routing, auth, caching and edge rules — then redeploy.'}
           actions={<button className="btn btn-ghost btn-sm" onClick={() => router.push('/gateways')}>Cancel</button>}
         />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 32, padding: 'clamp(16px, 4vw, 32px)', overflow: 'auto', flex: 1 }}>
           <div className="create-form-shell" style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 2vw, 20px)' }}>
 
-            <FieldBlock n={1} title="Gateway Name" subtitle="Lowercase, 3–50 chars — deployed as the exact Worker script name">
+            <FieldBlock n={1} title="Gateway Name" subtitle="Locked after creation — deployed as the exact Worker script name">
               <div className="field">
-                <label className="field-label">Name <span className="req">*</span></label>
-                <input className="input input-mono" placeholder="e.g., api-gateway-prod" value={form.name}
-                  onChange={e => { const v = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''); update('name', v); setActiveStep(1); }}
-                  onFocus={() => setActiveStep(1)} />
-                <div className="hint">Lowercase letters, numbers and hyphens only.</div>
-                {form.name && !nameValid && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>Name must be 3–50 characters, lowercase/hyphens only.</div>}
+                <label className="field-label">Name <span className="req">*</span> <span style={{ fontWeight: 400, color: 'var(--text-3)', fontSize: 11 }}>(locked)</span></label>
+                <input className="input input-mono" placeholder="e.g., api-gateway-prod" value={form.name} disabled style={{ opacity: 0.6, cursor: 'not-allowed' }} />
+                <div className="hint">Gateway name cannot be changed after creation. This is the Worker script name in your Cloudflare account.</div>
               </div>
             </FieldBlock>
 
