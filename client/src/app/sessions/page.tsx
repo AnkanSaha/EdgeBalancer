@@ -116,6 +116,7 @@ export default function SessionsPage() {
 
   const handleNav = (id: string) => {
     if (id === 'overview') router.push('/overview');
+    else if (id === 'gateways') router.push('/gateways');
     else if (id === 'balancers') router.push('/loadbalancers');
     else if (id === 'settings') router.push('/settings');
     else if (id === 'ai-runs') router.push('/ai-runs');
@@ -208,7 +209,7 @@ export default function SessionsPage() {
                       session={session}
                       onDownload={() => handleDownload(session)}
                       isDownloading={downloadingId === session._id}
-                      isPro={user?.isPro}
+                      canDownload={!!user?.isSubscribed}
                     />
                   ))}
                 </div>

@@ -4,3 +4,4 @@ export { HealthCheckScheduler, IHealthCheckScheduler, IHealthCheckOrigin, Origin
 export { Session, ISession } from './Session';
 export { AiRun, IAiRun, IAiToolCall, IModelAttempt } from './AiRun';
 export { PaymentHistory, IPaymentHistory } from './PaymentHistory';
+export { Gateway, IGateway, IGatewayUpstream, IGatewayHeaderRule } from './Gateway';

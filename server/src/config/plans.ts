@@ -13,6 +13,15 @@ export interface PlanConfig {
   hasAi: boolean;
   hasRateLimit: boolean;
   canEditPlacement: boolean;
+  maxGateways: number;              // -1 = unlimited
+  maxGatewayRoutes: number;
+  maxGatewayRateLimitRules: number;
+  maxGatewayHeaderRules: number;
+  maxGatewayIpRules: number;
+  maxGatewayMockRoutes: number;
+  hasJwtAuth: boolean;
+  hasCaching: boolean;
+  hasCanary: boolean;
 }
 
 const ALL_STRATEGIES: string[] = [];
@@ -31,6 +40,15 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     hasAi: false,
     hasRateLimit: false,
     canEditPlacement: false,
+    maxGateways: 1,
+    maxGatewayRoutes: 5,
+    maxGatewayRateLimitRules: 1,
+    maxGatewayHeaderRules: 3,
+    maxGatewayIpRules: 5,
+    maxGatewayMockRoutes: 2,
+    hasJwtAuth: false,
+    hasCaching: false,
+    hasCanary: false,
   },
   trial: {
     name: "Student's Support — Trial",
@@ -45,6 +63,15 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     hasAi: false,
     hasRateLimit: false,
     canEditPlacement: true,
+    maxGateways: 3,
+    maxGatewayRoutes: 20,
+    maxGatewayRateLimitRules: 5,
+    maxGatewayHeaderRules: 10,
+    maxGatewayIpRules: 20,
+    maxGatewayMockRoutes: 10,
+    hasJwtAuth: true,
+    hasCaching: true,
+    hasCanary: false,
   },
   student: {
     name: "Student's Support",
@@ -59,6 +86,15 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     hasAi: false,
     hasRateLimit: false,
     canEditPlacement: true,
+    maxGateways: 3,
+    maxGatewayRoutes: 20,
+    maxGatewayRateLimitRules: 5,
+    maxGatewayHeaderRules: 10,
+    maxGatewayIpRules: 20,
+    maxGatewayMockRoutes: 10,
+    hasJwtAuth: true,
+    hasCaching: true,
+    hasCanary: false,
   },
   pro: {
     name: 'Pro',
@@ -73,6 +109,15 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     hasAi: true,
     hasRateLimit: true,
     canEditPlacement: true,
+    maxGateways: -1,
+    maxGatewayRoutes: -1,
+    maxGatewayRateLimitRules: -1,
+    maxGatewayHeaderRules: -1,
+    maxGatewayIpRules: -1,
+    maxGatewayMockRoutes: -1,
+    hasJwtAuth: true,
+    hasCaching: true,
+    hasCanary: true,
   },
   'student-annual': {
     name: "Student's Support (Annual)",
@@ -87,6 +132,15 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     hasAi: false,
     hasRateLimit: false,
     canEditPlacement: true,
+    maxGateways: 3,
+    maxGatewayRoutes: 20,
+    maxGatewayRateLimitRules: 5,
+    maxGatewayHeaderRules: 10,
+    maxGatewayIpRules: 20,
+    maxGatewayMockRoutes: 10,
+    hasJwtAuth: true,
+    hasCaching: true,
+    hasCanary: false,
   },
   'pro-annual': {
     name: 'Pro (Annual)',
@@ -101,6 +155,15 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     hasAi: true,
     hasRateLimit: true,
     canEditPlacement: true,
+    maxGateways: -1,
+    maxGatewayRoutes: -1,
+    maxGatewayRateLimitRules: -1,
+    maxGatewayHeaderRules: -1,
+    maxGatewayIpRules: -1,
+    maxGatewayMockRoutes: -1,
+    hasJwtAuth: true,
+    hasCaching: true,
+    hasCanary: true,
   },
 };
 

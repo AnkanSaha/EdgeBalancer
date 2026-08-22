@@ -174,6 +174,82 @@ export interface CreateLoadBalancerRequest {
   placement: PlacementConfig;
 }
 
+// --- Gateway types ---
+export interface GatewayUpstream {
+  url: string;
+  weight: number;
+}
+
+export interface GatewayHeaderRule {
+  name: string;
+  value: string;
+}
+
+export interface GatewayHeaderTransforms {
+  request: { set: GatewayHeaderRule[]; remove: string[] };
+  response: { set: GatewayHeaderRule[]; remove: string[] };
+}
+
+export interface GatewayCacheConfig {
+  enabled: boolean;
+  ttlSeconds: number;
+  paths: string[];
+}
+
+export interface GatewayCanary {
+  enabled: boolean;
+  percentage: number;
+  upstreamIndex: number;
+}
+
+export interface GatewayIpRule {
+  value: string;
+  action: 'allow' | 'deny';
+}
+
+export interface GatewayMockRoute {
+  path: string;
+  method: string;
+  status: number;
+  body: string;
+  contentType: string;
+}
+
+export interface GatewayJwtAuth {
+  enabled: boolean;
+  headerName: string;
+  algorithms: string[];
+  issuer?: string | null;
+}
+
+export interface Gateway {
+  id: string;
+  name: string;
+  scriptName: string;
+  domain: string;
+  subdomain?: string | null;
+  fullDomain: string;
+  zoneId: string;
+  upstreams: GatewayUpstream[];
+  pathRoutes: Array<{ path: string; upstreamIndex: number; priority: number }>;
+  corsEnabled: boolean;
+  corsOrigins: string[];
+  jwtAuthEnabled: boolean;
+  jwtHeaderName: string;
+  headerTransforms: GatewayHeaderTransforms;
+  cacheConfig: GatewayCacheConfig;
+  canary: GatewayCanary;
+  ipRules: GatewayIpRule[];
+  mockRoutes: GatewayMockRoute[];
+  rateLimitEnabled: boolean;
+  rateLimitRequestsPerMinute: number | null;
+  pathRateLimits: PathRateLimit[];
+  status: string;
+  workerUrl: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // --- AI Agent ---
 
 export type AiOutcome = 'success' | 'failure';

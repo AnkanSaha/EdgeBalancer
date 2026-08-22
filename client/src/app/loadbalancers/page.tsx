@@ -293,7 +293,7 @@ export default function DashboardPage() {
                       onResume={() => handleResume(lb)}
                       isDeleting={deletingId === lb.id}
                       isActioning={actioningId === lb.id}
-                      isPro={user?.isPro}
+                      showAnalytics={!!user?.isSubscribed}
                     />
                   ))}
                   {loadBalancers.length === 0 && !isFetching && (searchValue || statusFilter) && (

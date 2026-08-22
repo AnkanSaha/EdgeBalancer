@@ -51,7 +51,8 @@ export default function SettingsPage() {
         current="settings"
         onNav={(id) => {
           if (id === 'overview') router.push('/overview');
-    if (id === 'balancers') router.push('/loadbalancers');
+    if (id === 'gateways') router.push('/gateways');
+          else if (id === 'balancers') router.push('/loadbalancers');
           else if (id === 'sessions') router.push('/sessions');
           else if (id === 'ai-runs') router.push('/ai-runs');
           else if (id === 'pro') router.push('/pro');

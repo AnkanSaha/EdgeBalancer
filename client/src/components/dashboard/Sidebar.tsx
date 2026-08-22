@@ -23,6 +23,7 @@ export const Sidebar = ({ current, onNav, onLogout, userEmail, hasCloudflareCred
   const items = [
     { id: 'overview', icon: 'Grid', label: 'Overview' },
     { id: 'balancers', icon: 'Layers', label: 'Load Balancers' },
+    { id: 'gateways', icon: 'Globe', label: 'API Gateways' },
     { id: 'sessions', icon: 'History', label: 'LB History' },
     { id: 'ai-runs', icon: 'Zap', label: 'AI Runs' },
     { id: 'pro', icon: 'Crown', label: 'EdgeBalancer Pro' },

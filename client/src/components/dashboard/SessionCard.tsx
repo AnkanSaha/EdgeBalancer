@@ -8,7 +8,7 @@ interface SessionCardProps {
   session: Session;
   onDownload: () => void;
   isDownloading?: boolean;
-  isPro?: boolean;
+  canDownload?: boolean;
 }
 
 function relativeTime(dateStr: string): string {
@@ -22,7 +22,7 @@ function relativeTime(dateStr: string): string {
   return `${days}d ago`;
 }
 
-export const SessionCard = ({ session, onDownload, isDownloading, isPro }: SessionCardProps) => {
+export const SessionCard = ({ session, onDownload, isDownloading, canDownload }: SessionCardProps) => {
   const fullDomain = session.subdomain
     ? `${session.subdomain}.${session.domain}`
     : session.domain;
@@ -74,10 +74,10 @@ export const SessionCard = ({ session, onDownload, isDownloading, isPro }: Sessi
 
       {session.isActive && (
         <div style={{ paddingTop: 8, borderTop: '1px solid var(--line)' }}>
-          {!isPro ? (
+          {!canDownload ? (
             <Link href="/pro">
               <button className="btn btn-ghost btn-sm">
-                <Icons.Lock size={13} /> Upgrade to Pro to download
+                <Icons.Lock size={13} /> Upgrade to download
               </button>
             </Link>
           ) : (
