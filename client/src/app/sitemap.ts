@@ -19,6 +19,7 @@ const staticPages: {
   { path: "/privacy", changeFrequency: "yearly", priority: 0.4 },
   { path: "/terms", changeFrequency: "yearly", priority: 0.4 },
   { path: "/security", changeFrequency: "yearly", priority: 0.4 },
+  { path: "/testimonials", changeFrequency: "monthly", priority: 0.6 },
   { path: "/login", changeFrequency: "monthly", priority: 0.7 },
   { path: "/register", changeFrequency: "monthly", priority: 0.7 },
   { path: "/refund", changeFrequency: "yearly", priority: 0.3 },

@@ -201,7 +201,10 @@ export default function LandingPage() {
               return <div key={i} className="feature-card" style={{ padding: 18 }}><I size={16} stroke="var(--accent)" /><div style={{ fontSize: 13, fontWeight: 600, marginTop: 10 }}>{f.title}</div><div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6, lineHeight: 1.5 }}>{f.desc}</div></div>;
             })}
           </div>
-          <div style={{ marginTop: 16, textAlign: 'right' }}><a href="/features" className="btn btn-ghost btn-sm">Explore all features →</a></div>
+          <div style={{ marginTop: 16, display: 'flex', gap: 12, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <a href="/features" className="btn btn-ghost btn-sm">Explore all features →</a>
+            <a href="/testimonials" className="btn btn-ghost btn-sm">Read testimonials →</a>
+          </div>
         </section>
 
         {/* Use Cases */}
@@ -251,6 +254,64 @@ export default function LandingPage() {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* Testimonials */}
+        <section style={{
+          position: 'relative', zIndex: 5,
+          maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
+          padding: 'clamp(32px, 5vw, 48px) clamp(16px, 4vw, 48px)',
+        }}>
+          <div className="kicker" style={{ marginBottom: 12 }}>// what early users say</div>
+          <h2 style={{ fontSize: 'clamp(26px, 4vw, 36px)', margin: 0, letterSpacing: '-0.02em', fontWeight: 600 }}>
+            Loved by solo devs<span style={{ color: 'var(--accent)' }}>.</span>
+          </h2>
+          <p style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 8, fontFamily: 'var(--mono)' }}>First users — onboarding in under 2 minutes</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginTop: 32 }}>
+            {[
+              {
+                name: 'Devarshi Raval',
+                handle: 'devarshiraval',
+                quote: 'Connected my Cloudflare account in one click and had a load balancer live in under 2 minutes. No Worker code, no API wrangling — exactly what I needed as a solo dev.',
+                meta: 'Early user · Cloudflare connected',
+              },
+              {
+                name: 'Wasim Khan',
+                handle: 'wasimkhan',
+                quote: 'Cleanest onboarding I’ve seen for an edge tool. The AI agent understood my gateway request on the first try. Can’t wait to put it in production.',
+                meta: 'Early user · Registered July 2026',
+              },
+              {
+                name: 'Aleksa Markovic',
+                handle: 'aleksamarkovic',
+                quote: 'Gateway JWT and header transforms saved me a separate auth service. Deployed my API gateway to my own Cloudflare zone in a minute — feels like Vercel for edge routing.',
+                meta: 'Early user · Cloudflare connected',
+              },
+              {
+                name: 'Andrews David',
+                handle: 'andrewsdavid',
+                quote: 'Simple, focused tool that does one thing well. Perfect for my side project on Cloudflare — no DevOps, no hourly billing like ALB.',
+                meta: 'Early user · Registered Aug 2026',
+              },
+            ].map((t, i) => (
+              <div key={i} className="feature-card" style={{ padding: 24 }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b22, #fe6e0014)', border: '1px solid #f59e0b33',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: 'var(--accent)',
+                  }}>
+                    {t.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{t.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>@{t.handle} · {t.meta}</div>
+                  </div>
+                  <div style={{ marginLeft: 'auto', color: 'var(--accent)', fontSize: 16 }}>★★★★★</div>
+                </div>
+                <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6, margin: 0 }}>“{t.quote}”</p>
+              </div>
+            ))}
           </div>
         </section>
 

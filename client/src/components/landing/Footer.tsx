@@ -54,6 +54,7 @@ export function Footer() {
           <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Resources</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, color: 'var(--text-3)' }}>
             <a href="/blog" className="nav-link" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>Blog</a>
+            <a href="/testimonials" className="nav-link" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>Testimonials</a>
             <a href="/faq" className="nav-link" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>FAQ</a>
             <a href="/security" className="nav-link" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>Security</a>
             <a href="/contact" className="nav-link" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>Contact</a>
