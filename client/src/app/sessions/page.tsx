@@ -208,7 +208,7 @@ export default function SessionsPage() {
                       session={session}
                       onDownload={() => handleDownload(session)}
                       isDownloading={downloadingId === session._id}
-                      isPro={user?.isPro}
+                      canDownload={!!user?.isSubscribed}
                     />
                   ))}
                 </div>

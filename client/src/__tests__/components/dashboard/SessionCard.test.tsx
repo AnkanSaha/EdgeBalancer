@@ -57,38 +57,38 @@ describe('SessionCard', () => {
   });
 
   it('shows Download Script button for active sessions', () => {
-    render(<SessionCard session={BASE_SESSION} onDownload={jest.fn()} isPro />);
+    render(<SessionCard session={BASE_SESSION} onDownload={jest.fn()} canDownload />);
     expect(screen.getByRole('button', { name: /Download Script/i })).toBeInTheDocument();
   });
 
   it('shows the Pro upsell instead of Download Script for non-Pro users', () => {
     render(<SessionCard session={BASE_SESSION} onDownload={jest.fn()} />);
-    expect(screen.getByRole('link', { name: /Upgrade to Pro to download/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Upgrade to download/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Download Script/i })).not.toBeInTheDocument();
   });
 
   it('does not show Download Script button for inactive sessions', () => {
     const session = { ...BASE_SESSION, isActive: false };
-    render(<SessionCard session={session} onDownload={jest.fn()} isPro />);
+    render(<SessionCard session={session} onDownload={jest.fn()} canDownload />);
     expect(screen.queryByRole('button', { name: /Download Script/i })).not.toBeInTheDocument();
   });
 
   it('calls onDownload when Download Script is clicked', () => {
     const onDownload = jest.fn();
-    render(<SessionCard session={BASE_SESSION} onDownload={onDownload} isPro />);
+    render(<SessionCard session={BASE_SESSION} onDownload={onDownload} canDownload />);
     fireEvent.click(screen.getByRole('button', { name: /Download Script/i }));
     expect(onDownload).toHaveBeenCalledTimes(1);
   });
 
   it('disables download button and shows fetching text while downloading', () => {
-    render(<SessionCard session={BASE_SESSION} onDownload={jest.fn()} isDownloading isPro />);
+    render(<SessionCard session={BASE_SESSION} onDownload={jest.fn()} isDownloading canDownload />);
     const btn = screen.getByRole('button', { name: /Fetching/i });
     expect(btn).toBeDisabled();
   });
 
   it('does not fire onDownload when button is disabled', () => {
     const onDownload = jest.fn();
-    render(<SessionCard session={BASE_SESSION} onDownload={onDownload} isDownloading isPro />);
+    render(<SessionCard session={BASE_SESSION} onDownload={onDownload} isDownloading canDownload />);
     fireEvent.click(screen.getByRole('button', { name: /Fetching/i }));
     expect(onDownload).not.toHaveBeenCalled();
   });
