@@ -2,6 +2,7 @@ import { Gateway } from '../../../models/Gateway';
 import { deleteWorker } from '../../../services/workerDeletion';
 import { detachDomainFromWorker } from '../../../services/workerDomain';
 import { getCloudflareCredentialsForUser } from '../services/credentials.service';
+import { deleteIpDnsRecord } from '../../../services/workerDns';
 import { toHostname } from '../../loadbalancer/services/hostname.service';
 import { deactivateSessionsForLoadBalancer } from '../../../services/sessionService';
 
@@ -22,6 +23,10 @@ export async function deleteGatewayOrchestrator(params: { userId: string; gatewa
 
   const { accountId, apiToken } = await getCloudflareCredentialsForUser(userId);
   const hostname = toHostname(gateway.domain, gateway.subdomain);
+
+  await Promise.allSettled(
+    ((gateway as any).ipOriginRecords ?? []).map((r: any) => deleteIpDnsRecord({ apiToken, zoneId: gateway.zoneId, recordId: r.dnsRecordId }))
+  );
 
   try {
     await detachDomainFromWorker({ accountId, apiToken, hostname });

@@ -10,6 +10,7 @@ import { attachDomainToWorker, detachDomainFromWorker } from '../../../services/
 import { getCloudflareCredentialsForUser } from '../services/credentials.service';
 import { isNameUpdateAttempt } from '../services/validation.service';
 import { toHostname, assertHostnameAvailable } from '../../loadbalancer/services/hostname.service';
+import { provisionIpDnsChanges, deleteIpDnsRecord } from '../../../services/workerDns';
 import { formatGateway } from '../services/formatter.service';
 import { buildGatewayWorkerConfig, encryptJwtSecret, resolveJwtSecret } from '../services/config-builder.service';
 import { createSession, deactivateSessionsForLoadBalancer } from '../../../services/sessionService';
@@ -45,13 +46,29 @@ export async function updateGatewayOrchestrator(params: {
   const previousHostname = toHostname(gateway.domain, gateway.subdomain);
   const previousWorkerCode = await gatewayWorkerCodeFor(gateway);
 
-  const { accountId, apiToken } = await getCloudflareCredentialsForUser(userId);
+  const { accountId, apiToken, isOAuth } = await getCloudflareCredentialsForUser(userId);
   const nextHostname = toHostname(input.domain, input.subdomain);
   await assertHostnameAvailable({ userId, accountId, apiToken, hostname: nextHostname, zoneId: input.zoneId, excludeLoadBalancerId: gatewayId });
   await cancellation.throwIfCancelled();
 
   const hostnameValueChanged = nextHostname !== previousHostname;
   const hostnameChanged = hostnameValueChanged || input.zoneId !== gateway.zoneId;
+
+  const {
+    resolvedOrigins: resolvedUpstreams,
+    ipOriginRecords: nextIpOriginRecords,
+    createdRecordIds: newDnsRecordIds,
+    obsoleteRecords: obsoleteDnsRecords,
+  } = await provisionIpDnsChanges({
+    newOrigins: input.upstreams as any,
+    existingRecords: (gateway as any).ipOriginRecords ?? [],
+    scriptName: gateway.scriptName,
+    domain: input.domain,
+    zoneId: input.zoneId,
+    apiToken,
+    isOAuth,
+  } as any);
+  await cancellation.throwIfCancelled();
 
   const jwtSecret = input.jwtAuth?.secret ?? resolveJwtSecret(gateway.jwtAuth);
   let jwtDoc: any;
@@ -75,7 +92,7 @@ export async function updateGatewayOrchestrator(params: {
     : undefined;
 
   const workerConfig = buildGatewayWorkerConfig({
-    upstreams: input.upstreams,
+    upstreams: resolvedUpstreams as any,
     pathRoutes: input.pathRoutes,
     corsEnabled: input.corsEnabled,
     corsOrigins: input.corsOrigins,
@@ -144,12 +161,13 @@ export async function updateGatewayOrchestrator(params: {
       await cancellation.throwIfCancelled();
     }
 
+    const upstreamsForDb = input.upstreams.map(({ rawIp: _, ...rest }: any) => rest);
     const updated = await Gateway.findOneAndUpdate(
       { _id: gatewayId, userId },
       {
         $set: {
           domain: input.domain, subdomain: input.subdomain || undefined, zoneId: input.zoneId,
-          upstreams: input.upstreams, pathRoutes: input.pathRoutes ?? [],
+          upstreams: upstreamsForDb, pathRoutes: input.pathRoutes ?? [],
           corsEnabled: input.corsEnabled ?? false, corsOrigins: input.corsOrigins ?? [],
           jwtAuth: jwtDoc,
           headerTransforms: {
@@ -163,6 +181,7 @@ export async function updateGatewayOrchestrator(params: {
           rateLimitEnabled: input.rateLimitEnabled ?? false,
           rateLimitRequestsPerMinute: input.rateLimitRequestsPerMinute ?? null,
           pathRateLimits: input.pathRateLimits ?? [],
+          ipOriginRecords: nextIpOriginRecords,
           workerUrl: `https://${nextHostname}`,
         },
       },
@@ -186,6 +205,12 @@ export async function updateGatewayOrchestrator(params: {
 
     await pruneWorkerHistory({ accountId, apiToken, scriptName: updated.scriptName, keepInactiveCount: 2 });
 
+    if (obsoleteDnsRecords.length > 0) {
+      await Promise.allSettled(
+        obsoleteDnsRecords.map(r => deleteIpDnsRecord({ apiToken, zoneId: input.zoneId, recordId: r.dnsRecordId }))
+      );
+    }
+
     try {
       await deactivateSessionsForLoadBalancer(gatewayId);
       await createSession({
@@ -201,6 +226,9 @@ export async function updateGatewayOrchestrator(params: {
     return { success: true, message: 'Gateway updated successfully', data: { gateway: formatGateway(updated) } };
   } catch (error) {
     try {
+      await Promise.allSettled(
+        newDnsRecordIds.map(id => deleteIpDnsRecord({ apiToken, zoneId: input.zoneId, recordId: id }))
+      );
       if (oldHostnameDetached) {
         await attachDomainToWorker({ accountId, apiToken, hostname: previousHostname, zoneId: gateway.zoneId, scriptName: gateway.scriptName });
       }
