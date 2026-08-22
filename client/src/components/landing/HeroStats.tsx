@@ -48,7 +48,6 @@ export function HeroStats() {
           <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{v}</span> {l}
         </div>
       ))}
-      <span style={{ fontSize: 10, color: 'var(--text-3)', border: '1px solid var(--line)', padding: '2px 6px', borderRadius: 999 }}>×10 preview</span>
       <a href="/stats" style={{ fontSize: 11, color: 'var(--accent)', textDecoration: 'none' }}>View stats →</a>
     </div>
   );
