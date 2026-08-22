@@ -62,13 +62,19 @@ export async function getUserPlan(userId: string): Promise<UserPlanInfo> {
     // Redis down — fall through to DB
   }
 
-  // DB fallback
-  const user = await User.findById(userId).select('plan planExpiresAt').lean();
+  // DB fallback — also fixes a stale `free` left from before the user subscribed
+  const user = await User.findById(userId).select('plan planExpiresAt hasEverSubscribed').lean() as any;
   if (!user) return { plan: 'free', expiresAt: null };
 
   const resolved = resolvePlan(user.plan, user.planExpiresAt);
 
-  // Cache for next time
+  // Heal stale cache: if DB says paid but Redis had `free` (1-year TTL), overwrite it
+  if (resolved !== 'free') {
+    void setPlanCache(userId, resolved, user.planExpiresAt ?? null);
+  } else if (user.hasEverSubscribed) {
+    // Ever-subscribed but now free — keep the `free` marker fresh with short TTL check next time still hits DB quickly if they re-subscribe
+    void setPlanCache(userId, 'free', null);
+  }
 
   return { plan: resolved, expiresAt: user.planExpiresAt ?? null };
 }
