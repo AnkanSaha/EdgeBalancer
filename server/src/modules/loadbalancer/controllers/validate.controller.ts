@@ -4,6 +4,7 @@
 
 import { getCloudflareCredentialsForUser } from '../services/credentials.service';
 import { toHostname, assertHostnameAvailable } from '../services/hostname.service';
+import { getValidatedLoadBalancerId } from '../services/validation.service';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../../../types/http';
 
 export async function validateLoadBalancerHostname(req: Request, res: Response, next: NextFunction) {
@@ -26,6 +27,16 @@ export async function validateLoadBalancerHostname(req: Request, res: Response, 
       throw new Error('Domain is required');
     }
 
+    let validatedExcludeId: string | undefined;
+    if (excludeLoadBalancerId) {
+      try {
+        validatedExcludeId = getValidatedLoadBalancerId(excludeLoadBalancerId);
+      } catch (e: any) {
+        res.status(400);
+        throw new Error('Invalid excludeLoadBalancerId');
+      }
+    }
+
     const hostname = toHostname(domain, typeof subdomain === 'string' ? subdomain : undefined);
     const { accountId, apiToken } = await getCloudflareCredentialsForUser(userId);
 
@@ -37,7 +48,7 @@ export async function validateLoadBalancerHostname(req: Request, res: Response, 
       // Optional: without it the preflight skips the Worker Routes check, which the create
       // itself still performs.
       zoneId: typeof zoneId === 'string' && zoneId ? zoneId : undefined,
-      excludeLoadBalancerId,
+      excludeLoadBalancerId: validatedExcludeId,
     });
 
     res.json({

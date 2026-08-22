@@ -13,13 +13,23 @@ export async function validateGatewayHostname(req: Request, res: Response, next:
     const { domain, subdomain, zoneId, gatewayId } = req.body;
     if (!domain || !zoneId) { res.status(400); throw new Error('domain and zoneId are required'); }
 
+    let validatedGatewayId: string | undefined;
+    if (gatewayId) {
+      try {
+        validatedGatewayId = getValidatedGatewayId(gatewayId);
+      } catch (e: any) {
+        res.status(400);
+        throw new Error('Invalid gatewayId');
+      }
+    }
+
     const { accountId, apiToken } = await (async () => {
       const { getCloudflareCredentialsForUser } = await import('../services/credentials.service');
       return getCloudflareCredentialsForUser(userId);
     })();
 
     const hostname = toHostname(domain, subdomain);
-    await assertHostnameAvailable({ userId, accountId, apiToken, hostname, zoneId, excludeLoadBalancerId: gatewayId });
+    await assertHostnameAvailable({ userId, accountId, apiToken, hostname, zoneId, excludeLoadBalancerId: validatedGatewayId });
 
     res.json({ success: true, data: { available: true }, message: 'Hostname is available' });
   } catch (e) {
