@@ -7,7 +7,7 @@ import { listPayments } from './controllers/payment-history.controller';
 import { verifyPaymentOrder } from './controllers/verify-order.controller';
 import { createUpgradeOrder } from './controllers/upgrade-order.controller';
 
-const TEST = true;
+const TEST = process.env.NODE_ENV !== 'production';
 const STRICT  = TEST ? { max: 10000, timeWindow: '15 minutes' } : { max: 10, timeWindow: '15 minutes' };
 const RELAXED = TEST ? { max: 10000, timeWindow: '1 minute' } : { max: 60, timeWindow: '1 minute' };
 

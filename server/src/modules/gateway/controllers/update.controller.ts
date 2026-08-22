@@ -5,6 +5,7 @@ import { isCancellationError } from '../../loadbalancer/services/operation.servi
 import { getValidatedGatewayId } from '../services/validation.service';
 import { getUserPlan } from '../../payment/services/subscription.service';
 import { PLANS } from '../../../config/plans';
+import { Gateway } from '../../../models/Gateway';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../../../types/http';
 
 export async function updateGateway(req: Request, res: Response, next: NextFunction) {
@@ -22,34 +23,53 @@ export async function updateGateway(req: Request, res: Response, next: NextFunct
     const { plan } = await getUserPlan(userId);
     const config = PLANS[plan];
 
-    if (body.jwtAuth?.enabled && !config.hasJwtAuth) {
+    const existing = await Gateway.findOne({ _id: id, userId }).lean() as any;
+    if (!existing) {
+      res.status(404);
+      throw new Error('Gateway not found');
+    }
+    const merged: any = {
+      jwtAuth: body.jwtAuth ?? existing.jwtAuth,
+      cacheConfig: body.cacheConfig ?? existing.cacheConfig,
+      canary: body.canary ?? existing.canary,
+      pathRoutes: body.pathRoutes ?? existing.pathRoutes ?? [],
+      pathRateLimits: body.pathRateLimits ?? existing.pathRateLimits ?? [],
+      headerTransforms: body.headerTransforms ?? existing.headerTransforms,
+      ipRules: body.ipRules ?? existing.ipRules ?? [],
+      mockRoutes: body.mockRoutes ?? existing.mockRoutes ?? [],
+      rateLimitEnabled: body.rateLimitEnabled ?? existing.rateLimitEnabled,
+    };
+    const mergedHeaderCount =
+      (merged.headerTransforms?.request?.set?.length ?? 0) +
+      (merged.headerTransforms?.request?.remove?.length ?? 0) +
+      (merged.headerTransforms?.response?.set?.length ?? 0) +
+      (merged.headerTransforms?.response?.remove?.length ?? 0);
+
+    if (merged.jwtAuth?.enabled && !config.hasJwtAuth) {
       res.status(400); throw new Error('JWT validation requires a paid plan.');
     }
-    if (body.cacheConfig?.enabled && !config.hasCaching) {
+    if (merged.cacheConfig?.enabled && !config.hasCaching) {
       res.status(400); throw new Error('Response caching requires a paid plan.');
     }
-    if (body.canary?.enabled && !config.hasCanary) {
+    if (merged.canary?.enabled && !config.hasCanary) {
       res.status(400); throw new Error('Canary splitting is a Pro feature.');
     }
-    if (config.maxGatewayRoutes !== -1 && Array.isArray(body.pathRoutes) && body.pathRoutes.length > config.maxGatewayRoutes) {
+    if (config.maxGatewayRoutes !== -1 && merged.pathRoutes.length > config.maxGatewayRoutes) {
       res.status(400); throw new Error(`Your ${config.name} plan allows ${config.maxGatewayRoutes} routing rules per gateway.`);
     }
-    if (config.maxGatewayRateLimitRules !== -1 && Array.isArray(body.pathRateLimits) && body.pathRateLimits.length > config.maxGatewayRateLimitRules) {
+    if (config.maxGatewayRateLimitRules !== -1 && merged.pathRateLimits.length > config.maxGatewayRateLimitRules) {
       res.status(400); throw new Error(`Your ${config.name} plan allows ${config.maxGatewayRateLimitRules} rate limit rule(s) per gateway.`);
     }
-    if (config.maxGatewayHeaderRules !== -1) {
-      const headerCount = (body.headerTransforms?.request?.set?.length ?? 0) + (body.headerTransforms?.request?.remove?.length ?? 0) + (body.headerTransforms?.response?.set?.length ?? 0) + (body.headerTransforms?.response?.remove?.length ?? 0);
-      if (headerCount > config.maxGatewayHeaderRules) {
-        res.status(400); throw new Error(`Your ${config.name} plan allows ${config.maxGatewayHeaderRules} header transform rules per gateway.`);
-      }
+    if (config.maxGatewayHeaderRules !== -1 && mergedHeaderCount > config.maxGatewayHeaderRules) {
+      res.status(400); throw new Error(`Your ${config.name} plan allows ${config.maxGatewayHeaderRules} header transform rules per gateway.`);
     }
-    if (config.maxGatewayIpRules !== -1 && Array.isArray(body.ipRules) && body.ipRules.length > config.maxGatewayIpRules) {
+    if (config.maxGatewayIpRules !== -1 && merged.ipRules.length > config.maxGatewayIpRules) {
       res.status(400); throw new Error(`Your ${config.name} plan allows ${config.maxGatewayIpRules} IP rules per gateway.`);
     }
-    if (config.maxGatewayMockRoutes !== -1 && Array.isArray(body.mockRoutes) && body.mockRoutes.length > config.maxGatewayMockRoutes) {
+    if (config.maxGatewayMockRoutes !== -1 && merged.mockRoutes.length > config.maxGatewayMockRoutes) {
       res.status(400); throw new Error(`Your ${config.name} plan allows ${config.maxGatewayMockRoutes} mock routes per gateway.`);
     }
-    if (body.rateLimitEnabled && !config.hasRateLimit) {
+    if (merged.rateLimitEnabled && !config.hasRateLimit) {
       res.status(400); throw new Error('Rate limiting requires an EdgeBalancer Pro subscription');
     }
 

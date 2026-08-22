@@ -46,7 +46,8 @@ function isPathCacheable(pathname) {
 export default {
   async fetch(request, env, ctx) {
     if (!config.upstreams.length) {
-      return new Response('No upstreams configured', { status: 502 });
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Maintenance | EdgeBalancer</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#fff;color:#1a1a1a;display:flex;align-items:center;justify-content:center;height:100vh;-webkit-font-smoothing:antialiased}.container{text-align:center;max-width:440px;width:90%;padding:2.5rem}h1{font-size:2rem;font-weight:600;margin-bottom:1rem;color:#111;letter-spacing:-.02em}p{font-size:1.0625rem;line-height:1.6;color:#4b5563;margin-bottom:2rem}.divider{height:1px;background:#f3f4f6;width:60px;margin:0 auto 2rem}.meta{font-size:.8125rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;font-weight:500}</style></head><body><div class="container"><div style="font-size:2.5rem;margin-bottom:1.5rem">\u23F8</div><h1>Gateway Paused</h1><p>This gateway is currently <strong>undergoing maintenance</strong>. We expect to be back <strong>very shortly</strong>.</p><div class="divider"></div><div class="meta">Status: 503 Service Unavailable<br>Powered by EdgeBalancer</div></div></body></html>`;
+      return new Response(html, { status: 503, headers: { 'Content-Type': 'text/html;charset=UTF-8', 'Retry-After': '3600' } });
     }
 
     if (config.corsEnabled && request.method === 'OPTIONS') {
@@ -67,18 +68,6 @@ export default {
 
     const url = new URL(request.url);
 
-    if (config.cacheConfig.enabled && request.method === 'GET' && isPathCacheable(url.pathname)) {
-      try {
-        const cached = await caches.default.match(request);
-        if (cached) {
-          const headers = new Headers(cached.headers);
-          headers.set('X-Cache', 'HIT');
-          const withCors = config.corsEnabled ? injectCorsHeaders(new Response(cached.body, { status: cached.status, headers }), request) : new Response(cached.body, { status: cached.status, headers });
-          return applyResponseHeaderTransforms(withCors);
-        }
-      } catch {}
-    }
-
     const mock = findMatchingMock(url.pathname, request.method);
     if (mock) {
       const headers = new Headers({ 'Content-Type': mock.contentType });
@@ -94,6 +83,18 @@ export default {
       applyHeaderMap(headers, config.headerTransforms.response.set, config.headerTransforms.response.remove);
       headers.set('X-Mock', 'HIT');
       return new Response(mock.body, { status: mock.status, headers });
+    }
+
+    if (config.cacheConfig.enabled && request.method === 'GET' && isPathCacheable(url.pathname)) {
+      try {
+        const cached = await caches.default.match(request);
+        if (cached) {
+          const headers = new Headers(cached.headers);
+          headers.set('X-Cache', 'HIT');
+          const withCors = config.corsEnabled ? injectCorsHeaders(new Response(cached.body, { status: cached.status, headers }), request) : new Response(cached.body, { status: cached.status, headers });
+          return applyResponseHeaderTransforms(withCors);
+        }
+      } catch {}
     }
 
     let upstream;
@@ -331,6 +332,7 @@ async function verifyJwtHs256(token, secret, opts) {
     return false;
   }
   const alg = header.alg || 'HS256';
+  if (opts.algorithms && Array.isArray(opts.algorithms) && !opts.algorithms.includes(alg)) return false;
   const hashName = alg === 'HS384' ? 'SHA-384' : alg === 'HS512' ? 'SHA-512' : 'SHA-256';
   if (payload.exp && typeof payload.exp === 'number' && Date.now() / 1000 > payload.exp) return false;
   if (payload.nbf && typeof payload.nbf === 'number' && Date.now() / 1000 < payload.nbf) return false;

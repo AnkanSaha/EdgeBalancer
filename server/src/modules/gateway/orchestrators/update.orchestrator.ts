@@ -125,6 +125,9 @@ export async function updateGatewayOrchestrator(params: {
   const codeChanged = workerCode !== previousWorkerCode || hostnameValueChanged;
 
   if (!hostnameChanged && !codeChanged) {
+    if (newDnsRecordIds.length > 0) {
+      await Promise.allSettled(newDnsRecordIds.map((id) => deleteIpDnsRecord({ apiToken, zoneId: input.zoneId, recordId: id })));
+    }
     return { success: true, message: 'Gateway updated successfully', data: { gateway: formatGateway(gateway) } };
   }
 
@@ -264,11 +267,10 @@ export async function updateGatewayOrchestrator(params: {
 }
 
 async function gatewayWorkerCodeFor(gateway: any): Promise<string> {
-  // Light signature for change detection — full code generation would be heavy
   return JSON.stringify({
     upstreams: gateway.upstreams, pathRoutes: gateway.pathRoutes,
     corsEnabled: gateway.corsEnabled, corsOrigins: gateway.corsOrigins,
-    jwtAuth: gateway.jwtAuth?.enabled, headerTransforms: gateway.headerTransforms,
+    jwtAuth: gateway.jwtAuth, headerTransforms: gateway.headerTransforms,
     cacheConfig: gateway.cacheConfig, canary: gateway.canary,
     ipRules: gateway.ipRules, mockRoutes: gateway.mockRoutes,
     rateLimitEnabled: gateway.rateLimitEnabled, rateLimitRequestsPerMinute: gateway.rateLimitRequestsPerMinute,

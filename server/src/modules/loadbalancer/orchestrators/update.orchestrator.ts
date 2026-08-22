@@ -252,8 +252,11 @@ export async function updateLoadBalancerOrchestrator(params: {
     });
   }
 
-  // No changes detected
+  // No changes detected — clean up any DNS created before returning
   if (!hostnameChanged && !workerNeedsRedeploy) {
+    if (newDnsRecordIds.length > 0) {
+      await Promise.allSettled(newDnsRecordIds.map((id) => deleteIpDnsRecord({ apiToken, zoneId, recordId: id })));
+    }
     return {
       success: true,
       message: 'Load balancer updated successfully',

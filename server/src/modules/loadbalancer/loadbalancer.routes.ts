@@ -27,7 +27,7 @@ export default async function loadBalancerRoutes(app: FastifyInstance) {
   app.get('/:id',       { config: { rateLimit: RELAXED  } }, async (request, reply) => runHandlers([authenticate, getLoadBalancer], request, reply));
 
   app.post('/',                          { config: { rateLimit: STRICT   } }, async (request, reply) => runHandlers([authenticate, ...createLoadBalancerValidator, createLoadBalancer], request, reply));
-  app.put('/:id',                        { config: { rateLimit: STRICT   } }, async (request, reply) => runHandlers([authenticate, updateLoadBalancer], request, reply));
+  app.put('/:id',                        { config: { rateLimit: STRICT   } }, async (request, reply) => runHandlers([authenticate, ...createLoadBalancerValidator, updateLoadBalancer], request, reply));
   app.delete('/:id',                     { config: { rateLimit: STRICT   } }, async (request, reply) => runHandlers([authenticate, deleteLoadBalancer], request, reply));
 
   app.post('/validate-hostname',         { config: { rateLimit: MODERATE } }, async (request, reply) => runHandlers([authenticate, validateLoadBalancerHostname], request, reply));

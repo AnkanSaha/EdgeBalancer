@@ -273,7 +273,7 @@ export async function createLoadBalancerOrchestrator(params: {
     // Rollback: clean up all resources created so far.
     // `nameLock` gates this. A run that lost the race never deployed anything under this script
     // name, so cleaning up by that name would destroy the Worker the winning run owns.
-    if (nameLock && accountId && apiToken && scriptName) {
+    if (nameLock?.token && accountId && apiToken && scriptName) {
       try {
         // Delete auto-created DNS records for raw IP origins
         await Promise.allSettled(
