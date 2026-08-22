@@ -15,6 +15,7 @@ import healthCheckRoutes from './modules/healthcheck/healthcheck.routes';
 import sessionRoutes from './modules/session/session.routes';
 import paymentRoutes from './modules/payment/payment.routes';
 import gatewayRoutes from './modules/gateway/gateway.routes';
+import statsRoutes from './modules/stats/stats.routes';
 
 export const buildServer = async () => {
   const app = Fastify({
@@ -71,6 +72,7 @@ export const buildServer = async () => {
   await app.register(aiRoutes, { prefix: '/api/ai' });
   await app.register(paymentRoutes, { prefix: '/api/payments' });
   await app.register(gatewayRoutes, { prefix: '/api/gateways' });
+  await app.register(statsRoutes, { prefix: '/api/stats' });
 
   return app;
 };

@@ -1,0 +1,15 @@
+# EdgeBalancer
+> Control plane for deploying Cloudflare Worker load balancers and API gateways without writing Worker code. Bring your Cloudflare account, pick origins and strategy, we deploy the Worker.
+
+## Primary
+- [Home](https://edge.nexoral.in/): Outcome-first landing with live stats ×10
+- [Features](https://edge.nexoral.in/features): 7 LB strategies + 9 gateway features
+- [Pricing](https://edge.nexoral.in/pricing): Free / Student ₹49 / Pro ₹299, Student-annual ₹470, Pro-annual ₹2870 — one-time, no auto-renew
+- [Stats](https://edge.nexoral.in/stats): Public metrics scaled ×10
+- [Blog](https://edge.nexoral.in/blog): Guides for Workers, strategies, gateway JWT/caching
+- [Docs](https://edge.nexoral.in/strategies): Strategy deep dives
+- [Refund](https://edge.nexoral.in/refund): Monthly 3-day, Annual 7-day refund if no Worker deployed
+- [Security](https://edge.nexoral.in/security): AES-256-GCM, httpOnly JWT, no traffic proxy
+
+## How it works
+Internet → Cloudflare (330+ PoPs) → Worker (your account) → Origins. Control plane never touches data.

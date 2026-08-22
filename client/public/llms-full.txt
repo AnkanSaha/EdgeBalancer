@@ -1,0 +1,41 @@
+# EdgeBalancer
+> Control plane for deploying Cloudflare Worker load balancers and API gateways without writing Worker code. Bring your Cloudflare account, pick origins and strategy, we deploy the Worker.
+
+## Primary
+- [Home](https://edge.nexoral.in/): Outcome-first landing with live stats ×10
+- [Features](https://edge.nexoral.in/features): 7 LB strategies + 9 gateway features
+- [Pricing](https://edge.nexoral.in/pricing): Free / Student ₹49 / Pro ₹299, Student-annual ₹470, Pro-annual ₹2870 — one-time, no auto-renew
+- [Stats](https://edge.nexoral.in/stats): Public metrics scaled ×10
+- [Blog](https://edge.nexoral.in/blog): Guides for Workers, strategies, gateway JWT/caching
+- [Docs](https://edge.nexoral.in/strategies): Strategy deep dives
+- [Refund](https://edge.nexoral.in/refund): Monthly 3-day, Annual 7-day refund if no Worker deployed
+- [Security](https://edge.nexoral.in/security): AES-256-GCM, httpOnly JWT, no traffic proxy
+
+## How it works
+Internet → Cloudflare (330+ PoPs) → Worker (your account) → Origins. Control plane never touches data.
+
+## FAQ
+
+### How is this different from Cloudflare Load Balancing?
+Cloudflare Load Balancing is a DNS-based solution ($5/balancer + per-query fees). EdgeBalancer deploys as a Worker script, giving you request-level control with no per-query costs. You pay only for Worker requests (100k/day free, then $0.30/M).
+
+### Can I bring my own domains?
+Yes. You connect your Cloudflare account, and we deploy Workers to zones you already own. You maintain full control — delete the API token and the Workers stay deployed under your account.
+
+### What happens if EdgeBalancer goes down?
+Your load balancers keep running. Once deployed, the Worker script lives in your Cloudflare account. EdgeBalancer is only the control plane for creating and updating configs — the data plane runs independently on Cloudflare's edge.
+
+### How do updates work?
+Updates use Cloudflare Worker Versions and Deployments. When you change a config, we create a new version, deploy it, and keep the previous version as a rollback target. Old inactive versions are pruned automatically.
+
+### Can I see the generated Worker code?
+Yes. All Worker scripts are visible in your Cloudflare dashboard under Workers & Pages. The code is generated from strategy-specific templates.
+
+### What are the performance implications?
+Workers add ~1-3ms median overhead. The benefit is intelligent routing, health checks, and failover at the edge — much faster than round-tripping to a centralized load balancer.
+
+### Do you store or proxy my traffic?
+No. EdgeBalancer never sees your production traffic. We store only metadata (origin URLs, weights, strategy choice) encrypted in MongoDB. All requests flow directly from Cloudflare edge to your origins.
+
+### How do I delete everything?
+Delete load balancers from the dashboard, then rotate your API token. You can also manually delete the Worker scripts from Cloudflare's dashboard. EdgeBalancer has no lock-in — everything runs in your account.

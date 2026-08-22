@@ -23,8 +23,10 @@ export function Nav() {
       </a>
       <div style={{ display: 'flex', gap: 'clamp(6px, 2vw, 8px)', alignItems: 'center', flexWrap: 'wrap' }}>
         <div className="hide-sm" style={{ display: 'flex', gap: 'clamp(12px, 2vw, 20px)', marginRight: 'clamp(8px, 2vw, 16px)', fontSize: 'clamp(12px, 2vw, 13px)', color: 'var(--text-2)' }}>
+          <a href="/features" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>Features</a>
           <a href="/strategies" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>Strategies</a>
           <a href="/pricing" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>Pricing</a>
+          <a href="/stats" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>Stats</a>
           <a href="/blog" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>Blog</a>
           <a href="/faq" className="nav-link" style={{ transition: 'color 0.15s', cursor: 'pointer' }}>FAQ</a>
         </div>

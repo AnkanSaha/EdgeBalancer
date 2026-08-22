@@ -1125,6 +1125,66 @@ Multi-tenancy, isolation, scaling, compliance.
 - Geographic (compliance)
     `,
   },
+  {
+    slug: 'api-gateway-on-cloudflare-workers',
+    title: 'API Gateway on Cloudflare Workers: JWT, Caching & Canary',
+    description: 'Deploy a full API gateway as a Worker — path routing, JWT HS256 validation, header transforms, response caching, canary splitting and IP allow/deny in 60 seconds.',
+    date: '2026-08-22',
+    updated: '2026-08-22',
+    category: 'Gateways',
+    readTime: '9 min',
+    tags: ['api gateway', 'cloudflare workers', 'jwt', 'caching'],
+    content: `
+## What an API gateway does
+
+A gateway sits in front of your upstreams and decides: who can call, where they go, and what gets changed along the way. EdgeBalancer's gateway is a generated Worker with nine features — path-based routing, HMAC JWT validation (HS256/384/512), CORS, request/response header rewrites, GET response caching via Cache API, deterministic canary splitting by client IP, IP allow/deny lists, mock routes and rate limiting.
+
+## Path routing + canary
+
+\`pathRoutes\` maps \`/api/v2/*\` → upstream 1, \`/static/*\` → upstream 0. Canary is a deterministic hash of \`cf-connecting-ip\` modulo 100 — same visitor always hits same variant, no external state. Changing the percentage triggers a Worker version deploy with rollback.
+
+## JWT + headers + caching
+
+JWT secrets are AES-256-GCM encrypted at rest and verified with Web Crypto in the Worker (~2ms). Header transforms are baked into the script; caching uses Workers Cache API and honors per-path TTL.
+
+## When to use it
+
+- A single domain fronting 3 microservices
+- Protecting a paid API with JWT without a separate auth service
+- Gradual rollout (canary 10% → 50% → 100%)
+    `,
+  },
+  {
+    slug: 'gateway-vs-load-balancer-when-to-use-which',
+    title: 'Gateway vs Load Balancer: When to Use Which',
+    description: 'Load balancers spread traffic for reliability; gateways control traffic for correctness. A decision guide with EdgeBalancer examples.',
+    date: '2026-08-22',
+    updated: '2026-08-22',
+    category: 'Comparisons',
+    readTime: '6 min',
+    tags: ['gateway', 'load balancer', 'comparison', 'architecture'],
+    content: `
+## The difference in one line
+
+- **Load balancer:** "Which origin gets this request?" (reliability — 7 strategies, health checks)
+- **Gateway:** "Should this request be allowed, where should it go, and what should change?" (control — 9 features, one Worker)
+
+## Decision table
+
+| Need | Use |
+|---|---|
+| Spread across equal backends | LB round-robin |
+| Premium vs free tier | LB weighted or gateway path routing |
+| Auth at the edge | Gateway JWT |
+| A/B rollout | Gateway canary |
+| Block abusive IPs | Gateway IP rules |
+| Mock a not-yet-built API | Gateway mock routes |
+
+## Cost
+
+Both run as Workers in your Cloudflare account — under 100k req/day $0. Same deploy/version/rollback, same hostname checks.
+    `,
+  },
 ];
 
 export function getBlogPost(slug: string): BlogPost | undefined {
