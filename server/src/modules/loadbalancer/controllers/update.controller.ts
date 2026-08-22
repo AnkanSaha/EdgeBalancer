@@ -44,7 +44,8 @@ export async function updateLoadBalancer(req: Request, res: Response, next: Next
 
     // Placement gating — free users can't modify placement
     if (!config.canEditPlacement && req.body.placement !== undefined) {
-      delete req.body.placement;
+      const existing = await LoadBalancer.findOne({ _id: id, userId }).select('placement').lean() as any;
+      req.body.placement = existing?.placement ?? { smartPlacement: true };
     }
 
     // Health check limit
@@ -54,7 +55,7 @@ export async function updateLoadBalancer(req: Request, res: Response, next: Next
         throw new Error('Health Checks require an EdgeBalancer Pro or Student subscription');
       }
       if (config.maxHealthCheckLBs > 0) {
-        const lb = await LoadBalancer.findById(id).select('healthCheckEnabled');
+        const lb = await LoadBalancer.findOne({ _id: id, userId }).select('healthCheckEnabled').lean() as any;
         // Only count if this LB doesn't already have HC
         if (!lb?.healthCheckEnabled) {
           const hcCount = await LoadBalancer.countDocuments({ userId, healthCheckEnabled: true });

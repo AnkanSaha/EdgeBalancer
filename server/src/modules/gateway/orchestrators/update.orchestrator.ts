@@ -125,6 +125,9 @@ export async function updateGatewayOrchestrator(params: {
   const codeChanged = workerCode !== previousWorkerCode || hostnameValueChanged;
 
   if (!hostnameChanged && !codeChanged) {
+    if (newDnsRecordIds.length > 0) {
+      await Promise.allSettled(newDnsRecordIds.map((id) => deleteIpDnsRecord({ apiToken, zoneId: input.zoneId, recordId: id })));
+    }
     return { success: true, message: 'Gateway updated successfully', data: { gateway: formatGateway(gateway) } };
   }
 

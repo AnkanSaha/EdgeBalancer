@@ -1,5 +1,6 @@
 import { resumeLoadBalancerOrchestrator } from '../orchestrators/resume.orchestrator';
 import { formatLoadBalancer } from '../services/formatter.service';
+import { getValidatedLoadBalancerId } from '../services/validation.service';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../../../types/http';
 
 export async function resumeLoadBalancerController(
@@ -8,7 +9,13 @@ export async function resumeLoadBalancerController(
   next: NextFunction
 ) {
   try {
-    const { id } = req.params;
+    let id: string;
+    try {
+      id = getValidatedLoadBalancerId(req.params.id);
+    } catch (e: any) {
+      res.status(400);
+      throw e;
+    }
     const userId = req.user?.userId;
 
     if (!userId) {
