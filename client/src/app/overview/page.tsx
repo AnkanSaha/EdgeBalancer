@@ -8,12 +8,13 @@ import { Sidebar, Topbar } from '@/components/dashboard/Sidebar';
 import { Icons } from '@/components/shared/Icons';
 import { AiPromptCard, AiAgentModal, applyAiEvent, initialAiRunState, type AiRunState } from '@/components/dashboard/AiAgentModal';
 import { streamAiGeneration } from '@/lib/aiStream';
-import type { ConversationTurn, LoadBalancer } from '@/types/api';
+import type { ConversationTurn, LoadBalancer, Gateway } from '@/types/api';
 
 export default function OverviewPage() {
   const router = useRouter();
   const { user, loading: authLoading, logout } = useAuth();
   const [loadBalancers, setLoadBalancers] = useState<LoadBalancer[]>([]);
+  const [gateways, setGateways] = useState<Gateway[]>([]);
   const [loading, setLoading] = useState(true);
 
   // AI Agent state — the conversation chain lives here and is replayed on every call
@@ -39,9 +40,15 @@ export default function OverviewPage() {
   // Counts only — the fleet stats above the prompt card.
   const fetchLoadBalancers = useCallback(async () => {
     try {
-      const response = await api.getLoadBalancers({});
-      if (response.success && response.data?.loadBalancers) {
-        setLoadBalancers(response.data.loadBalancers);
+      const [lbRes, gwRes] = await Promise.all([
+        api.getLoadBalancers({}),
+        api.getGateways().catch(() => ({ success: false } as any)),
+      ]);
+      if (lbRes.success && lbRes.data?.loadBalancers) {
+        setLoadBalancers(lbRes.data.loadBalancers);
+      }
+      if (gwRes.success && gwRes.data?.gateways) {
+        setGateways(gwRes.data.gateways);
       }
     } catch {
       // silent — a failed count must not break the page
@@ -186,9 +193,9 @@ export default function OverviewPage() {
               isPro={user?.isPro}
             />
 
-            {/* Summary */}
+            {/* Summary — LBs */}
             <div className="dash-stats" style={{
-              gap: 'clamp(12px, 2vw, 16px)', marginBottom: 'clamp(20px, 4vw, 32px)',
+              gap: 'clamp(12px, 2vw, 16px)', marginBottom: 'clamp(12px, 2vw, 16px)',
             }}>
               {[
                 { l: 'Active balancers', v: loadBalancers.filter(b => b.status === 'active').length, sub: `of ${loadBalancers.length} total` },
@@ -198,6 +205,28 @@ export default function OverviewPage() {
                   key={i}
                   className="feature-card animate-slide-up"
                   style={{ padding: 'clamp(16px, 2vw, 20px)', animationDelay: `${i * 0.08}s` }}
+                >
+                  <div className="kicker" style={{ fontSize: 'clamp(9px, 2vw, 11px)' }}>{s.l}</div>
+                  <div className="mono" style={{ fontSize: 'clamp(20px, 3vw, 24px)', marginTop: 8, letterSpacing: '-0.02em', color: s.color || 'var(--text)' }}>
+                    {s.v}
+                  </div>
+                  <div style={{ fontSize: 'clamp(11px, 1vw, 12px)', color: 'var(--text-3)', marginTop: 4 }}>{s.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Summary — Gateways */}
+            <div className="dash-stats" style={{
+              gap: 'clamp(12px, 2vw, 16px)', marginBottom: 'clamp(20px, 4vw, 32px)',
+            }}>
+              {[
+                { l: 'Active gateways', v: gateways.filter(g => g.status === 'active').length, sub: `of ${gateways.length} total` },
+                { l: 'Upstreams total', v: gateways.reduce((a, g) => a + (g.upstreams?.length || 0), 0), sub: 'all routes ready', color: 'var(--green)' },
+              ].map((s, i) => (
+                <div
+                  key={i}
+                  className="feature-card animate-slide-up"
+                  style={{ padding: 'clamp(16px, 2vw, 20px)', animationDelay: `${(i + 2) * 0.08}s` }}
                 >
                   <div className="kicker" style={{ fontSize: 'clamp(9px, 2vw, 11px)' }}>{s.l}</div>
                   <div className="mono" style={{ fontSize: 'clamp(20px, 3vw, 24px)', marginTop: 8, letterSpacing: '-0.02em', color: s.color || 'var(--text)' }}>
