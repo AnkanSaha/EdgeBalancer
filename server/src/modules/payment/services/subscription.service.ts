@@ -34,12 +34,14 @@ export async function activatePlan(userId: string, planType: PlanType): Promise<
   if (!config || config.durationDays === 0) throw new Error('Invalid plan type');
 
   const now = new Date();
+  const oldPlan = user.plan;
+  const oldExpiry = user.planExpiresAt;
   user.plan = planType;
   user.hasEverSubscribed = true;
 
   // If already on same plan and not expired, extend. Otherwise start fresh.
-  if (user.plan === planType && user.planExpiresAt && user.planExpiresAt > now) {
-    user.planExpiresAt = new Date(user.planExpiresAt.getTime() + config.durationDays * 24 * 60 * 60 * 1000);
+  if (oldPlan === planType && oldExpiry && oldExpiry > now) {
+    user.planExpiresAt = new Date(oldExpiry.getTime() + config.durationDays * 24 * 60 * 60 * 1000);
   } else {
     user.planExpiresAt = new Date(now.getTime() + config.durationDays * 24 * 60 * 60 * 1000);
   }

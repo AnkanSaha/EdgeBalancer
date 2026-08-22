@@ -62,10 +62,21 @@ export const createUpgradeOrder: AppHandler = async (req, res) => {
     throw new Error('Invalid upgrade amount');
   }
 
+  const recentPending = await PaymentHistory.findOne({ userId, status: 'PENDING', createdAt: { $gte: new Date(Date.now() - 15 * 60 * 1000) } }).lean();
+  if (recentPending) {
+    res.status(409);
+    throw new Error('A pending order already exists. Please complete or wait for it to expire.');
+  }
+
   // Trial is free but still forfeited — full tenure of new plan from now
   let order;
   try {
-    const phone = (req.body?.phone as string)?.trim() || '0000000000';
+    const rawPhone = (req.body?.phone as string)?.trim();
+    if (rawPhone && !/^[6-9]\d{9}$/.test(rawPhone) && !/^\+\d{10,15}$/.test(rawPhone)) {
+      res.status(400);
+      throw new Error('Invalid phone: 10-digit IN or E.164 required');
+    }
+    const phone = rawPhone || '0000000000';
     const orderNote = `EdgeBalancer Upgrade ${fromConfig.label} → ${toLabel} — ${durationDays} days`;
     order = await createOrder(userId, req.user?.email, phone, payable, orderNote);
   } catch (err: any) {

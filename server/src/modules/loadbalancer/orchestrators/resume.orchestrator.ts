@@ -66,8 +66,12 @@ export async function resumeLoadBalancerOrchestrator(params: {
     : loadBalancer.origins.map((origin) => ({
         url: origin.url,
         weight: origin.weight,
+        healthPath: origin.healthPath,
+        geoCities: origin.geoCities,
+        geoSubdivisions: origin.geoSubdivisions,
         geoCountries: origin.geoCountries,
         geoContinents: origin.geoContinents,
+        isFallback: origin.isFallback,
       }));
 
   if (loadBalancer.healthCheckEnabled && originsForWorker.length === 0) {
@@ -100,17 +104,15 @@ export async function resumeLoadBalancerOrchestrator(params: {
     rateLimit,
   });
 
-  await pruneWorkerHistory({
-    accountId,
-    apiToken,
-    scriptName: loadBalancer.scriptName,
-  });
-
   // Update from database
   loadBalancer.status = 'active';
-  loadBalancer.pauseMode = undefined;
+  loadBalancer.pauseMode = null as any;
   loadBalancer.healthAutoPaused = false;
   await loadBalancer.save();
+
+  try {
+    await pruneWorkerHistory({ accountId, apiToken, scriptName: loadBalancer.scriptName });
+  } catch {}
 
   return {
     success: true,

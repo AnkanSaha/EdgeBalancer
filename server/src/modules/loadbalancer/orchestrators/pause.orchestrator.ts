@@ -72,19 +72,18 @@ export async function pauseLoadBalancerOrchestrator(params: {
       placement: loadBalancer.placement,
       rateLimit,
     });
-
-    // Prune history to keep things clean
-    await pruneWorkerHistory({
-      accountId,
-      apiToken,
-      scriptName: loadBalancer.scriptName,
-    });
   }
 
   // Update database
   loadBalancer.status = 'paused';
   loadBalancer.pauseMode = mode;
   await loadBalancer.save();
+
+  if (mode === 'keep-domain') {
+    try {
+      await pruneWorkerHistory({ accountId, apiToken, scriptName: loadBalancer.scriptName });
+    } catch {}
+  }
 
   return {
     success: true,

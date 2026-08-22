@@ -26,14 +26,24 @@ export async function resumeGatewayOrchestrator(params: { userId: string; gatewa
     throw e;
   }
 
-  const { accountId, apiToken } = await getCloudflareCredentialsForUser(userId);
+  const { accountId, apiToken, isOAuth } = await getCloudflareCredentialsForUser(userId);
 
   const rateLimit = gateway.rateLimitEnabled && gateway.rateLimitRequestsPerMinute
     ? { enabled: true as const, requestsPerMinute: gateway.rateLimitRequestsPerMinute }
     : undefined;
 
+  const { resolvedOrigins: resolvedUpstreams } = await (await import('../../../services/workerDns')).provisionIpDnsChanges({
+    newOrigins: gateway.upstreams as any,
+    existingRecords: (gateway as any).ipOriginRecords ?? [],
+    scriptName: gateway.scriptName,
+    domain: gateway.domain,
+    zoneId: gateway.zoneId,
+    apiToken,
+    isOAuth,
+  } as any);
+
   const workerConfig = buildGatewayWorkerConfig({
-    upstreams: gateway.upstreams, pathRoutes: gateway.pathRoutes,
+    upstreams: resolvedUpstreams as any, pathRoutes: gateway.pathRoutes,
     corsEnabled: gateway.corsEnabled, corsOrigins: gateway.corsOrigins,
     jwtAuth: gateway.jwtAuth, headerTransforms: gateway.headerTransforms,
     cacheConfig: gateway.cacheConfig, canary: gateway.canary,

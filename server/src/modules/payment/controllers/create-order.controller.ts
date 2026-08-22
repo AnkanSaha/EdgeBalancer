@@ -19,7 +19,7 @@ export const createPaymentOrder: AppHandler = async (req, res) => {
   const planType = req.body?.planType as string;
   if (!planType || !VALID_PLANS.includes(planType as PlanType)) {
     res.status(400);
-    throw new Error('Invalid plan type. Must be: trial, student, or pro');
+    throw new Error('Invalid plan type. Must be: trial, student, student-annual, pro, pro-annual');
   }
 
   const plan = planType as PlanType;
@@ -47,8 +47,23 @@ export const createPaymentOrder: AppHandler = async (req, res) => {
   const durationDays = config.durationDays;
   const amount = config.price;
 
+  // Prevent concurrent double-orders: return existing PENDING if recent (15 min)
+  const recentPending = await PaymentHistory.findOne({ userId, status: 'PENDING', createdAt: { $gte: new Date(Date.now() - 15 * 60 * 1000) } }).lean();
+  if (recentPending) {
+    res.status(409);
+    throw new Error('A pending order already exists. Please complete or wait for it to expire.');
+  }
+
   // Free trial: skip Cashfree, activate directly
   if (amount === 0) {
+    const updated = await User.findOneAndUpdate({ _id: userId, hasEverSubscribed: { $ne: true } }, { $set: { hasEverSubscribed: true } });
+    if (!updated) {
+      const fresh = await User.findById(userId).select('hasEverSubscribed').lean() as any;
+      if (fresh?.hasEverSubscribed) {
+        res.status(409);
+        throw new Error('Trial is only available for first-time subscribers');
+      }
+    }
     await activatePlan(userId, plan);
 
     await PaymentHistory.create({
@@ -71,7 +86,12 @@ export const createPaymentOrder: AppHandler = async (req, res) => {
 
   let order;
   try {
-    const phone = (req.body?.phone as string)?.trim() || '0000000000';
+    const rawPhone = (req.body?.phone as string)?.trim();
+    if (rawPhone && !/^[6-9]\d{9}$/.test(rawPhone) && !/^\+\d{10,15}$/.test(rawPhone)) {
+      res.status(400);
+      throw new Error('Invalid phone: 10-digit IN or E.164 required');
+    }
+    const phone = rawPhone || '0000000000';
     // The note shown on the gateway checkout carries the real plan and duration.
     const planLabel = config.name;
     const orderNote = `EdgeBalancer ${planLabel} - ${durationDays} days pass`;

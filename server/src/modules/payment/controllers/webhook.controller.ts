@@ -35,7 +35,13 @@ export const handleWebhook: AppHandler = async (req, res) => {
     throw new Error('Invalid webhook signature');
   }
 
-  const payload = JSON.parse(rawBody);
+  let payload: any;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    res.status(200).json({ received: true });
+    return;
+  }
 
   // Extract from Cashfree's actual payload structure
   const orderId = payload?.data?.order?.order_id;
@@ -61,14 +67,24 @@ export const handleWebhook: AppHandler = async (req, res) => {
 
   // payment_status from Cashfree: "SUCCESS", "FAILED", "PENDING"
   // eventType: "PAYMENT_SUCCESS_WEBHOOK", "PAYMENT_FAILED_WEBHOOK", "USER_DROPPED_PAYMENT"
-  if (paymentStatus === 'SUCCESS' && payment.status !== 'SUCCESS') {
+  if ((payment.status as string) === 'SUCCESS') {
+    res.status(200).json({ received: true });
+    return;
+  }
+  if (paymentStatus === 'SUCCESS' && (payment.status as string) !== 'SUCCESS') {
     payment.status = 'SUCCESS';
     payment.paymentMethod = paymentMethod ?? undefined;
-    payment.cfPaymentId = String(cfPaymentId);
+    if (cfPaymentId) payment.cfPaymentId = String(cfPaymentId);
     await payment.save();
-    await activatePlan(payment.userId.toString(), payment.plan as PlanType);
+    try {
+      await activatePlan(payment.userId.toString(), payment.plan as PlanType);
+    } catch (e) {
+      payment.status = 'PENDING';
+      await payment.save();
+      throw e;
+    }
     console.log('[Webhook] Payment SUCCESS, plan activated:', payment.plan, 'for user:', payment.userId);
-  } else if (paymentStatus === 'FAILED' || eventType === 'PAYMENT_FAILED_WEBHOOK') {
+  } else if ((paymentStatus === 'FAILED' || eventType === 'PAYMENT_FAILED_WEBHOOK') && payment.status === 'PENDING') {
     payment.status = 'FAILED';
     await payment.save();
     console.log('[Webhook] Payment FAILED for order:', orderId);
