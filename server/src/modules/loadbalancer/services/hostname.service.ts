@@ -50,20 +50,26 @@ export async function assertHostnameAvailable(params: {
   let excludedHostname: string | null = null;
 
   if (excludeLoadBalancerId) {
-    const existingLoadBalancer = await LoadBalancer.findById(excludeLoadBalancerId);
-    if (!existingLoadBalancer) {
+    let existing: any = await LoadBalancer.findById(excludeLoadBalancerId);
+    if (!existing) {
+      try {
+        const { Gateway } = await import('../../../models/Gateway');
+        existing = await Gateway.findById(excludeLoadBalancerId);
+      } catch {}
+    }
+    if (!existing) {
       const error = new Error('Load balancer not found');
       (error as any).statusCode = 404;
       throw error;
     }
 
-    if (existingLoadBalancer.userId.toString() !== userId) {
+    if (existing.userId.toString() !== userId) {
       const error = new Error('You do not have permission to access this load balancer');
       (error as any).statusCode = 403;
       throw error;
     }
 
-    excludedHostname = toHostname(existingLoadBalancer.domain, existingLoadBalancer.subdomain);
+    excludedHostname = toHostname(existing.domain, existing.subdomain);
   }
 
   const cloudflareClient = new CloudflareClient(apiToken);
