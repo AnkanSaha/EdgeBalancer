@@ -45,6 +45,8 @@ export default function ProPage() {
 
   const handleNav = (id: string) => {
     if (id === 'overview') router.push('/overview');
+    else if (id === 'gateways') router.push('/gateways');
+    else if (id === 'balancers') router.push('/loadbalancers');
     else if (id === 'settings') router.push('/settings');
     else if (id === 'sessions') router.push('/sessions');
     else if (id === 'ai-runs') router.push('/ai-runs');
@@ -67,6 +69,7 @@ export default function ProPage() {
 
   const handleConfirmBuy = async (planOverride?: PlanType) => {
     const plan = planOverride || selectedPlan;
+    const isUpgrade = (typeof window !== 'undefined' && (window as any).__upgradeMode) === true;
     if (plan !== 'trial') {
       if (!phone.trim() || phone.trim().length < 10) {
         setError('Please enter a valid phone number');
@@ -76,41 +79,75 @@ export default function ProPage() {
     setError('');
     setShowModal(false);
     setLoading(true);
+    const clearUpgradeFlag = () => { if (typeof window !== 'undefined') (window as any).__upgradeMode = false; };
     try {
-      const res = await api.createOrder(plan, phone.trim() || '0000000000');
+      const res = isUpgrade
+        ? await api.createUpgradeOrder(plan, phone.trim() || '0000000000')
+        : await api.createOrder(plan, phone.trim() || '0000000000');
 
       // Free trial: no Cashfree checkout needed
       if (res.data?.trialActivated) {
         await refreshUser();
         setSuccess(true);
-        setTimeout(() => router.push('/loadbalancers'), 2000);
+        setTimeout(() => router.push('/overview'), 2000);
         return;
       }
 
       if (!res.success || !res.data?.paymentSessionId) {
+        clearUpgradeFlag();
         setError(res.message || 'Failed to create order');
         setLoading(false);
         return;
       }
 
+      const orderId: string = res.data.orderId;
       await openCashfreeCheckout(res.data.paymentSessionId);
 
       setPolling(true);
-      for (let i = 0; i < 15; i++) {
-        await new Promise(r => setTimeout(r, 2000));
+      const deadline = Date.now() + 30000;
+      let attempt = 0;
+      while (Date.now() < deadline) {
+        if (attempt > 0) {
+          const base = Math.min(2000 * Math.pow(1.35, attempt - 1), 5000);
+          const jitter = Math.random() * 700;
+          const sleep = base + jitter;
+          if (Date.now() + sleep > deadline) break;
+          await new Promise(r => setTimeout(r, sleep));
+        }
+        try {
+          const v: any = await api.verifyPayment(orderId);
+          if (v?.data?.verified) {
+            await refreshUser();
+            setPolling(false);
+            clearUpgradeFlag();
+            setSuccess(true);
+            setTimeout(() => router.push('/overview'), 2000);
+            return;
+          }
+          if (v?.data?.status === 'FAILED') {
+            setPolling(false);
+            clearUpgradeFlag();
+            setError('Payment failed. Please try again.');
+            return;
+          }
+        } catch {}
         await refreshUser();
-        const latest = await api.getCurrentUser();
-        if (latest.data?.user?.isSubscribed) {
+        const latest: any = await api.getCurrentUser().catch(() => null);
+        if (latest?.data?.user?.isSubscribed) {
           setPolling(false);
+          clearUpgradeFlag();
           setSuccess(true);
-          setTimeout(() => router.push('/loadbalancers'), 2000);
+          setTimeout(() => router.push('/overview'), 2000);
           return;
         }
+        attempt += 1;
       }
       setPolling(false);
-      setError('Payment received! Your plan will activate shortly. Refresh the page in a moment.');
+      clearUpgradeFlag();
+      setError('Checking payment status — your plan will activate shortly. Refresh in a moment.');
     } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+      clearUpgradeFlag();
+      setError(err.response?.data?.message || err.message || 'Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -161,57 +198,75 @@ export default function ProPage() {
             const isTrial = currentPlan === 'trial';
             const featureKey: 'free' | 'student' | 'pro' = isTrial ? 'student' : currentPlan?.includes('pro') ? 'pro' : currentPlan?.includes('student') ? 'student' : 'pro';
             const planLabel = isTrial ? 'TRIAL' : currentPlan?.includes('pro') ? 'PRO' : currentPlan?.includes('student') ? "STUDENT'S SUPPORT" : 'TRIAL';
+            const UPGRADE_PLANS: { key: PlanType; label: string; price: number; duration: string }[] = [
+              { key: 'student', label: "Student's Support", price: 49, duration: '30 days' },
+              { key: 'student-annual', label: "Student's Support (Annual)", price: 470, duration: '365 days' },
+              { key: 'pro', label: 'Pro', price: 299, duration: '30 days' },
+              { key: 'pro-annual', label: 'Pro (Annual)', price: 2870, duration: '365 days' },
+            ];
+            const priceMap: Record<string, number> = { free: 0, trial: 0, student: 49, 'student-annual': 470, pro: 299, 'pro-annual': 2870 };
+            const currentPrice = priceMap[currentPlan] ?? 0;
             return (
-            <div style={{ maxWidth: 720, width: '100%', margin: '40px auto', textAlign: 'center' }}>
+            <div style={{ maxWidth: 1000, width: '100%', margin: '0 auto' }}>
               <div style={{
-                padding: '48px 40px', background: 'linear-gradient(135deg, #f59e0b11, #f9731611)',
+                padding: '28px 32px', background: 'linear-gradient(135deg, #f59e0b11, #f9731611)',
                 border: '1px solid #f59e0b44', borderRadius: 'var(--radius-lg)',
-                textAlign: 'center',
+                textAlign: 'center', marginBottom: 24,
               }}>
-                <div style={{
-                  width: 72, height: 72, borderRadius: '50%', margin: '0 auto 20px',
-                  background: 'linear-gradient(135deg, #f59e0b, #f97316)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 4px 20px #f59e0b44',
-                }}>
-                  <Icons.Crown size={32} fill="#fff" stroke="#fff" />
+                <div style={{ fontSize: 13, fontFamily: 'var(--mono)', color: '#f59e0b', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{planLabel} ACTIVE</div>
+                <p style={{ color: 'var(--text-2)', marginTop: 8, fontSize: 14 }}>
+                  Active until <strong>{expiryDate}</strong> — full tenure from upgrade, remaining days forfeited.
+                </p>
+                <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 360, margin: '16px auto 0', textAlign: 'left' }}>
+                  {ALL_FEATURES.filter(f => f[featureKey]).map(f => (
+                    <div key={f[featureKey]!} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12.5, color: 'var(--text)' }}>
+                      <Icons.Check size={13} stroke="#f59e0b" style={{ flexShrink: 0 }} /> <span>{f[featureKey]}</span>
+                    </div>
+                  ))}
                 </div>
-                <div style={{
-                  fontSize: 24, fontWeight: 700, color: '#f59e0b',
-                  fontFamily: 'var(--mono)', letterSpacing: '0.06em',
-                }}>{planLabel} ACTIVE</div>
-                <p style={{ color: 'var(--text-2)', marginTop: 14, fontSize: 15 }}>
-                  Your subscription is active until <strong>{expiryDate}</strong>.
-                </p>
-
-                {/* What this plan actually includes */}
-                <div style={{
-                  marginTop: 24, marginBottom: 8, textAlign: 'left',
-                  background: 'var(--bg-1)', border: '1px solid var(--line)',
-                  borderRadius: 'var(--radius)', padding: '20px 22px',
-                }}>
-                  <div style={{
-                    fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text-3)',
-                    textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14,
-                  }}>What you get with {planLabel === 'PRO' ? 'Pro' : planLabel === "STUDENT'S SUPPORT" ? "Student's Support" : 'Trial'}</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {ALL_FEATURES.filter(f => f[featureKey]).map(f => (
-                      <div key={f[featureKey]!} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13.5, color: 'var(--text)' }}>
-                        <Icons.Check size={15} stroke="#f59e0b" style={{ marginTop: 2, flexShrink: 0 }} />
-                        <span>{f[featureKey]}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <p style={{ color: 'var(--text-3)', marginTop: 16, fontSize: 14, lineHeight: 1.7 }}>
-                  When your subscription expires, you will automatically revert to the Free plan.
-                  <span style={{ whiteSpace: 'nowrap' }}> You can re-subscribe anytime.</span>
-                </p>
-                <p style={{ color: 'var(--text-3)', marginTop: 14, fontSize: 13 }}>
-                  No auto-renewal. No hidden charges.
-                </p>
               </div>
+
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>Upgrade your plan</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
+                {UPGRADE_PLANS.map(p => {
+                  const isCurrent = p.key === currentPlan;
+                  const payable = p.price - currentPrice;
+                  const isUpgrade = payable > 0;
+                  return (
+                    <div key={p.key} style={{
+                      padding: 20, background: 'var(--bg-1)', borderRadius: 'var(--radius-lg)',
+                      border: isCurrent ? '2px solid #f59e0b' : isUpgrade ? '1px solid var(--line)' : '1px solid var(--line)',
+                      opacity: !isCurrent && !isUpgrade ? 0.55 : 1,
+                    }}>
+                      <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: isCurrent ? '#f59e0b' : 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{p.label}</div>
+                      <div style={{ fontSize: 26, fontWeight: 700, marginTop: 8 }}>₹{p.price}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 14 }}>{p.duration}</div>
+                      {isCurrent ? (
+                        <button disabled style={{ width: '100%', padding: '10px', fontSize: 13, fontWeight: 600, borderRadius: 'var(--radius)', border: '1px solid #f59e0b', background: '#f59e0b15', color: '#f59e0b', cursor: 'not-allowed' }}>Current plan</button>
+                      ) : isUpgrade ? (
+                        <>
+                          <div style={{ fontSize: 11, color: 'var(--green)', marginBottom: 6 }}>Pay ₹{payable} — save ₹{currentPrice} from current</div>
+                          <button
+                            onClick={() => { setSelectedPlan(p.key); setPhone(''); setError(''); setShowModal(true); (window as any).__upgradeMode = true; (window as any).__upgradePlan = p.key; }}
+                            disabled={loading || polling}
+                            style={{ width: '100%', padding: '10px', fontSize: 13, fontWeight: 600, borderRadius: 'var(--radius)', border: 'none', background: 'linear-gradient(135deg, #3b82f6, #6366f1)', color: '#fff', cursor: 'pointer' }}
+                          >
+                            Upgrade — Pay ₹{payable}
+                          </button>
+                          <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 6, textDecoration: 'line-through' }}>Full ₹{p.price} — you save ₹{currentPrice}</div>
+                        </>
+                      ) : (
+                        <button disabled style={{ width: '100%', padding: '10px', fontSize: 12, borderRadius: 'var(--radius)', border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--text-3)', cursor: 'not-allowed' }}>Downgrade not available</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ padding: '12px 16px', background: 'var(--bg-1)', border: '1px solid var(--line)', borderRadius: 'var(--radius)', fontSize: 12, color: 'var(--text-3)', lineHeight: 1.6 }}>
+                Upgrade pays <strong style={{ color: 'var(--text)' }}>difference only</strong> and gives full tenure from now. No accumulation — remaining days of current plan are forfeited. Annual → monthly downgrade is not allowed.
+              </div>
+              {error && <div style={{ marginTop: 16, padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid var(--red)', borderRadius: 'var(--radius)', color: 'var(--red)', fontSize: 13 }}>{error}</div>}
+              {polling && <div style={{ textAlign: 'center', padding: 16, color: '#f59e0b', fontSize: 14 }}>Verifying payment with Cashfree, please wait...</div>}
             </div>
             ); })() : (
             <div style={{ maxWidth: 1000, margin: '0 auto' }}>

@@ -307,6 +307,16 @@ class ApiClient {
     return response.data;
   }
 
+  async verifyPayment(orderId: string): Promise<ApiResponse> {
+    const response = await this.client.post('/payments/verify', { orderId });
+    return response.data;
+  }
+
+  async createUpgradeOrder(toPlan: string, phone: string): Promise<ApiResponse> {
+    const response = await this.client.post('/payments/upgrade', { toPlan, phone });
+    return response.data;
+  }
+
   async getPaymentHistory(params?: { cursor?: string; limit?: number }): Promise<ApiResponse> {
     const query = new URLSearchParams();
     if (params?.cursor) query.set('cursor', params.cursor);
