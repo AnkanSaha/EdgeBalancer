@@ -36,6 +36,24 @@ export type WorkerStrategy =
   | 'geo-steering'
   | 'paused';
 
+export interface GatewayWorkerConfig {
+  upstreams: Array<{ url: string; weight: number }>;
+  pathRoutes?: PathRoute[] & Array<{ upstreamIndex: number }>;
+  corsEnabled?: boolean;
+  corsOrigins?: string[];
+  jwtAuth?: { enabled: boolean; headerName: string; algorithms: string[]; issuer: string | null; secret: string | null };
+  headerTransforms?: {
+    request: { set: Array<{ name: string; value: string }>; remove: string[] };
+    response: { set: Array<{ name: string; value: string }>; remove: string[] };
+  };
+  cacheConfig?: { enabled: boolean; ttlSeconds: number; paths: string[] };
+  canary?: { enabled: boolean; percentage: number; upstreamIndex: number };
+  ipRules?: Array<{ value: string; action: 'allow' | 'deny' }>;
+  mockRoutes?: Array<{ path: string; method: string; status: number; body: string; contentType: string }>;
+  rateLimit?: { enabled: boolean; requestsPerMinute: number };
+  pathRateLimits?: PathRateLimit[];
+}
+
 export interface WorkerConfig {
   origins: OriginServer[];
   strategy: WorkerStrategy;
@@ -81,6 +99,40 @@ const toWorkerOrigin = (origin: OriginServer, index: number) => ({
   geoContinents: Array.isArray(origin.geoContinents) ? origin.geoContinents : [],
   isFallback: origin.isFallback === true,
 });
+
+export const generateGatewayWorkerCode = async (config: GatewayWorkerConfig, options?: { skipObfuscation?: boolean }): Promise<string> => {
+  const template = readFileSync(path.join(TEMPLATE_DIR, 'apiGateway.js'), 'utf8');
+  const workerConfig = {
+    upstreams: config.upstreams,
+    pathRoutes: (config.pathRoutes ?? []).sort((a: any, b: any) => (a.priority ?? 1) - (b.priority ?? 1)),
+    corsEnabled: config.corsEnabled ?? false,
+    corsOrigins: config.corsOrigins ?? [],
+    jwtAuth: config.jwtAuth ?? { enabled: false, headerName: 'Authorization', algorithms: ['HS256'], issuer: null, secret: null },
+    headerTransforms: config.headerTransforms ?? { request: { set: [], remove: [] }, response: { set: [], remove: [] } },
+    cacheConfig: config.cacheConfig ?? { enabled: false, ttlSeconds: 60, paths: [] },
+    canary: config.canary ?? { enabled: false, percentage: 10, upstreamIndex: 0 },
+    ipRules: config.ipRules ?? [],
+    mockRoutes: config.mockRoutes ?? [],
+    rateLimitEnabled: config.rateLimit?.enabled ?? false,
+    rateLimitRequestsPerMinute: config.rateLimit?.requestsPerMinute ?? null,
+    pathRateLimits: (config.pathRateLimits ?? []).sort((a, b) => a.priority - b.priority),
+  };
+  const workerCode = template.replace('__CONFIG__', JSON.stringify(workerConfig, null, 2));
+  if (options?.skipObfuscation) return workerCode;
+  const obfuscationResult = JavaScriptObfuscator.obfuscate(workerCode, {
+    compact: true,
+    stringArray: true,
+    stringArrayEncoding: ['base64'],
+    stringArrayThreshold: 0.75,
+    renameProperties: false,
+    controlFlowFlattening: false,
+    deadCodeInjection: false,
+    selfDefending: false,
+    debugProtection: false,
+    target: 'browser',
+  });
+  return obfuscationResult.getObfuscatedCode();
+};
 
 export const generateWorkerCode = async (config: WorkerConfig, options?: { skipObfuscation?: boolean }): Promise<string> => {
   const template = getTemplateContents(config.strategy);

@@ -277,7 +277,8 @@ export default function AiRunsPage() {
 
   const handleNav = (id: string) => {
     if (id === 'overview') router.push('/overview');
-    if (id === 'balancers') router.push('/loadbalancers');
+    if (id === 'gateways') router.push('/gateways');
+    else if (id === 'balancers') router.push('/loadbalancers');
     else if (id === 'settings') router.push('/settings');
     else if (id === 'sessions') router.push('/sessions');
     else if (id === 'pro') router.push('/pro');

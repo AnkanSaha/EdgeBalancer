@@ -213,6 +213,57 @@ class ApiClient {
     return response.data;
   }
 
+  // Gateway endpoints
+  async createGateway(data: any, options?: RequestOptions): Promise<ApiResponse> {
+    const response = await this.client.post('/gateways', data, options);
+    return response.data;
+  }
+
+  async validateGatewayHostname(data: {
+    domain: string;
+    subdomain?: string;
+    zoneId?: string;
+    gatewayId?: string;
+  }): Promise<ApiResponse> {
+    const response = await this.client.post('/gateways/validate-hostname', data);
+    return response.data;
+  }
+
+  async getGateways(): Promise<ApiResponse> {
+    const response = await this.client.get('/gateways');
+    return response.data;
+  }
+
+  async getGateway(id: string): Promise<ApiResponse> {
+    const response = await this.client.get(`/gateways/${id}`);
+    return response.data;
+  }
+
+  async updateGateway(id: string, data: any, options?: RequestOptions): Promise<ApiResponse> {
+    const response = await this.client.put(`/gateways/${id}`, data, options);
+    return response.data;
+  }
+
+  async deleteGateway(id: string): Promise<ApiResponse> {
+    const response = await this.client.delete(`/gateways/${id}`);
+    return response.data;
+  }
+
+  async cancelGatewayOperation(operationId: string): Promise<ApiResponse> {
+    const response = await this.client.post(`/gateways/operations/${operationId}/cancel`);
+    return response.data;
+  }
+
+  async pauseGateway(id: string, mode: 'release-domain' | 'keep-domain'): Promise<ApiResponse> {
+    const response = await this.client.post(`/gateways/${id}/pause`, { mode });
+    return response.data;
+  }
+
+  async resumeGateway(id: string): Promise<ApiResponse> {
+    const response = await this.client.post(`/gateways/${id}/resume`);
+    return response.data;
+  }
+
   // Session endpoints
   async getSessions(params?: { cursor?: string; limit?: number; filter?: 'all' | 'active' | 'inactive' }): Promise<ApiResponse> {
     const query = new URLSearchParams();
