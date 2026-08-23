@@ -1065,7 +1065,7 @@ export default function EditLoadBalancerPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 500 }}>Keep Visitor&apos;s Website Info</div>
                   <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
-                    Normally the load balancer hides which website the visitor came from, so your server doesn&apos;t get confused. Most apps leave this <strong>off</strong>. Turn it on <em>only</em> if your server checks &quot;is this request coming from my own website?&quot; — for example, if your server has its own login or session check based on the visitor&apos;s domain.
+                    Say your site is on <span className="mono">apiss.launchd.in</span> (LB) but your API is on <span className="mono">your-origin.com</span>. When the page calls your API, browser sends <span className="mono">Referer: apiss.launchd.in</span> — your API may block it as “not my site”. Leave <strong>off</strong> and we send <span className="mono">your-origin.com</span> instead, so it passes. Turn <strong>on</strong> only if your server needs to know “did this come via my LB?” to allow it.
                   </div>
                 </div>
                 <input
