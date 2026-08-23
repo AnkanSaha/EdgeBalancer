@@ -2,11 +2,12 @@
   "openapi": "3.1.0",
   "info": {
     "title": "EdgeBalancer API",
-    "description": "Control plane for deploying Cloudflare Worker load balancers and API gateways. All responses follow { success, data, message } format. Rate limit headers (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset) are included on every response.",
+    "description": "Control plane for deploying Cloudflare Worker load balancers and API gateways. All responses follow { success, data, message } format. Rate limit headers (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset) are included on every response. API versioning: current version is v1. Deprecation will be signaled via Sunset header.",
     "version": "1.0.0",
     "contact": {
       "name": "EdgeBalancer",
-      "url": "https://edge.nexoral.in/contact"
+      "url": "https://edge.nexoral.in/contact",
+      "email": "support@nexoral.in"
     }
   },
   "servers": [
@@ -38,7 +39,10 @@
         "type": "object",
         "properties": {
           "success": {
-            "type": "boolean"
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           },
           "data": {},
           "message": {
@@ -60,6 +64,10 @@
           },
           "message": {
             "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "description": "Machine-readable error code"
           }
         }
       },
@@ -484,438 +492,722 @@
   "paths": {
     "/health": {
       "get": {
+        "operationId": "health_get_health",
         "tags": [
           "Health"
         ],
         "summary": "Readiness probe",
-        "security": [],
+        "description": "Kubernetes readiness probe. Returns 200 when the service is ready to accept traffic.",
         "responses": {
           "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/live": {
-      "get": {
-        "tags": [
-          "Health"
-        ],
-        "summary": "Liveness probe",
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/auth/google": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "summary": "Sign in with Google",
-        "security": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "idToken"
-                ],
-                "properties": {
-                  "idToken": {
-                    "type": "string"
-                  }
+            "description": "Service healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           }
         },
+        "security": []
+      }
+    },
+    "/live": {
+      "get": {
+        "operationId": "health_get_live",
+        "tags": [
+          "Health"
+        ],
+        "summary": "Liveness probe",
+        "description": "Kubernetes liveness probe. Returns 200 when the service process is alive.",
         "responses": {
           "200": {
-            "description": "JWT cookie set. Returns totpRequired/twoFactorRequired if 2FA enabled."
+            "description": "Service alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/google": {
+      "post": {
+        "operationId": "auth_post_api_auth_google",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Sign in with Google",
+        "description": "Exchange a Firebase ID token for a JWT cookie. If 2FA is enabled, returns totpRequired/twoFactorRequired instead of setting the session cookie.",
+        "responses": {
+          "200": {
+            "description": "JWT cookie set or 2FA required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": []
       }
     },
     "/api/auth/logout": {
       "post": {
+        "operationId": "auth_post_api_auth_logout",
         "tags": [
           "Auth"
         ],
         "summary": "Clear session",
+        "description": "Clear the current session cookie and any 2FA challenge cookies.",
         "responses": {
           "200": {
-            "description": "Session cleared"
+            "description": "Session cleared",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/auth/me": {
       "get": {
+        "operationId": "auth_get_api_auth_me",
         "tags": [
           "Auth"
         ],
         "summary": "Get current user",
+        "description": "Return the authenticated user's profile including subscription tier and Cloudflare connection status.",
         "responses": {
           "200": {
-            "description": "User profile"
+            "description": "User profile object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/auth/2fa/setup": {
       "post": {
+        "operationId": "auth_post_api_auth_2fa_setup",
         "tags": [
-          "Auth",
-          "2FA"
+          "Auth"
         ],
         "summary": "Start TOTP enrollment",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "name"
-                ],
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "maxLength": 30
-                  }
+        "description": "Generate a new TOTP device secret and QR code. The device is not active until confirmed with /2fa/confirm.",
+        "responses": {
+          "200": {
+            "description": "Device enrollment data with otpauthUrl and qrDataUrl",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
                 }
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Returns deviceId, secret, otpauthUrl, qrDataUrl"
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/auth/2fa/confirm": {
       "post": {
+        "operationId": "auth_post_api_auth_2fa_confirm",
         "tags": [
-          "Auth",
-          "2FA"
+          "Auth"
         ],
         "summary": "Confirm TOTP device",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "deviceId",
-                  "code"
-                ],
-                "properties": {
-                  "deviceId": {
-                    "type": "string"
-                  },
-                  "code": {
-                    "type": "string"
-                  }
+        "description": "Verify a TOTP code to activate a newly enrolled device.",
+        "responses": {
+          "200": {
+            "description": "Device activated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
                 }
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Device activated"
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/auth/2fa/remove": {
       "post": {
+        "operationId": "auth_post_api_auth_2fa_remove",
         "tags": [
-          "Auth",
-          "2FA"
+          "Auth"
         ],
         "summary": "Remove TOTP device",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "deviceId",
-                  "code"
-                ],
-                "properties": {
-                  "deviceId": {
-                    "type": "string"
-                  },
-                  "code": {
-                    "type": "string"
-                  }
+        "description": "Remove a TOTP device. Requires a code from a different confirmed device (or the last device's own code).",
+        "responses": {
+          "200": {
+            "description": "Device removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
                 }
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Device removed"
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/auth/2fa/verify": {
       "post": {
+        "operationId": "auth_post_api_auth_2fa_verify",
         "tags": [
-          "Auth",
-          "2FA"
+          "Auth"
         ],
         "summary": "Verify TOTP code (login step 2)",
-        "security": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "code"
-                ],
-                "properties": {
-                  "code": {
-                    "type": "string"
-                  }
+        "description": "Exchange a TOTP code + 2FA challenge cookie for a session cookie. This is the second step of login when 2FA is enabled.",
+        "responses": {
+          "200": {
+            "description": "Session cookie set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           }
         },
-        "responses": {
-          "200": {
-            "description": "Session cookie set"
-          }
-        }
+        "security": []
       }
     },
     "/api/auth/2fa/passkey/register/options": {
       "post": {
+        "operationId": "auth_post_api_auth_2fa_passkey_register_options",
         "tags": [
-          "Auth",
-          "Passkeys"
+          "Auth"
         ],
         "summary": "WebAuthn registration options",
+        "description": "Generate WebAuthn credential creation options for enrolling a new passkey.",
         "responses": {
           "200": {
-            "description": "Creation options"
+            "description": "WebAuthn creation options",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/auth/2fa/passkey/register/verify": {
       "post": {
+        "operationId": "auth_post_api_auth_2fa_passkey_register_verify",
         "tags": [
-          "Auth",
-          "Passkeys"
+          "Auth"
         ],
         "summary": "Verify WebAuthn registration",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "name",
-                  "response"
-                ],
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "response": {
-                    "type": "object"
-                  }
+        "description": "Verify the WebAuthn registration response and store the passkey.",
+        "responses": {
+          "200": {
+            "description": "Passkey stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
                 }
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Passkey stored"
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/auth/2fa/passkey/auth/options": {
       "post": {
+        "operationId": "auth_post_api_auth_2fa_passkey_auth_options",
         "tags": [
-          "Auth",
-          "Passkeys"
+          "Auth"
         ],
         "summary": "WebAuthn authentication options",
-        "security": [],
+        "description": "Generate WebAuthn credential request options for passkey login. Requires the 2FA challenge cookie.",
         "responses": {
           "200": {
-            "description": "Request options"
+            "description": "WebAuthn request options",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/auth/2fa/passkey/auth/verify": {
       "post": {
+        "operationId": "auth_post_api_auth_2fa_passkey_auth_verify",
         "tags": [
-          "Auth",
-          "Passkeys"
+          "Auth"
         ],
         "summary": "Verify WebAuthn auth (login step 2)",
-        "security": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "response"
-                ],
-                "properties": {
-                  "response": {
-                    "type": "object"
-                  }
+        "description": "Verify the WebAuthn authentication response and set the session cookie.",
+        "responses": {
+          "200": {
+            "description": "Session cookie set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           }
         },
-        "responses": {
-          "200": {
-            "description": "Session cookie set"
-          }
-        }
+        "security": []
       }
     },
     "/api/auth/2fa/passkey/remove": {
       "post": {
+        "operationId": "auth_post_api_auth_2fa_passkey_remove",
         "tags": [
-          "Auth",
-          "Passkeys"
+          "Auth"
         ],
         "summary": "Remove a passkey",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "passkeyId"
-                ],
-                "properties": {
-                  "passkeyId": {
-                    "type": "string"
-                  }
+        "description": "Remove a registered passkey by its credential ID.",
+        "responses": {
+          "200": {
+            "description": "Passkey removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
                 }
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Passkey removed"
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/auth/2fa/rename": {
       "post": {
+        "operationId": "auth_post_api_auth_2fa_rename",
         "tags": [
-          "Auth",
-          "2FA"
+          "Auth"
         ],
         "summary": "Rename a credential",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "deviceId",
-                  "name"
-                ],
-                "properties": {
-                  "deviceId": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string",
-                    "maxLength": 30
-                  }
+        "description": "Rename a TOTP device or passkey. The name is user-chosen and displayed in the 2FA settings UI.",
+        "responses": {
+          "200": {
+            "description": "Credential renamed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
                 }
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Renamed"
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/auth/2fa/preference": {
       "post": {
+        "operationId": "auth_post_api_auth_2fa_preference",
         "tags": [
-          "Auth",
-          "2FA"
+          "Auth"
         ],
         "summary": "Set preferred 2FA method",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "method"
-                ],
-                "properties": {
-                  "method": {
-                    "type": "string",
-                    "enum": [
-                      "totp",
-                      "passkey",
-                      "null"
-                    ]
-                  }
+        "description": "Set which 2FA method the login flow opens on (totp, passkey, or null for auto).",
+        "responses": {
+          "200": {
+            "description": "Preference saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
                 }
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Preference saved"
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/cloudflare/credentials": {
       "post": {
+        "operationId": "cloudflare_post_api_cloudflare_credentials",
         "tags": [
           "Cloudflare"
         ],
         "summary": "Save CF credentials",
+        "description": "Store Cloudflare account ID and API token. Credentials are AES-256-GCM encrypted before MongoDB write.",
+        "responses": {
+          "200": {
+            "description": "Credentials saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -924,19 +1216,48 @@
                 "$ref": "#/components/schemas/CloudflareCredentials"
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Credentials saved"
           }
         }
       },
       "put": {
+        "operationId": "cloudflare_put_api_cloudflare_credentials",
         "tags": [
           "Cloudflare"
         ],
         "summary": "Update CF credentials",
+        "description": "Update the stored Cloudflare account ID and API token.",
+        "responses": {
+          "200": {
+            "description": "Credentials updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -946,95 +1267,298 @@
               }
             }
           }
-        },
-        "responses": {
-          "200": {
-            "description": "Credentials updated"
-          }
         }
       },
       "get": {
+        "operationId": "cloudflare_get_api_cloudflare_credentials",
         "tags": [
           "Cloudflare"
         ],
         "summary": "Get masked credentials",
+        "description": "Return the stored Cloudflare credentials with the API token masked (last 4 chars visible).",
         "responses": {
           "200": {
-            "description": "Masked credentials"
+            "description": "Masked credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/cloudflare/zones": {
       "get": {
+        "operationId": "cloudflare_get_api_cloudflare_zones",
         "tags": [
           "Cloudflare"
         ],
         "summary": "List CF zones",
+        "description": "List all Cloudflare zones (domains) in the connected account.",
         "responses": {
           "200": {
-            "description": "Zone list"
+            "description": "Array of zone objects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/cloudflare/oauth/authorize": {
       "get": {
+        "operationId": "cloudflare_get_api_cloudflare_oauth_authorize",
         "tags": [
           "Cloudflare"
         ],
         "summary": "Start OAuth flow",
+        "description": "Initiate Cloudflare OAuth to connect a Cloudflare account.",
         "responses": {
           "200": {
-            "description": "Redirect URL"
+            "description": "OAuth redirect URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/cloudflare/oauth/callback": {
       "get": {
+        "operationId": "cloudflare_get_api_cloudflare_oauth_callback",
         "tags": [
           "Cloudflare"
         ],
         "summary": "OAuth callback",
-        "security": [],
+        "description": "Cloudflare OAuth callback handler. Processes the authorization code and stores credentials.",
         "responses": {
           "200": {
-            "description": "Connected"
+            "description": "Account connected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/cloudflare/oauth/disconnect": {
       "post": {
+        "operationId": "cloudflare_post_api_cloudflare_oauth_disconnect",
         "tags": [
           "Cloudflare"
         ],
         "summary": "Disconnect OAuth",
+        "description": "Disconnect the Cloudflare OAuth connection and clear stored credentials.",
         "responses": {
           "200": {
-            "description": "Disconnected"
+            "description": "Disconnected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/loadbalancers": {
       "get": {
+        "operationId": "load_balancers_get_api_loadbalancers",
         "tags": [
           "Load Balancers"
         ],
         "summary": "List load balancers",
+        "description": "List all load balancers for the authenticated user. Returns an array of LoadBalancer objects.",
         "responses": {
           "200": {
-            "description": "Array of LoadBalancer"
+            "description": "Array of LoadBalancer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
       "post": {
+        "operationId": "load_balancers_post_api_loadbalancers",
         "tags": [
           "Load Balancers"
         ],
         "summary": "Create load balancer",
+        "description": "Create a new load balancer. Validates hostname availability, deploys a Worker to the user's Cloudflare account, attaches the domain, and stores the config in MongoDB.",
+        "responses": {
+          "200": {
+            "description": "Created LoadBalancer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -1043,34 +1567,92 @@
                 "$ref": "#/components/schemas/CreateLoadBalancer"
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Created LoadBalancer"
           }
         }
       }
     },
     "/api/loadbalancers/analytics": {
       "get": {
+        "operationId": "load_balancers_get_api_loadbalancers_analytics",
         "tags": [
           "Load Balancers"
         ],
         "summary": "Batch analytics",
+        "description": "Return analytics data for all load balancers in a single request.",
         "responses": {
           "200": {
-            "description": "Analytics data"
+            "description": "Analytics data object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/loadbalancers/{id}": {
       "get": {
+        "operationId": "load_balancers_get_api_loadbalancers_id",
         "tags": [
           "Load Balancers"
         ],
         "summary": "Get load balancer",
+        "description": "Return a single load balancer by ID.",
+        "responses": {
+          "200": {
+            "description": "LoadBalancer object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "id",
@@ -1078,30 +1660,50 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Load balancer ID"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "LoadBalancer"
-          }
-        }
+        ]
       },
       "put": {
+        "operationId": "load_balancers_put_api_loadbalancers_id",
         "tags": [
           "Load Balancers"
         ],
         "summary": "Update load balancer",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
+        "description": "Update a load balancer. Uses Cloudflare Worker Versions and Deployments for zero-downtime updates. Rolls back on failure.",
+        "responses": {
+          "200": {
+            "description": "Updated LoadBalancer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
             }
           }
-        ],
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -1112,17 +1714,6 @@
             }
           }
         },
-        "responses": {
-          "200": {
-            "description": "Updated LoadBalancer"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Load Balancers"
-        ],
-        "summary": "Delete load balancer",
         "parameters": [
           {
             "name": "id",
@@ -1130,60 +1721,145 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Load balancer ID"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Deleted"
-          }
-        }
-      }
-    },
-    "/api/loadbalancers/validate-hostname": {
-      "post": {
+        ]
+      },
+      "delete": {
+        "operationId": "load_balancers_delete_api_loadbalancers_id",
         "tags": [
           "Load Balancers"
         ],
-        "summary": "Preflight hostname check",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "name",
-                  "domain"
-                ],
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "domain": {
-                    "type": "string"
-                  },
-                  "subdomain": {
-                    "type": "string"
-                  }
+        "summary": "Delete load balancer",
+        "description": "Delete a load balancer. Removes the Cloudflare Worker and detaches the domain.",
+        "responses": {
+          "200": {
+            "description": "Load balancer deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           }
         },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Load balancer ID"
+          }
+        ]
+      }
+    },
+    "/api/loadbalancers/validate-hostname": {
+      "post": {
+        "operationId": "load_balancers_post_api_loadbalancers_validate-hostname",
+        "tags": [
+          "Load Balancers"
+        ],
+        "summary": "Preflight hostname check",
+        "description": "Check if a hostname (domain + subdomain + name) is available before creating a load balancer.",
         "responses": {
           "200": {
-            "description": "Availability check result"
+            "description": "Availability check result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/loadbalancers/operations/{operationId}/cancel": {
       "post": {
+        "operationId": "load_balancers_post_api_loadbalancers_operations_operationId_cancel",
         "tags": [
           "Load Balancers"
         ],
         "summary": "Cancel in-flight operation",
+        "description": "Cancel a running create or update operation. Triggers rollback of any partial changes.",
+        "responses": {
+          "200": {
+            "description": "Operation cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "operationId",
@@ -1191,67 +1867,105 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Operation ID to cancel"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Cancelled"
-          }
-        }
+        ]
       }
     },
     "/api/loadbalancers/{id}/pause": {
       "post": {
+        "operationId": "load_balancers_post_api_loadbalancers_id_pause",
         "tags": [
           "Load Balancers"
         ],
         "summary": "Pause load balancer",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
+        "description": "Pause a load balancer. release-domain detaches the domain; keep-domain keeps it but serves a maintenance page.",
+        "responses": {
+          "200": {
+            "description": "Load balancer paused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
             }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "pauseMode"
-                ],
-                "properties": {
-                  "pauseMode": {
-                    "type": "string",
-                    "enum": [
-                      "release-domain",
-                      "keep-domain"
-                    ]
-                  }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           }
         },
-        "responses": {
-          "200": {
-            "description": "Paused"
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Load balancer ID"
           }
-        }
+        ]
       }
     },
     "/api/loadbalancers/{id}/resume": {
       "post": {
+        "operationId": "load_balancers_post_api_loadbalancers_id_resume",
         "tags": [
           "Load Balancers"
         ],
         "summary": "Resume load balancer",
+        "description": "Resume a paused load balancer. Re-attaches the domain and re-resolves origin IPs.",
+        "responses": {
+          "200": {
+            "description": "Load balancer resumed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "id",
@@ -1259,22 +1973,52 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Load balancer ID"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Resumed"
-          }
-        }
+        ]
       }
     },
     "/api/loadbalancers/{id}/analytics": {
       "get": {
+        "operationId": "load_balancers_get_api_loadbalancers_id_analytics",
         "tags": [
           "Load Balancers"
         ],
         "summary": "LB analytics",
+        "description": "Return request/error analytics for a specific load balancer.",
+        "responses": {
+          "200": {
+            "description": "Analytics data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "id",
@@ -1282,22 +2026,52 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Load balancer ID"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Analytics data"
-          }
-        }
+        ]
       }
     },
     "/api/loadbalancers/{id}/origin-ip": {
       "get": {
+        "operationId": "load_balancers_get_api_loadbalancers_id_origin-ip",
         "tags": [
           "Load Balancers"
         ],
         "summary": "Resolve origin IPs",
+        "description": "DNS-resolve all origin URLs to their IP addresses.",
+        "responses": {
+          "200": {
+            "description": "Origin IP addresses",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "id",
@@ -1305,22 +2079,52 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Load balancer ID"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Origin IPs"
-          }
-        }
+        ]
       }
     },
     "/api/loadbalancers/{id}/health/restart-origin": {
       "post": {
+        "operationId": "health_checks_post_api_loadbalancers_id_health_restart-origin",
         "tags": [
           "Health Checks"
         ],
         "summary": "Restart origin health",
+        "description": "Reset the health check state for all origins of a load balancer, forcing immediate re-evaluation.",
+        "responses": {
+          "200": {
+            "description": "Health check restarted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "id",
@@ -1328,33 +2132,92 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Load balancer ID"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Health restarted"
-          }
-        }
+        ]
       }
     },
     "/api/gateways": {
       "get": {
+        "operationId": "gateways_get_api_gateways",
         "tags": [
           "Gateways"
         ],
         "summary": "List gateways",
+        "description": "List all API gateways for the authenticated user.",
         "responses": {
           "200": {
-            "description": "Array of Gateway"
+            "description": "Array of Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
       "post": {
+        "operationId": "gateways_post_api_gateways",
         "tags": [
           "Gateways"
         ],
         "summary": "Create gateway",
+        "description": "Create a new API gateway with JWT, caching, canary, IP rules, rate limiting, header transforms, mock routes, path routing, and/or CORS.",
+        "responses": {
+          "200": {
+            "description": "Created Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -1363,21 +2226,50 @@
                 "$ref": "#/components/schemas/CreateGateway"
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Created Gateway"
           }
         }
       }
     },
     "/api/gateways/{id}": {
       "get": {
+        "operationId": "gateways_get_api_gateways_id",
         "tags": [
           "Gateways"
         ],
         "summary": "Get gateway",
+        "description": "Return a single gateway by ID.",
+        "responses": {
+          "200": {
+            "description": "Gateway object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "id",
@@ -1385,30 +2277,50 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Gateway ID"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Gateway"
-          }
-        }
+        ]
       },
       "put": {
+        "operationId": "gateways_put_api_gateways_id",
         "tags": [
           "Gateways"
         ],
         "summary": "Update gateway",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
+        "description": "Update a gateway configuration. Uses Worker Versions for zero-downtime updates.",
+        "responses": {
+          "200": {
+            "description": "Updated Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
             }
           }
-        ],
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -1419,17 +2331,6 @@
             }
           }
         },
-        "responses": {
-          "200": {
-            "description": "Updated Gateway"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Gateways"
-        ],
-        "summary": "Delete gateway",
         "parameters": [
           {
             "name": "id",
@@ -1437,60 +2338,145 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Gateway ID"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Deleted"
-          }
-        }
-      }
-    },
-    "/api/gateways/validate-hostname": {
-      "post": {
+        ]
+      },
+      "delete": {
+        "operationId": "gateways_delete_api_gateways_id",
         "tags": [
           "Gateways"
         ],
-        "summary": "Preflight hostname check",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "name",
-                  "domain"
-                ],
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "domain": {
-                    "type": "string"
-                  },
-                  "subdomain": {
-                    "type": "string"
-                  }
+        "summary": "Delete gateway",
+        "description": "Delete a gateway. Removes the Cloudflare Worker and detaches the domain.",
+        "responses": {
+          "200": {
+            "description": "Gateway deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           }
         },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Gateway ID"
+          }
+        ]
+      }
+    },
+    "/api/gateways/validate-hostname": {
+      "post": {
+        "operationId": "gateways_post_api_gateways_validate-hostname",
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Preflight hostname check",
+        "description": "Check if a gateway hostname is available before creating.",
         "responses": {
           "200": {
-            "description": "Availability check"
+            "description": "Availability check",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/gateways/{id}/pause": {
       "post": {
+        "operationId": "gateways_post_api_gateways_id_pause",
         "tags": [
           "Gateways"
         ],
         "summary": "Pause gateway",
+        "description": "Pause a gateway.",
+        "responses": {
+          "200": {
+            "description": "Gateway paused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "id",
@@ -1498,22 +2484,52 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Gateway ID"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paused"
-          }
-        }
+        ]
       }
     },
     "/api/gateways/{id}/resume": {
       "post": {
+        "operationId": "gateways_post_api_gateways_id_resume",
         "tags": [
           "Gateways"
         ],
         "summary": "Resume gateway",
+        "description": "Resume a paused gateway.",
+        "responses": {
+          "200": {
+            "description": "Gateway resumed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "id",
@@ -1521,26 +2537,57 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Gateway ID"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Resumed"
-          }
-        }
+        ]
       }
     },
     "/api/sessions": {
       "get": {
+        "operationId": "sessions_get_api_sessions",
         "tags": [
           "Sessions"
         ],
         "summary": "List sessions",
+        "description": "Cursor-paginated list of deployment history sessions. Filter by all, active, or inactive.",
+        "responses": {
+          "200": {
+            "description": "Array of Session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "filter",
             "in": "query",
+            "required": false,
             "schema": {
               "type": "string",
               "enum": [
@@ -1551,20 +2598,49 @@
             },
             "description": "Filter by active status"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Array of Session"
-          }
-        }
+        ]
       }
     },
     "/api/sessions/{id}/script": {
       "get": {
+        "operationId": "sessions_get_api_sessions_id_script",
         "tags": [
           "Sessions"
         ],
         "summary": "Download Worker script",
+        "description": "Return the raw Worker JavaScript source code for a session.",
+        "responses": {
+          "200": {
+            "description": "Worker JS source code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "id",
@@ -1572,85 +2648,136 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Session ID"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "Worker JS source"
-          }
-        }
+        ]
       }
     },
     "/api/ai/generate": {
       "post": {
+        "operationId": "ai_agent_post_api_ai_generate",
         "tags": [
           "AI Agent"
         ],
         "summary": "Generate with AI (SSE stream)",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "prompt"
-                ],
-                "properties": {
-                  "prompt": {
-                    "type": "string"
-                  },
-                  "messages": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "role": {
-                          "type": "string"
-                        },
-                        "content": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "description": "Conversation history (max 30 turns)"
-                  },
-                  "conversationId": {
-                    "type": "string",
-                    "description": "Echo runId from first turn to continue conversation"
-                  }
+        "description": "Send a natural language prompt to the AI agent. Returns an SSE stream with events: run_start, model_active, model_switch, status, tool_start, tool_result, done, error. Rate limit: 30 requests/15min per user.",
+        "responses": {
+          "200": {
+            "description": "SSE event stream",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
                 }
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "SSE stream with events: run_start, model_active, status, tool_start, tool_result, done, error"
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/ai/runs": {
       "get": {
+        "operationId": "ai_agent_get_api_ai_runs",
         "tags": [
           "AI Agent"
         ],
         "summary": "List AI runs",
+        "description": "Cursor-paginated list of AI agent run history.",
         "responses": {
           "200": {
-            "description": "Array of AiRun"
+            "description": "Array of AiRun",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/ai/runs/{id}": {
       "get": {
+        "operationId": "ai_agent_get_api_ai_runs_id",
         "tags": [
           "AI Agent"
         ],
         "summary": "Get AI run",
+        "description": "Return a single AI run with full execution steps.",
+        "responses": {
+          "200": {
+            "description": "AiRun with steps",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "id",
@@ -1658,238 +2785,350 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Run ID"
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "AiRun with full steps"
-          }
-        }
+        ]
       }
     },
     "/api/payments": {
       "post": {
+        "operationId": "payments_post_api_payments",
         "tags": [
           "Payments"
         ],
         "summary": "Create payment order",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "plan"
-                ],
-                "properties": {
-                  "plan": {
-                    "type": "string",
-                    "enum": [
-                      "student",
-                      "pro"
-                    ]
-                  }
+        "description": "Create a Cashfree checkout session for a plan upgrade.",
+        "responses": {
+          "200": {
+            "description": "Cashfree order session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
                 }
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Cashfree order"
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/payments/webhook": {
       "post": {
+        "operationId": "payments_post_api_payments_webhook",
         "tags": [
           "Payments"
         ],
         "summary": "Cashfree webhook (no auth)",
-        "security": [],
+        "description": "Cashfree payment webhook. Verified by HMAC signature. No authentication required.",
         "responses": {
           "200": {
-            "description": "Processed"
-          }
-        }
-      }
-    },
-    "/api/payments/upgrade": {
-      "post": {
-        "tags": [
-          "Payments"
-        ],
-        "summary": "Create upgrade order",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "plan"
-                ],
-                "properties": {
-                  "plan": {
-                    "type": "string",
-                    "enum": [
-                      "student",
-                      "pro"
-                    ]
-                  }
+            "description": "Webhook processed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           }
         },
+        "security": []
+      }
+    },
+    "/api/payments/upgrade": {
+      "post": {
+        "operationId": "payments_post_api_payments_upgrade",
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Create upgrade order",
+        "description": "Create a discounted upgrade order from one plan to another.",
         "responses": {
           "200": {
-            "description": "Upgrade order"
+            "description": "Upgrade order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/payments/verify": {
       "post": {
+        "operationId": "payments_post_api_payments_verify",
         "tags": [
           "Payments"
         ],
         "summary": "Verify payment status",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "orderId"
-                ],
-                "properties": {
-                  "orderId": {
-                    "type": "string"
-                  }
+        "description": "Verify the status of a payment order. Used by jitter polling on the client.",
+        "responses": {
+          "200": {
+            "description": "Payment status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
                 }
               }
             }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Payment status"
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/payments/history": {
       "get": {
+        "operationId": "payments_get_api_payments_history",
         "tags": [
           "Payments"
         ],
         "summary": "Payment history",
+        "description": "Return the user's payment history.",
         "responses": {
           "200": {
-            "description": "Array of payments"
+            "description": "Array of payment records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/stats": {
       "get": {
+        "operationId": "stats_get_api_stats",
         "tags": [
           "Stats"
         ],
         "summary": "Public stats (scaled x10)",
-        "security": [],
+        "description": "Return public platform metrics scaled x10. Cached in Redis for 2 hours.",
         "responses": {
           "200": {
-            "description": "Stats object"
+            "description": "Stats object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/stats/public": {
       "get": {
+        "operationId": "stats_get_api_stats_public",
         "tags": [
           "Stats"
         ],
         "summary": "Public stats (canonical path)",
-        "security": [],
+        "description": "Canonical path for public stats. Same as GET /api/stats.",
         "responses": {
           "200": {
-            "description": "Stats object"
+            "description": "Stats object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/user/profile": {
       "get": {
+        "operationId": "user_get_api_user_profile",
         "tags": [
           "User"
         ],
         "summary": "Get user profile",
+        "description": "Return the authenticated user's full profile.",
         "responses": {
           "200": {
-            "description": "User profile"
+            "description": "User profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     }
-  },
-  "tags": [
-    {
-      "name": "Health",
-      "description": "Kubernetes probes"
-    },
-    {
-      "name": "Auth",
-      "description": "Authentication and session management"
-    },
-    {
-      "name": "2FA",
-      "description": "Two-factor authentication (TOTP)"
-    },
-    {
-      "name": "Passkeys",
-      "description": "WebAuthn passkey authentication"
-    },
-    {
-      "name": "Cloudflare",
-      "description": "Cloudflare account and zone management"
-    },
-    {
-      "name": "Load Balancers",
-      "description": "Worker-based load balancer CRUD + operations"
-    },
-    {
-      "name": "Gateways",
-      "description": "Worker-based API gateway CRUD + operations"
-    },
-    {
-      "name": "Health Checks",
-      "description": "Origin health management"
-    },
-    {
-      "name": "Sessions",
-      "description": "Deployment history and script downloads"
-    },
-    {
-      "name": "AI Agent",
-      "description": "Natural-language provisioning via AI"
-    },
-    {
-      "name": "Payments",
-      "description": "Cashfree payment flows"
-    },
-    {
-      "name": "Stats",
-      "description": "Public platform metrics"
-    },
-    {
-      "name": "User",
-      "description": "User profile management"
-    }
-  ]
+  }
 }

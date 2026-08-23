@@ -90,7 +90,7 @@ export default function LandingPage() {
               <a href="/stats" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-3)', textDecoration: 'none', border: '1px solid var(--line)', padding: '10px 16px', borderRadius: 'var(--radius)' }}>
                 <Icons.Activity size={14} /> View live stats
               </a>
-              <a href="/openapi.json" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-3)', textDecoration: 'none', border: '1px solid var(--line)', padding: '10px 16px', borderRadius: 'var(--radius)' }}>
+              <a href="/developers" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-3)', textDecoration: 'none', border: '1px solid var(--line)', padding: '10px 16px', borderRadius: 'var(--radius)' }}>
                 <Icons.Server size={14} /> API docs
               </a>
             </div>
