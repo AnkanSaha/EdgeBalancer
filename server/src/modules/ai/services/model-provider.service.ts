@@ -5,10 +5,14 @@ import type { ModelDescriptor, ModelProvider } from '../types/ai.types';
 const OPENAI_BASE_URLS: Record<ModelProvider, string> = {
   mistral: 'https://api.mistral.ai/v1',
   openrouter: 'https://openrouter.ai/api/v1',
+  'opencode': 'https://opencode.ai/zen/v1',
 };
 
 export function getApiKey(provider: ModelProvider): string | undefined {
-  return provider === 'mistral' ? process.env.MISTRAL_API_KEY : process.env.OPENROUTER_API_KEY;
+  if (provider === 'mistral') return process.env.MISTRAL_API_KEY;
+  if (provider === 'openrouter') return process.env.OPENROUTER_API_KEY;
+  // opencode free models require no API key
+  return undefined;
 }
 
 export function hasAnyProviderConfigured(): boolean {
@@ -21,18 +25,22 @@ const CALL_TIMEOUT_MS = 45_000;
 
 export function createChatModel({ provider, model }: ModelDescriptor): BaseChatModel {
   const apiKey = getApiKey(provider);
-  if (!apiKey) {
+  if (provider !== 'opencode' && !apiKey) {
     throw new Error(`No API key configured for provider ${provider}`);
   }
 
-  return new ChatOpenAI({
+  const config: Record<string, unknown> = {
     model,
-    apiKey,
     temperature: 0,
+    maxTokens: 4096,
     maxRetries: 0,
     timeout: CALL_TIMEOUT_MS,
     configuration: {
       baseURL: OPENAI_BASE_URLS[provider],
     },
-  });
+  };
+
+  if (apiKey) config.apiKey = apiKey;
+
+  return new ChatOpenAI(config);
 }
