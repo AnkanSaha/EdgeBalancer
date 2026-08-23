@@ -176,7 +176,7 @@ describe('EditLoadBalancerPage — Keep Visitor Website Info toggle', () => {
     render(<EditLoadBalancerPage />);
     await openAdvancedSettings();
     await waitFor(() =>
-      expect(screen.getByText(/visitor.*came from/i)).toBeInTheDocument()
+      expect(screen.getByText(/come via my LB/i)).toBeInTheDocument()
     );
   });
 });
