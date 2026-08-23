@@ -11,8 +11,9 @@ export const FREE_MODELS = [
 
 export const MISTRAL_MODELS = [
   { model: 'mistral-code-latest', rps: 2.08 }, // 125 req/min
-  { model: 'mistral-small-2603', rps: 0.83 }, // 50 req/min
-  { model: 'magistral-small-latest', rps: 0.83 },
+  { model: 'mistral-small-2603', rps: 0.83 }, // 50 req/min — verified 26/26
+  { model: 'mistral-small-latest', rps: 0.83 }, // verified 26/26
+  { model: 'magistral-small-latest', rps: 0.83 }, // verified 26/26
   { model: 'magistral-medium-latest', rps: 0.83 },
   { model: 'devstral-latest', rps: 0.83 },
   { model: 'devstral-medium-latest', rps: 0.83 },

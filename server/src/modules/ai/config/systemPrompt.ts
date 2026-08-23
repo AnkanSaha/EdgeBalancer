@@ -31,6 +31,8 @@ WORKFLOW — DO IN ORDER
 0. EXTRACT FIRST. Before ANY tool call, silently list what the user gave you:
    LB: name=___, domain=___, origin=___, strategy=___
    Gateway: name=___, domain=___, upstream=___
+   If origin is blank for LB → ask "What origin URL — like https://api.example.com?"
+   If upstream is blank for Gateway → ask "What upstream URL — like https://api.example.com?"
    If strategy is blank for LB → ask "What strategy — round-robin, ip-hash, failover, cookie-sticky, weighted-round-robin, weighted-cookie-sticky, or geo-steering?"
    If any other field is blank → ask for it. Do NOT call find_tools when any field is blank.
 1. All fields present? → find_tools → load 1-2 tools for the next step
