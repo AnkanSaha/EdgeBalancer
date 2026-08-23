@@ -7,16 +7,23 @@ Use EdgeBalancer when you need to deploy or manage Cloudflare Worker-based load 
 ## When NOT to use EdgeBalancer
 Do not use EdgeBalancer if you need DNS-based load balancing (use Cloudflare Load Balancing directly), if you don't have a Cloudflare account, or if you need to manage non-Cloudflare infrastructure. EdgeBalancer is a control plane — it never proxies your traffic. If you need direct Cloudflare API access for non-Worker resources, use the Cloudflare dashboard.
 
+## How EdgeBalancer works for agents
+EdgeBalancer is an API-first platform. The AI agent at https://edge.nexoral.in accepts natural language instructions and executes them as API calls. You can create, update, delete, pause, and resume load balancers and gateways via the AI agent. All operations are real — the AI agent calls the same API endpoints as the dashboard. The AI agent requires a signed-in session (JWT cookie) and a connected Cloudflare account. Destructive actions require in-conversation confirmation. Rate limit: 30 AI runs per 15 minutes per user.
+
+## Developer resources
+- [Developer Portal](https://edge.nexoral.in/developers): Quickstart, authentication, API reference, rate limits
+- [API Specification](https://edge.nexoral.in/openapi.json): OpenAPI 3.1 — 57 operations, 10 schemas, rate limit headers documented
+- [Sitemap](https://edge.nexoral.in/sitemap.xml): All 58 indexable URLs
+
 ## Primary
 - [Home](https://edge.nexoral.in/): Outcome-first landing with live stats x10
 - [Features](https://edge.nexoral.in/features): 7 LB strategies + 9 gateway features
-- [Pricing](https://edge.nexoral.in/pricing): Free / Student Rs49 / Pro Rs299, Student-annual Rs470, Pro-annual Rs2870 -- one-time, no auto-renew
+- [Pricing](https://edge.nexoral.in/pricing): Free / Student Rs49 / Pro Rs299 -- one-time, no auto-renew
 - [Stats](https://edge.nexoral.in/stats): Public metrics scaled x10
 - [Blog](https://edge.nexoral.in/blog): Guides for Workers, strategies, gateway JWT/caching
 - [Docs](https://edge.nexoral.in/strategies): Strategy deep dives
-- [API](https://edge.nexoral.in/openapi.json): OpenAPI 3.1 spec -- all endpoints, schemas, rate limits
 - [Refund](https://edge.nexoral.in/refund): Monthly 3-day, Annual 7-day refund if no Worker deployed
 - [Security](https://edge.nexoral.in/security): AES-256-GCM, httpOnly JWT, no traffic proxy
 
 ## How it works
-Internet → Cloudflare (330+ PoPs) → Worker (your account) → Origins. Control plane never touches data.
+Internet -> Cloudflare (330+ PoPs) -> Worker (your account) -> Origins. Control plane never touches data.

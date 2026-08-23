@@ -75,6 +75,11 @@ export function OrganizationSchema() {
       "@type": "ContactPoint",
       contactType: "customer support",
       url: "https://edge.nexoral.in/contact",
+      email: "support@nexoral.in",
+    },
+    address: {
+      "@type": "PostalAddress",
+      addressCountry: "IN",
     },
   };
 
