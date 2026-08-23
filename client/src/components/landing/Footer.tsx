@@ -56,6 +56,7 @@ export function Footer() {
             <a href="/blog" className="nav-link" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>Blog</a>
             <a href="/testimonials" className="nav-link" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>Testimonials</a>
             <a href="/faq" className="nav-link" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>FAQ</a>
+            <a href="/about" className="nav-link" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>About</a>
             <a href="/security" className="nav-link" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>Security</a>
             <a href="/contact" className="nav-link" style={{ fontSize: 12, textTransform: 'none', letterSpacing: 'normal' }}>Contact</a>
           </div>

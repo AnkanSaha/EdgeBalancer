@@ -61,6 +61,31 @@ export function SoftwareApplicationSchema() {
   );
 }
 
+export function OrganizationSchema() {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "EdgeBalancer",
+    url: "https://edge.nexoral.in",
+    logo: "https://edge.nexoral.in/logo.svg",
+    description:
+      "No-code control plane for Cloudflare Worker load balancers and API gateways. 7 LB strategies, 9 gateway features, deployed to your Cloudflare account.",
+    sameAs: [],
+    contactPoint: {
+      "@type": "ContactPoint",
+      contactType: "customer support",
+      url: "https://edge.nexoral.in/contact",
+    },
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  );
+}
+
 export function FAQPageSchema({ faqs }: { faqs: { question: string; answer: string }[] }) {
   const schema = {
     "@context": "https://schema.org",

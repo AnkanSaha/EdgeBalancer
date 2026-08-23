@@ -61,7 +61,7 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     images: [
       {
-        url: `${SITE_URL}/og-image.png`,
+        url: `${SITE_URL}/opengraph-image`,
         width: 1200,
         height: 630,
         alt: "EdgeBalancer — Deploy load balancers on Cloudflare Workers",
@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: `${SITE_NAME} — Cloudflare Worker Load Balancer Dashboard`,
     description: SITE_DESCRIPTION,
-    images: [`${SITE_URL}/og-image.png`],
+    images: [`${SITE_URL}/opengraph-image`],
   },
   alternates: {
     canonical: SITE_URL,

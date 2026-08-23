@@ -1,0 +1,1895 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "EdgeBalancer API",
+    "description": "Control plane for deploying Cloudflare Worker load balancers and API gateways. All responses follow { success, data, message } format. Rate limit headers (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset) are included on every response.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "EdgeBalancer",
+      "url": "https://edge.nexoral.in/contact"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://edge.nexoral.in",
+      "description": "Production"
+    },
+    {
+      "url": "http://localhost:8000",
+      "description": "Local development"
+    }
+  ],
+  "security": [
+    {
+      "cookieAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "token",
+        "description": "JWT httpOnly cookie set by POST /api/auth/google"
+      }
+    },
+    "schemas": {
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {},
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "data": {
+            "type": "null"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "RateLimitHeaders": {
+        "type": "object",
+        "properties": {
+          "X-RateLimit-Limit": {
+            "type": "integer",
+            "description": "Max requests in window"
+          },
+          "X-RateLimit-Remaining": {
+            "type": "integer",
+            "description": "Remaining requests"
+          },
+          "X-RateLimit-Reset": {
+            "type": "integer",
+            "description": "Seconds until window resets"
+          }
+        }
+      },
+      "LoadBalancer": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scriptName": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "subdomain": {
+            "type": "string"
+          },
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "round-robin",
+              "weighted-round-robin",
+              "ip-hash",
+              "cookie-sticky",
+              "weighted-cookie-sticky",
+              "failover",
+              "geo-steering"
+            ]
+          },
+          "origins": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string"
+                },
+                "weight": {
+                  "type": "number"
+                },
+                "isFallback": {
+                  "type": "boolean"
+                },
+                "geo": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "inactive"
+            ]
+          },
+          "workerUrl": {
+            "type": "string"
+          },
+          "zoneId": {
+            "type": "string"
+          },
+          "placement": {
+            "type": "object"
+          },
+          "weightedEnabled": {
+            "type": "boolean"
+          },
+          "exposeRealOrigin": {
+            "type": "boolean"
+          },
+          "pathRoutes": {
+            "type": "array"
+          },
+          "pathRateLimits": {
+            "type": "array"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Gateway": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scriptName": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "subdomain": {
+            "type": "string"
+          },
+          "upstreams": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string"
+                },
+                "weight": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "inactive"
+            ]
+          },
+          "workerUrl": {
+            "type": "string"
+          },
+          "jwt": {
+            "type": "object"
+          },
+          "caching": {
+            "type": "object"
+          },
+          "canary": {
+            "type": "object"
+          },
+          "ipRules": {
+            "type": "object"
+          },
+          "rateLimiting": {
+            "type": "object"
+          },
+          "headerTransforms": {
+            "type": "object"
+          },
+          "mockRoutes": {
+            "type": "object"
+          },
+          "pathRouting": {
+            "type": "object"
+          },
+          "cors": {
+            "type": "object"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "loadBalancerName": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "subdomain": {
+            "type": "string"
+          },
+          "strategy": {
+            "type": "string"
+          },
+          "actionType": {
+            "type": "string",
+            "enum": [
+              "create",
+              "edit"
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AiRun": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failure"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "durationMs": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateLoadBalancer": {
+        "type": "object",
+        "required": [
+          "name",
+          "domain",
+          "strategy",
+          "origins"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 50,
+            "description": "Lowercase + hyphens. Locked after creation."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Cloudflare zone domain"
+          },
+          "subdomain": {
+            "type": "string",
+            "description": "Optional prefix"
+          },
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "round-robin",
+              "weighted-round-robin",
+              "ip-hash",
+              "cookie-sticky",
+              "weighted-cookie-sticky",
+              "failover",
+              "geo-steering"
+            ]
+          },
+          "origins": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "url"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "weight": {
+                  "type": "number",
+                  "default": 1
+                },
+                "isFallback": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "geo": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "placement": {
+            "type": "object",
+            "properties": {
+              "smartPlacement": {
+                "type": "boolean"
+              },
+              "region": {
+                "type": "string"
+              }
+            }
+          },
+          "exposeRealOrigin": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "CreateGateway": {
+        "type": "object",
+        "required": [
+          "name",
+          "domain",
+          "upstreams"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 50
+          },
+          "domain": {
+            "type": "string"
+          },
+          "subdomain": {
+            "type": "string"
+          },
+          "upstreams": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "url"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "weight": {
+                  "type": "number",
+                  "default": 1
+                }
+              }
+            }
+          },
+          "jwt": {
+            "type": "object"
+          },
+          "caching": {
+            "type": "object"
+          },
+          "canary": {
+            "type": "object"
+          },
+          "ipRules": {
+            "type": "object"
+          },
+          "rateLimiting": {
+            "type": "object"
+          },
+          "headerTransforms": {
+            "type": "object"
+          },
+          "mockRoutes": {
+            "type": "object"
+          },
+          "pathRouting": {
+            "type": "object"
+          },
+          "cors": {
+            "type": "object"
+          }
+        }
+      },
+      "CloudflareCredentials": {
+        "type": "object",
+        "required": [
+          "cloudflareAccountId",
+          "cloudflareApiToken"
+        ],
+        "properties": {
+          "cloudflareAccountId": {
+            "type": "string"
+          },
+          "cloudflareApiToken": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Readiness probe",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/live": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Liveness probe",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/google": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Sign in with Google",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "idToken"
+                ],
+                "properties": {
+                  "idToken": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JWT cookie set. Returns totpRequired/twoFactorRequired if 2FA enabled."
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Clear session",
+        "responses": {
+          "200": {
+            "description": "Session cleared"
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get current user",
+        "responses": {
+          "200": {
+            "description": "User profile"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/setup": {
+      "post": {
+        "tags": [
+          "Auth",
+          "2FA"
+        ],
+        "summary": "Start TOTP enrollment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Returns deviceId, secret, otpauthUrl, qrDataUrl"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/confirm": {
+      "post": {
+        "tags": [
+          "Auth",
+          "2FA"
+        ],
+        "summary": "Confirm TOTP device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "deviceId",
+                  "code"
+                ],
+                "properties": {
+                  "deviceId": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device activated"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/remove": {
+      "post": {
+        "tags": [
+          "Auth",
+          "2FA"
+        ],
+        "summary": "Remove TOTP device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "deviceId",
+                  "code"
+                ],
+                "properties": {
+                  "deviceId": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device removed"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/verify": {
+      "post": {
+        "tags": [
+          "Auth",
+          "2FA"
+        ],
+        "summary": "Verify TOTP code (login step 2)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session cookie set"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/passkey/register/options": {
+      "post": {
+        "tags": [
+          "Auth",
+          "Passkeys"
+        ],
+        "summary": "WebAuthn registration options",
+        "responses": {
+          "200": {
+            "description": "Creation options"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/passkey/register/verify": {
+      "post": {
+        "tags": [
+          "Auth",
+          "Passkeys"
+        ],
+        "summary": "Verify WebAuthn registration",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "response"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "response": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Passkey stored"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/passkey/auth/options": {
+      "post": {
+        "tags": [
+          "Auth",
+          "Passkeys"
+        ],
+        "summary": "WebAuthn authentication options",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Request options"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/passkey/auth/verify": {
+      "post": {
+        "tags": [
+          "Auth",
+          "Passkeys"
+        ],
+        "summary": "Verify WebAuthn auth (login step 2)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "response"
+                ],
+                "properties": {
+                  "response": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session cookie set"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/passkey/remove": {
+      "post": {
+        "tags": [
+          "Auth",
+          "Passkeys"
+        ],
+        "summary": "Remove a passkey",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "passkeyId"
+                ],
+                "properties": {
+                  "passkeyId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Passkey removed"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/rename": {
+      "post": {
+        "tags": [
+          "Auth",
+          "2FA"
+        ],
+        "summary": "Rename a credential",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "deviceId",
+                  "name"
+                ],
+                "properties": {
+                  "deviceId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Renamed"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/preference": {
+      "post": {
+        "tags": [
+          "Auth",
+          "2FA"
+        ],
+        "summary": "Set preferred 2FA method",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "method"
+                ],
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "totp",
+                      "passkey",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preference saved"
+          }
+        }
+      }
+    },
+    "/api/cloudflare/credentials": {
+      "post": {
+        "tags": [
+          "Cloudflare"
+        ],
+        "summary": "Save CF credentials",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudflareCredentials"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Credentials saved"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Cloudflare"
+        ],
+        "summary": "Update CF credentials",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudflareCredentials"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Credentials updated"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Cloudflare"
+        ],
+        "summary": "Get masked credentials",
+        "responses": {
+          "200": {
+            "description": "Masked credentials"
+          }
+        }
+      }
+    },
+    "/api/cloudflare/zones": {
+      "get": {
+        "tags": [
+          "Cloudflare"
+        ],
+        "summary": "List CF zones",
+        "responses": {
+          "200": {
+            "description": "Zone list"
+          }
+        }
+      }
+    },
+    "/api/cloudflare/oauth/authorize": {
+      "get": {
+        "tags": [
+          "Cloudflare"
+        ],
+        "summary": "Start OAuth flow",
+        "responses": {
+          "200": {
+            "description": "Redirect URL"
+          }
+        }
+      }
+    },
+    "/api/cloudflare/oauth/callback": {
+      "get": {
+        "tags": [
+          "Cloudflare"
+        ],
+        "summary": "OAuth callback",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Connected"
+          }
+        }
+      }
+    },
+    "/api/cloudflare/oauth/disconnect": {
+      "post": {
+        "tags": [
+          "Cloudflare"
+        ],
+        "summary": "Disconnect OAuth",
+        "responses": {
+          "200": {
+            "description": "Disconnected"
+          }
+        }
+      }
+    },
+    "/api/loadbalancers": {
+      "get": {
+        "tags": [
+          "Load Balancers"
+        ],
+        "summary": "List load balancers",
+        "responses": {
+          "200": {
+            "description": "Array of LoadBalancer"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Load Balancers"
+        ],
+        "summary": "Create load balancer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLoadBalancer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created LoadBalancer"
+          }
+        }
+      }
+    },
+    "/api/loadbalancers/analytics": {
+      "get": {
+        "tags": [
+          "Load Balancers"
+        ],
+        "summary": "Batch analytics",
+        "responses": {
+          "200": {
+            "description": "Analytics data"
+          }
+        }
+      }
+    },
+    "/api/loadbalancers/{id}": {
+      "get": {
+        "tags": [
+          "Load Balancers"
+        ],
+        "summary": "Get load balancer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "LoadBalancer"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Load Balancers"
+        ],
+        "summary": "Update load balancer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLoadBalancer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated LoadBalancer"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Load Balancers"
+        ],
+        "summary": "Delete load balancer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/api/loadbalancers/validate-hostname": {
+      "post": {
+        "tags": [
+          "Load Balancers"
+        ],
+        "summary": "Preflight hostname check",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "domain"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "domain": {
+                    "type": "string"
+                  },
+                  "subdomain": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Availability check result"
+          }
+        }
+      }
+    },
+    "/api/loadbalancers/operations/{operationId}/cancel": {
+      "post": {
+        "tags": [
+          "Load Balancers"
+        ],
+        "summary": "Cancel in-flight operation",
+        "parameters": [
+          {
+            "name": "operationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cancelled"
+          }
+        }
+      }
+    },
+    "/api/loadbalancers/{id}/pause": {
+      "post": {
+        "tags": [
+          "Load Balancers"
+        ],
+        "summary": "Pause load balancer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "pauseMode"
+                ],
+                "properties": {
+                  "pauseMode": {
+                    "type": "string",
+                    "enum": [
+                      "release-domain",
+                      "keep-domain"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Paused"
+          }
+        }
+      }
+    },
+    "/api/loadbalancers/{id}/resume": {
+      "post": {
+        "tags": [
+          "Load Balancers"
+        ],
+        "summary": "Resume load balancer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resumed"
+          }
+        }
+      }
+    },
+    "/api/loadbalancers/{id}/analytics": {
+      "get": {
+        "tags": [
+          "Load Balancers"
+        ],
+        "summary": "LB analytics",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analytics data"
+          }
+        }
+      }
+    },
+    "/api/loadbalancers/{id}/origin-ip": {
+      "get": {
+        "tags": [
+          "Load Balancers"
+        ],
+        "summary": "Resolve origin IPs",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Origin IPs"
+          }
+        }
+      }
+    },
+    "/api/loadbalancers/{id}/health/restart-origin": {
+      "post": {
+        "tags": [
+          "Health Checks"
+        ],
+        "summary": "Restart origin health",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Health restarted"
+          }
+        }
+      }
+    },
+    "/api/gateways": {
+      "get": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "List gateways",
+        "responses": {
+          "200": {
+            "description": "Array of Gateway"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Create gateway",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGateway"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created Gateway"
+          }
+        }
+      }
+    },
+    "/api/gateways/{id}": {
+      "get": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Get gateway",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Gateway"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Update gateway",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGateway"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated Gateway"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Delete gateway",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/api/gateways/validate-hostname": {
+      "post": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Preflight hostname check",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "domain"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "domain": {
+                    "type": "string"
+                  },
+                  "subdomain": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Availability check"
+          }
+        }
+      }
+    },
+    "/api/gateways/{id}/pause": {
+      "post": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Pause gateway",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paused"
+          }
+        }
+      }
+    },
+    "/api/gateways/{id}/resume": {
+      "post": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Resume gateway",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resumed"
+          }
+        }
+      }
+    },
+    "/api/sessions": {
+      "get": {
+        "tags": [
+          "Sessions"
+        ],
+        "summary": "List sessions",
+        "parameters": [
+          {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "active",
+                "inactive"
+              ]
+            },
+            "description": "Filter by active status"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of Session"
+          }
+        }
+      }
+    },
+    "/api/sessions/{id}/script": {
+      "get": {
+        "tags": [
+          "Sessions"
+        ],
+        "summary": "Download Worker script",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Worker JS source"
+          }
+        }
+      }
+    },
+    "/api/ai/generate": {
+      "post": {
+        "tags": [
+          "AI Agent"
+        ],
+        "summary": "Generate with AI (SSE stream)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "prompt"
+                ],
+                "properties": {
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "messages": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "type": "string"
+                        },
+                        "content": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "description": "Conversation history (max 30 turns)"
+                  },
+                  "conversationId": {
+                    "type": "string",
+                    "description": "Echo runId from first turn to continue conversation"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SSE stream with events: run_start, model_active, status, tool_start, tool_result, done, error"
+          }
+        }
+      }
+    },
+    "/api/ai/runs": {
+      "get": {
+        "tags": [
+          "AI Agent"
+        ],
+        "summary": "List AI runs",
+        "responses": {
+          "200": {
+            "description": "Array of AiRun"
+          }
+        }
+      }
+    },
+    "/api/ai/runs/{id}": {
+      "get": {
+        "tags": [
+          "AI Agent"
+        ],
+        "summary": "Get AI run",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "AiRun with full steps"
+          }
+        }
+      }
+    },
+    "/api/payments": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Create payment order",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "plan"
+                ],
+                "properties": {
+                  "plan": {
+                    "type": "string",
+                    "enum": [
+                      "student",
+                      "pro"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cashfree order"
+          }
+        }
+      }
+    },
+    "/api/payments/webhook": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Cashfree webhook (no auth)",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Processed"
+          }
+        }
+      }
+    },
+    "/api/payments/upgrade": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Create upgrade order",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "plan"
+                ],
+                "properties": {
+                  "plan": {
+                    "type": "string",
+                    "enum": [
+                      "student",
+                      "pro"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Upgrade order"
+          }
+        }
+      }
+    },
+    "/api/payments/verify": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Verify payment status",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "orderId"
+                ],
+                "properties": {
+                  "orderId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment status"
+          }
+        }
+      }
+    },
+    "/api/payments/history": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Payment history",
+        "responses": {
+          "200": {
+            "description": "Array of payments"
+          }
+        }
+      }
+    },
+    "/api/stats": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Public stats (scaled x10)",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Stats object"
+          }
+        }
+      }
+    },
+    "/api/stats/public": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Public stats (canonical path)",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Stats object"
+          }
+        }
+      }
+    },
+    "/api/user/profile": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "Get user profile",
+        "responses": {
+          "200": {
+            "description": "User profile"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Kubernetes probes"
+    },
+    {
+      "name": "Auth",
+      "description": "Authentication and session management"
+    },
+    {
+      "name": "2FA",
+      "description": "Two-factor authentication (TOTP)"
+    },
+    {
+      "name": "Passkeys",
+      "description": "WebAuthn passkey authentication"
+    },
+    {
+      "name": "Cloudflare",
+      "description": "Cloudflare account and zone management"
+    },
+    {
+      "name": "Load Balancers",
+      "description": "Worker-based load balancer CRUD + operations"
+    },
+    {
+      "name": "Gateways",
+      "description": "Worker-based API gateway CRUD + operations"
+    },
+    {
+      "name": "Health Checks",
+      "description": "Origin health management"
+    },
+    {
+      "name": "Sessions",
+      "description": "Deployment history and script downloads"
+    },
+    {
+      "name": "AI Agent",
+      "description": "Natural-language provisioning via AI"
+    },
+    {
+      "name": "Payments",
+      "description": "Cashfree payment flows"
+    },
+    {
+      "name": "Stats",
+      "description": "Public platform metrics"
+    },
+    {
+      "name": "User",
+      "description": "User profile management"
+    }
+  ]
+}
