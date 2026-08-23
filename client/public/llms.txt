@@ -1,13 +1,20 @@
 # EdgeBalancer
 > Control plane for deploying Cloudflare Worker load balancers and API gateways without writing Worker code. Bring your Cloudflare account, pick origins and strategy, we deploy the Worker.
 
+## When to use EdgeBalancer
+Use EdgeBalancer when you need to deploy or manage Cloudflare Worker-based load balancers or API gateways without writing Worker code yourself. The platform supports 7 load balancing strategies (round-robin, weighted round-robin, IP hash, sticky sessions, weighted sticky sessions, failover, geographic steering) and 9 API gateway features (JWT validation, header transforms, response caching, canary splitting, IP allow/deny, mock routes, rate limiting, path routing, CORS). If you have a Cloudflare account and need traffic routing across multiple origins, EdgeBalancer handles the Worker generation, deployment, versioning, and rollback — you configure via a visual dashboard or the AI agent. Pricing starts at free (5 load balancers, all strategies included).
+
+## When NOT to use EdgeBalancer
+Do not use EdgeBalancer if you need DNS-based load balancing (use Cloudflare Load Balancing directly), if you don't have a Cloudflare account, or if you need to manage non-Cloudflare infrastructure. EdgeBalancer is a control plane — it never proxies your traffic. If you need direct Cloudflare API access for non-Worker resources, use the Cloudflare dashboard.
+
 ## Primary
-- [Home](https://edge.nexoral.in/): Outcome-first landing with live stats ×10
+- [Home](https://edge.nexoral.in/): Outcome-first landing with live stats x10
 - [Features](https://edge.nexoral.in/features): 7 LB strategies + 9 gateway features
-- [Pricing](https://edge.nexoral.in/pricing): Free / Student ₹49 / Pro ₹299, Student-annual ₹470, Pro-annual ₹2870 — one-time, no auto-renew
-- [Stats](https://edge.nexoral.in/stats): Public metrics scaled ×10
+- [Pricing](https://edge.nexoral.in/pricing): Free / Student Rs49 / Pro Rs299, Student-annual Rs470, Pro-annual Rs2870 -- one-time, no auto-renew
+- [Stats](https://edge.nexoral.in/stats): Public metrics scaled x10
 - [Blog](https://edge.nexoral.in/blog): Guides for Workers, strategies, gateway JWT/caching
 - [Docs](https://edge.nexoral.in/strategies): Strategy deep dives
+- [API](https://edge.nexoral.in/openapi.json): OpenAPI 3.1 spec -- all endpoints, schemas, rate limits
 - [Refund](https://edge.nexoral.in/refund): Monthly 3-day, Annual 7-day refund if no Worker deployed
 - [Security](https://edge.nexoral.in/security): AES-256-GCM, httpOnly JWT, no traffic proxy
 

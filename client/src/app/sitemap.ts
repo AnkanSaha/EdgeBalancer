@@ -24,6 +24,7 @@ const staticPages: {
   { path: "/register", changeFrequency: "monthly", priority: 0.7 },
   { path: "/refund", changeFrequency: "yearly", priority: 0.3 },
   { path: "/cancellation", changeFrequency: "yearly", priority: 0.3 },
+  { path: "/about", changeFrequency: "yearly", priority: 0.5 },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
