@@ -457,6 +457,99 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* MCP Section */}
+        <section id="mcp" style={{
+          position: 'relative', zIndex: 5,
+          maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
+          padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px)',
+        }}>
+          <div className="kicker" style={{ marginBottom: 12 }}>// mcp server</div>
+          <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', margin: 0, letterSpacing: '-0.03em', fontWeight: 600, marginBottom: 16 }}>
+            Connect from any AI client<span style={{ color: 'var(--accent)' }}>.</span>
+          </h2>
+          <p style={{ fontSize: 'clamp(14px, 2.5vw, 16px)', color: 'var(--text-2)', maxWidth: 720, marginBottom: 12, lineHeight: 1.6 }}>
+            EdgeBalancer exposes an MCP server at <code style={{ fontFamily: 'var(--mono)', fontSize: 'clamp(12px, 2vw, 13px)', color: 'var(--accent)', background: 'var(--accent-dim)', padding: '2px 6px', borderRadius: 4 }}>api.edge.nexoral.in/mcp</code> — manage load balancers and gateways from Claude Code, Cursor, Codex, and more.
+          </p>
+          <p style={{ fontSize: 'clamp(13px, 2vw, 14px)', color: 'var(--text-3)', maxWidth: 720, marginBottom: 32, lineHeight: 1.6 }}>
+            15 tools: list, get, create, update, delete, pause, resume for both load balancers and gateways, plus list Cloudflare zones.
+          </p>
+
+          {/* Code snippets for each client */}
+          {[
+            {
+              name: 'Claude Code',
+              code: `claude mcp add edgebalancer --transport http https://api.edge.nexoral.in/mcp`,
+            },
+            {
+              name: 'Cursor',
+              code: `// Cursor Settings → MCP Servers → Add new
+{
+  "mcpServers": {
+    "edgebalancer": {
+      "url": "https://api.edge.nexoral.in/mcp"
+    }
+  }
+}`,
+            },
+            {
+              name: 'OpenCode',
+              code: `// opencode.json
+{
+  "mcp": {
+    "edgebalancer": {
+      "type": "http",
+      "url": "https://api.edge.nexoral.in/mcp"
+    }
+  }
+}`,
+            },
+            {
+              name: 'Codex',
+              code: `# ~/.codex/config.toml
+[mcp_servers.edgebalancer]
+url = "https://api.edge.nexoral.in/mcp"
+transport = "http"`,
+            },
+            {
+              name: 'Anti Gravity',
+              code: `// Anti Gravity → Settings → MCP Servers
+{
+  "edgebalancer": {
+    "url": "https://api.edge.nexoral.in/mcp",
+    "transport": "http"
+  }
+}`,
+            },
+            {
+              name: 'Cline (VS Code)',
+              code: `// VS Code Settings → Cline → MCP Servers
+{
+  "edgebalancer": {
+    "url": "https://api.edge.nexoral.in/mcp",
+    "transport": "http"
+  }
+}`,
+            },
+          ].map((client, i) => (
+            <div key={client.name} className="feature-card animate-on-scroll fade-in-up" style={{ padding: 0, overflow: 'hidden', animationDelay: `${i * 0.08}s` }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)' }} />
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>{client.name}</span>
+              </div>
+              <pre style={{
+                margin: 0, padding: '16px',
+                background: 'var(--bg)',
+                fontSize: 'clamp(11px, 1.8vw, 13px)',
+                fontFamily: 'var(--mono)',
+                color: 'var(--text-2)',
+                lineHeight: 1.6,
+                overflowX: 'auto',
+                whiteSpace: 'pre',
+              }}>{client.code}</pre>
+            </div>
+          ))}
+        </section>
+
         {/* FAQ Section */}
         <section id="faq" style={{
           position: 'relative', zIndex: 5,
