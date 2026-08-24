@@ -13,10 +13,10 @@ export function Nav() {
     <nav style={{
       position: 'sticky', top: 0, zIndex: 30,
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      padding: 'clamp(12px, 3vw, 20px) clamp(16px, 4vw, 48px)', borderBottom: '1px solid var(--line)',
+      padding: 'clamp(12px, 3vw, 20px) clamp(16px, 4vw, 48px)',
       flexWrap: 'wrap', gap: 'clamp(8px, 2vw, 12px)',
-      background: '#0a0a0fcc',
-      backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+      background: 'var(--bg)',
+      borderBottom: '1px solid var(--line)',
     }}>
       <a href="/" style={{ textDecoration: 'none' }}>
         <Logo />

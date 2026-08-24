@@ -1,6 +1,6 @@
 import { Logo } from '@/components/shared/Logo';
 import { Icons } from '@/components/shared/Icons';
-import { FlowDiagram } from '@/components/landing/FlowDiagram';
+
 import { WebSiteSchema, SoftwareApplicationSchema, FAQPageSchema, OrganizationSchema } from '@/components/shared/JsonLd';
 import { Nav } from '@/components/landing/Nav';
 import { Footer } from '@/components/landing/Footer';
@@ -29,7 +29,7 @@ const FAQS = [
 
 export default function LandingPage() {
   return (
-    <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ minHeight: '100vh' }}>
       <WebSiteSchema />
       <SoftwareApplicationSchema />
       <OrganizationSchema />
@@ -39,8 +39,6 @@ export default function LandingPage() {
         .hero-vh { min-height: 100vh; }
         @media (max-width: 1024px) { .hero-vh { min-height: auto !important; } }
       `}</style>
-      <div className="grid-bg" />
-      <div className="topo" />
 
       <Nav />
 
@@ -48,27 +46,19 @@ export default function LandingPage() {
       <main>
         <section className="hero-grid hero-vh" style={{
           position: 'relative', zIndex: 5,
-          maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
-          padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px) clamp(40px, 5vw, 64px)',
+          padding: 'clamp(48px, 6vw, 96px) clamp(20px, 5vw, 80px) clamp(40px, 5vw, 64px)',
           display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'clamp(32px, 5vw, 64px)', alignItems: 'center',
         }}>
           <div>
-            <div className="feature-card animate-slide-up" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 16,
-              padding: '10px 22px', borderRadius: 999,
-              fontFamily: 'var(--mono)', fontSize: 'clamp(12px, 2.4vw, 15px)', color: 'var(--text-2)',
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '8px 16px', borderRadius: 999,
+              fontFamily: 'var(--mono)', fontSize: 'clamp(11px, 2vw, 13px)', color: 'var(--text-3)',
               marginBottom: 'clamp(16px, 3vw, 24px)',
+              border: '1px solid var(--line)',
             }}>
-              <span style={{ position: 'relative', width: 10, height: 10, flexShrink: 0 }}>
-                <span className="animate-ping" style={{
-                  position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--accent)',
-                }} />
-                <span style={{
-                  position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--accent)',
-                  boxShadow: '0 0 14px var(--accent)',
-                }} />
-              </span>
-              A gateway for Cloudflare Workers
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', flexShrink: 0 }} />
+              Deployed on 330+ Cloudflare PoPs
             </div>
             <h1 className="animate-slide-up stagger-1" style={{
               fontSize: 'clamp(32px, 6vw, 72px)', lineHeight: 0.98,
@@ -76,7 +66,7 @@ export default function LandingPage() {
             }}>
               Load balancers
               <br />
-              &amp; gateways <span className="gradient-text">in 60 seconds.</span>
+              &amp; gateways <span style={{ color: 'var(--accent)' }}>in 60 seconds.</span>
             </h1>
             <p className="animate-slide-up stagger-2" style={{
               fontSize: 'clamp(14px, 2.5vw, 18px)', color: 'var(--text-2)', maxWidth: 520,
@@ -106,15 +96,41 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="animate-fade-in stagger-3" style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-            <FlowDiagram />
+          <div className="animate-fade-in" style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+            <div style={{
+              width: '100%', maxWidth: 480,
+              background: 'var(--bg-1)', border: '1px solid var(--line)',
+              borderRadius: 'var(--radius-lg)', overflow: 'hidden',
+              fontFamily: 'var(--mono)', fontSize: 12,
+            }}>
+              <div style={{
+                padding: '10px 14px', borderBottom: '1px solid var(--line)',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <div style={{ display: 'flex', gap: 5 }}>
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#ef4444' }} />
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#eab308' }} />
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e' }} />
+                </div>
+                <span style={{ color: 'var(--text-3)', fontSize: 11 }}>worker.js</span>
+              </div>
+              <pre style={{ margin: 0, padding: '16px 18px', lineHeight: 1.8, color: 'var(--text-2)', overflowX: 'auto' }}>
+{`export default {
+  async fetch(request) {
+    const origins = getHealthyOrigins();
+    const selected = failover(origins, request);
+    return fetch(request, selected.url);
+  }
+}`}
+              </pre>
+            </div>
           </div>
         </section>
 
         {/* Problem → Solution (bento) */}
         <section id="who" style={{
           position: 'relative', zIndex: 5,
-          maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
+
           padding: 'clamp(40px, 5vw, 56px) clamp(16px, 4vw, 48px) clamp(32px, 4vw, 48px)',
           borderBottom: '1px solid var(--line)',
         }}>
@@ -151,7 +167,7 @@ export default function LandingPage() {
         {/* Feature strip */}
         <section style={{
           position: 'relative', zIndex: 5,
-          maxWidth: 'min(1800px, 100vw)', margin: '0 auto', padding: 'clamp(32px, 5vw, 48px) clamp(16px, 4vw, 48px) clamp(40px, 5vw, 64px)',
+ padding: 'clamp(32px, 5vw, 48px) clamp(16px, 4vw, 48px) clamp(40px, 5vw, 64px)',
         }}>
           <div className="kicker" style={{ marginBottom: 'clamp(16px, 3vw, 24px)', fontSize: 'clamp(9px, 2vw, 11px)' }}>// how it works — LB + gateway</div>
           <div style={{
@@ -179,17 +195,9 @@ export default function LandingPage() {
         {/* MCP Section — AI-native control plane */}
         <section id="mcp" style={{
           position: 'relative', zIndex: 5,
-          maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
-          padding: 'clamp(40px, 5vw, 64px) clamp(16px, 4vw, 48px)',
-        }}>
-          {/* Glow backdrop */}
-          <div style={{
-            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            width: '60%', height: '60%', borderRadius: '50%',
-            background: 'radial-gradient(circle, #f59e0b08 0%, transparent 70%)',
-            filter: 'blur(80px)', pointerEvents: 'none',
-          }} />
 
+          padding: 'clamp(40px, 5vw, 64px) clamp(16px, 2vw, 32px)',
+        }}>
           <div style={{ position: 'relative' }}>
             {/* Top: badge + heading + endpoint */}
             <div style={{ textAlign: 'center', marginBottom: 'clamp(32px, 4vw, 48px)' }}>
@@ -205,18 +213,18 @@ export default function LandingPage() {
               <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', margin: 0, letterSpacing: '-0.03em', fontWeight: 600, lineHeight: 1.1 }}>
                 Your AI agent's<br />load balancer API<span style={{ color: 'var(--accent)' }}>.</span>
               </h2>
-              <p style={{ fontSize: 'clamp(14px, 2.5vw, 16px)', color: 'var(--text-2)', maxWidth: 600, margin: '16px auto 0', lineHeight: 1.6 }}>
+              <p style={{ fontSize: 'clamp(14px, 2.5vw, 16px)', color: 'var(--text-2)', margin: '16px auto 0', lineHeight: 1.6 }}>
                 One endpoint. 15 tools. Create, update, pause, delete — your AI manages infrastructure like code.
               </p>
             </div>
 
             {/* Endpoint bar */}
             <div className="animate-on-scroll fade-in-up" style={{
-              maxWidth: 640, margin: '0 auto 40px',
+              marginBottom: 40,
               padding: '14px 20px', borderRadius: 'var(--radius-lg)',
               background: 'var(--bg)', border: '1px solid var(--line)',
               display: 'flex', alignItems: 'center', gap: 12,
-              boxShadow: '0 0 60px #f59e0b08',
+              boxShadow: 'none',
             }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 8px var(--green)', flexShrink: 0 }} />
               <span style={{ fontFamily: 'var(--mono)', fontSize: 'clamp(12px, 2vw, 14px)', color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -229,7 +237,7 @@ export default function LandingPage() {
               <div style={{ textAlign: 'center', marginBottom: 20 }}>
                 <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>15 tools available</span>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 800, margin: '0 auto' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
                 {[
                   'list_load_balancers', 'get_load_balancer', 'create_load_balancer', 'update_load_balancer', 'delete_load_balancer', 'pause_load_balancer', 'resume_load_balancer',
                   'list_gateways', 'get_gateway', 'create_gateway', 'update_gateway', 'delete_gateway', 'pause_gateway', 'resume_gateway',
@@ -249,7 +257,7 @@ export default function LandingPage() {
             </div>
 
             {/* Client configs — terminal style */}
-            <div style={{ maxWidth: 900, margin: '0 auto' }}>
+            <div>
               <div style={{ textAlign: 'center', marginBottom: 24 }}>
                 <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Connect in one step</span>
               </div>
@@ -377,7 +385,7 @@ export default function LandingPage() {
         {/* Gateway — 9 features */}
         <section style={{
           position: 'relative', zIndex: 5,
-          maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
+
           padding: 'clamp(32px, 5vw, 48px) clamp(16px, 4vw, 48px)',
         }}>
           <div className="kicker" style={{ marginBottom: 12 }}>// api gateway</div>
@@ -412,7 +420,7 @@ export default function LandingPage() {
         {/* Use Cases */}
         <section style={{
           position: 'relative', zIndex: 5,
-          maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
+
           padding: 'clamp(48px, 6vw, 80px) clamp(16px, 4vw, 48px)',
         }}>
           <div className="kicker" style={{ marginBottom: 12 }}>// use cases</div>
@@ -436,8 +444,8 @@ export default function LandingPage() {
                 <div key={i} className="feature-card feature-card-lift animate-on-scroll scale-in" style={{ padding: 'clamp(20px, 3vw, 24px)', animationDelay: `${i * 0.1}s` }}>
                   <div style={{
                     width: 40, height: 40, borderRadius: 'var(--radius)',
-                    backgroundImage: 'linear-gradient(to bottom right, #f59e0b26, #fe6e0014)',
-                    border: '1px solid #f59e0b40',
+                    background: 'var(--accent-dim)',
+                    border: '1px solid rgba(59,130,246,0.2)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     marginBottom: 16,
                   }}>
@@ -459,68 +467,29 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Testimonials */}
+        {/* Open source transparency */}
         <section style={{
           position: 'relative', zIndex: 5,
-          maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
+
           padding: 'clamp(32px, 5vw, 48px) clamp(16px, 4vw, 48px)',
         }}>
-          <div className="kicker" style={{ marginBottom: 12 }}>// what early users say</div>
+          <div className="kicker" style={{ marginBottom: 12 }}>// how it works under the hood</div>
           <h2 style={{ fontSize: 'clamp(26px, 4vw, 36px)', margin: 0, letterSpacing: '-0.02em', fontWeight: 600 }}>
-            Loved by solo devs<span style={{ color: 'var(--accent)' }}>.</span>
+            You can see the code<span style={{ color: 'var(--accent)' }}>.</span>
           </h2>
-          <p style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 8, fontFamily: 'var(--mono)' }}>First users — onboarding in under 2 minutes</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginTop: 32 }}>
-            {[
-              {
-                name: 'Devarshi Raval',
-                handle: 'devarshiraval',
-                quote: 'Connected my Cloudflare account in one click and had a load balancer live in under 2 minutes. No Worker code, no API wrangling — exactly what I needed as a solo dev.',
-                meta: 'Early user · Cloudflare connected',
-              },
-              {
-                name: 'Wasim Khan',
-                handle: 'wasimkhan',
-                quote: 'Cleanest onboarding I’ve seen for an edge tool. The AI agent understood my gateway request on the first try. Can’t wait to put it in production.',
-                meta: 'Early user · Registered July 2026',
-              },
-              {
-                name: 'Aleksa Markovic',
-                handle: 'aleksamarkovic',
-                quote: 'Gateway JWT and header transforms saved me a separate auth service. Deployed my API gateway to my own Cloudflare zone in a minute — feels like Vercel for edge routing.',
-                meta: 'Early user · Cloudflare connected',
-              },
-              {
-                name: 'Andrews David',
-                handle: 'andrewsdavid',
-                quote: 'Simple, focused tool that does one thing well. Perfect for my side project on Cloudflare — no DevOps, no hourly billing like ALB.',
-                meta: 'Early user · Registered Aug 2026',
-              },
-            ].map((t, i) => (
-              <div key={i} className="feature-card" style={{ padding: 24 }}>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b22, #fe6e0014)', border: '1px solid #f59e0b33',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: 'var(--accent)',
-                  }}>
-                    {t.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>{t.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>@{t.handle} · {t.meta}</div>
-                  </div>
-                  <div style={{ marginLeft: 'auto', color: 'var(--accent)', fontSize: 16 }}>★★★★★</div>
-                </div>
-                <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6, margin: 0 }}>“{t.quote}”</p>
-              </div>
-            ))}
+          <p style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 12, maxWidth: 640, lineHeight: 1.6 }}>
+            Every deployed Worker is visible in your Cloudflare dashboard. Generated from strategy-specific templates — no black box.
+          </p>
+          <div style={{ display: 'flex', gap: 12, marginTop: 24, flexWrap: 'wrap' }}>
+            <a href="/developers" className="btn btn-ghost btn-sm">API docs →</a>
+            <a href="/features" className="btn btn-ghost btn-sm">All features →</a>
           </div>
         </section>
 
         {/* Why Workers — solo dev pitch */}
         <section style={{
           position: 'relative', zIndex: 5,
-          maxWidth: 'min(1800px, 100vw)', margin: '0 auto', padding: '48px clamp(16px, 4vw, 48px)',
+ padding: '48px clamp(16px, 4vw, 48px)',
         }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 48, alignItems: 'start' }} className="two-col">
             <div>
@@ -542,7 +511,7 @@ export default function LandingPage() {
                 { v: '~0ms', l: 'cold start', s: 'Isolates, not containers.' },
               ].map((s, i) => (
                 <div key={i} className="feature-card animate-on-scroll scale-in" style={{ padding: 24, animationDelay: `${i * 0.1}s` }}>
-                  <div className="mono gradient-text" style={{ fontSize: 30, letterSpacing: '-0.02em', fontWeight: 700 }}>{s.v}</div>
+                  <div style={{ fontSize: 30, fontWeight: 700 }}>{s.v}</div>
                   <div className="kicker" style={{ marginTop: 8 }}>{s.l}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8, lineHeight: 1.625 }}>{s.s}</div>
                 </div>
@@ -554,7 +523,7 @@ export default function LandingPage() {
         {/* Cost comparison */}
         <section id="pricing" style={{
           position: 'relative', zIndex: 5,
-          maxWidth: 'min(1800px, 100vw)', margin: '0 auto', padding: '32px clamp(16px, 4vw, 48px) 96px',
+ padding: '32px clamp(16px, 4vw, 48px) 96px',
         }}>
           <div className="kicker" style={{ marginBottom: 12 }}>// pricing</div>
           <h2 style={{ fontSize: 'clamp(26px, 3vw, 36px)', margin: 0, letterSpacing: '-0.02em', fontWeight: 600 }}>
@@ -591,7 +560,7 @@ export default function LandingPage() {
               </div>
             </div>
             {/* Pro */}
-            <div className="feature-card animate-on-scroll fade-in-up" style={{ padding: 24, border: '1px solid var(--accent)', boxShadow: '0 0 40px #f59e0b20', position: 'relative', animationDelay: '0.2s' }}>
+            <div className="feature-card animate-on-scroll fade-in-up" style={{ padding: 24, border: '1px solid var(--accent)', position: 'relative', animationDelay: '0.2s' }}>
               <div style={{ position: 'absolute', top: -1, right: 16, padding: '4px 10px', backgroundImage: 'linear-gradient(to right, var(--accent), var(--orange))', color: '#fff', fontFamily: 'var(--mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', borderRadius: '0 0 6px 6px', fontWeight: 600 }}>best value</div>
               <div className="kicker">// pro</div>
               <div style={{ fontSize: 36, fontWeight: 700, marginTop: 8 }}>₹299<span style={{ fontSize: 14, fontWeight: 400, color: 'var(--text-3)' }}>/mo</span></div>
@@ -616,7 +585,7 @@ export default function LandingPage() {
         {/* Strategies Section */}
         <section id="strategies" style={{
           position: 'relative', zIndex: 5,
-          maxWidth: 'min(1800px, 100vw)', margin: '0 auto', padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px)',
+ padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px)',
         }}>
           <div className="kicker" style={{ marginBottom: 12 }}>// routing strategies</div>
           <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', margin: 0, letterSpacing: '-0.03em', fontWeight: 600, marginBottom: 16 }}>
