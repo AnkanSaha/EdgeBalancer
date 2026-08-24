@@ -28,8 +28,8 @@ export function Footer() {
   return (
     <footer style={{ borderTop: '1px solid var(--line)', background: 'var(--bg)' }}>
       <div style={{
-        maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
-        padding: '32px clamp(16px, 4vw, 48px)',
+        maxWidth: '1400px', margin: '0 auto',
+        padding: '32px clamp(20px, 4vw, 48px)',
         display: 'grid', gridTemplateColumns: '1.2fr repeat(3, 1fr)', gap: 'clamp(24px, 4vw, 48px)',
       }} className="footer-grid">
         <div>
@@ -73,8 +73,8 @@ export function Footer() {
         </div>
       </div>
       <div style={{
-        maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
-        padding: '16px clamp(16px, 4vw, 48px)', borderTop: '1px solid var(--line)',
+        maxWidth: '1400px', margin: '0 auto',
+        padding: '16px clamp(20px, 4vw, 48px)', borderTop: '1px solid var(--line)',
         display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
         fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em',
       }}>
