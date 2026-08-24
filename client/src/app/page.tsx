@@ -176,6 +176,204 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* MCP Section — AI-native control plane */}
+        <section id="mcp" style={{
+          position: 'relative', zIndex: 5,
+          maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
+          padding: 'clamp(40px, 5vw, 64px) clamp(16px, 4vw, 48px)',
+        }}>
+          {/* Glow backdrop */}
+          <div style={{
+            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            width: '60%', height: '60%', borderRadius: '50%',
+            background: 'radial-gradient(circle, #f59e0b08 0%, transparent 70%)',
+            filter: 'blur(80px)', pointerEvents: 'none',
+          }} />
+
+          <div style={{ position: 'relative' }}>
+            {/* Top: badge + heading + endpoint */}
+            <div style={{ textAlign: 'center', marginBottom: 'clamp(32px, 4vw, 48px)' }}>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '6px 14px', borderRadius: 999,
+                background: 'linear-gradient(135deg, #f59e0b12, #a855f712)',
+                border: '1px solid #f59e0b30', marginBottom: 20,
+              }}>
+                <Icons.Log size={14} stroke="var(--accent)" />
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>MCP Server</span>
+              </div>
+              <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', margin: 0, letterSpacing: '-0.03em', fontWeight: 600, lineHeight: 1.1 }}>
+                Your AI agent's<br />load balancer API<span style={{ color: 'var(--accent)' }}>.</span>
+              </h2>
+              <p style={{ fontSize: 'clamp(14px, 2.5vw, 16px)', color: 'var(--text-2)', maxWidth: 600, margin: '16px auto 0', lineHeight: 1.6 }}>
+                One endpoint. 15 tools. Create, update, pause, delete — your AI manages infrastructure like code.
+              </p>
+            </div>
+
+            {/* Endpoint bar */}
+            <div className="animate-on-scroll fade-in-up" style={{
+              maxWidth: 640, margin: '0 auto 40px',
+              padding: '14px 20px', borderRadius: 'var(--radius-lg)',
+              background: 'var(--bg)', border: '1px solid var(--line)',
+              display: 'flex', alignItems: 'center', gap: 12,
+              boxShadow: '0 0 60px #f59e0b08',
+            }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 8px var(--green)', flexShrink: 0 }} />
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 'clamp(12px, 2vw, 14px)', color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ color: 'var(--text-3)' }}>https://</span>apiedge.nexoral.in<span style={{ color: 'var(--accent)' }}>/mcp</span>
+              </span>
+            </div>
+
+            {/* Tool grid */}
+            <div style={{ marginBottom: 'clamp(32px, 4vw, 48px)' }}>
+              <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>15 tools available</span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 800, margin: '0 auto' }}>
+                {[
+                  'list_load_balancers', 'get_load_balancer', 'create_load_balancer', 'update_load_balancer', 'delete_load_balancer', 'pause_load_balancer', 'resume_load_balancer',
+                  'list_gateways', 'get_gateway', 'create_gateway', 'update_gateway', 'delete_gateway', 'pause_gateway', 'resume_gateway',
+                  'list_zones',
+                ].map((tool, i) => (
+                  <div key={tool} className="animate-on-scroll scale-in" style={{
+                    padding: '5px 10px', borderRadius: 'var(--radius)',
+                    background: 'var(--bg-1)', border: '1px solid var(--line)',
+                    fontFamily: 'var(--mono)', fontSize: 'clamp(10px, 1.8vw, 11px)',
+                    color: 'var(--text-3)', animationDelay: `${i * 0.03}s`,
+                    whiteSpace: 'nowrap',
+                  }}>
+                    <span style={{ color: i < 7 ? 'var(--accent)' : i < 14 ? '#a855f7' : 'var(--green)' }}>●</span> {tool}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Client configs — terminal style */}
+            <div style={{ maxWidth: 900, margin: '0 auto' }}>
+              <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Connect in one step</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(260px, 45vw, 320px), 1fr))', gap: 12 }}>
+                {[
+                  {
+                    name: 'Claude Code',
+                    icon: <Icons.Log size={14} stroke="#a855f7" />,
+                    lines: [
+                      { text: '$ ', color: 'var(--text-3)' },
+                      { text: 'claude mcp add edgebalancer \\' , color: 'var(--text)' },
+                      { text: '  --transport http \\', color: 'var(--text)' },
+                      { text: '  https://apiedge.nexoral.in/mcp', color: 'var(--accent)' },
+                    ],
+                  },
+                  {
+                    name: 'Cursor',
+                    icon: <Icons.Edit size={14} stroke="#54a2ff" />,
+                    lines: [
+                      { text: '// Settings → MCP Servers', color: 'var(--text-3)' },
+                      { text: '{', color: 'var(--text)' },
+                      { text: '  "mcpServers": {', color: 'var(--text)' },
+                      { text: '    "edgebalancer": {', color: 'var(--text-2)' },
+                      { text: '      "url": "https://apiedge.nexoral.in/mcp"', color: 'var(--accent)' },
+                      { text: '    }', color: 'var(--text-2)' },
+                      { text: '  }', color: 'var(--text)' },
+                      { text: '}', color: 'var(--text)' },
+                    ],
+                  },
+                  {
+                    name: 'OpenCode',
+                    icon: <Icons.Zap size={14} stroke="var(--green)" />,
+                    lines: [
+                      { text: '// opencode.json', color: 'var(--text-3)' },
+                      { text: '{', color: 'var(--text)' },
+                      { text: '  "mcp": {', color: 'var(--text)' },
+                      { text: '    "edgebalancer": {', color: 'var(--text-2)' },
+                      { text: '      "type": "http",', color: 'var(--text)' },
+                      { text: '      "url": "https://apiedge.nexoral.in/mcp"', color: 'var(--accent)' },
+                      { text: '    }', color: 'var(--text-2)' },
+                      { text: '  }', color: 'var(--text)' },
+                      { text: '}', color: 'var(--text)' },
+                    ],
+                  },
+                  {
+                    name: 'Codex',
+                    icon: <Icons.Server size={14} stroke="var(--orange)" />,
+                    lines: [
+                      { text: '# ~/.codex/config.toml', color: 'var(--text-3)' },
+                      { text: '[mcp_servers.edgebalancer]', color: 'var(--text-2)' },
+                      { text: 'url = "https://apiedge.nexoral.in/mcp"', color: 'var(--accent)' },
+                      { text: 'transport = "http"', color: 'var(--text)' },
+                    ],
+                  },
+                  {
+                    name: 'Anti Gravity',
+                    icon: <Icons.Shield size={14} stroke="#ff6568" />,
+                    lines: [
+                      { text: '// Settings → MCP Servers', color: 'var(--text-3)' },
+                      { text: '{', color: 'var(--text)' },
+                      { text: '  "edgebalancer": {', color: 'var(--text-2)' },
+                      { text: '    "url": "https://apiedge.nexoral.in/mcp",', color: 'var(--accent)' },
+                      { text: '    "transport": "http"', color: 'var(--text)' },
+                      { text: '  }', color: 'var(--text-2)' },
+                      { text: '}', color: 'var(--text)' },
+                    ],
+                  },
+                  {
+                    name: 'Command Code',
+                    icon: <Icons.Log size={14} stroke="var(--accent)" />,
+                    lines: [
+                      { text: '// .commandcode/config.json', color: 'var(--text-3)' },
+                      { text: '{', color: 'var(--text)' },
+                      { text: '  "mcpServers": {', color: 'var(--text)' },
+                      { text: '    "edgebalancer": {', color: 'var(--text-2)' },
+                      { text: '      "url": "https://apiedge.nexoral.in/mcp",', color: 'var(--accent)' },
+                      { text: '      "transport": "http"', color: 'var(--text)' },
+                      { text: '    }', color: 'var(--text-2)' },
+                      { text: '  }', color: 'var(--text)' },
+                      { text: '}', color: 'var(--text)' },
+                    ],
+                  },
+                ].map((client, i) => (
+                  <div key={client.name} className="feature-card animate-on-scroll fade-in-up" style={{
+                    padding: 0, overflow: 'hidden', animationDelay: `${i * 0.06}s`,
+                    border: '1px solid var(--line)',
+                  }}>
+                    {/* Terminal title bar */}
+                    <div style={{
+                      padding: '10px 14px', borderBottom: '1px solid var(--line)',
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      background: 'var(--bg-1)',
+                    }}>
+                      <div style={{ display: 'flex', gap: 5 }}>
+                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#ff5f57' }} />
+                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#febc2e' }} />
+                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#28c840' }} />
+                      </div>
+                      <div style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {client.icon}
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, color: 'var(--text-2)' }}>{client.name}</span>
+                      </div>
+                    </div>
+                    {/* Code lines */}
+                    <pre style={{
+                      margin: 0, padding: '14px 16px',
+                      background: 'var(--bg)',
+                      fontFamily: 'var(--mono)',
+                      fontSize: 'clamp(11px, 1.8vw, 12px)',
+                      lineHeight: 1.7,
+                      overflowX: 'auto',
+                    }}>
+                      {client.lines.map((line, j) => (
+                        <div key={j} style={{ color: line.color, whiteSpace: 'pre' }}>{line.text || '\u00A0'}</div>
+                      ))}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+
         {/* Gateway — 9 features */}
         <section style={{
           position: 'relative', zIndex: 5,
@@ -455,99 +653,6 @@ export default function LandingPage() {
           <div style={{ textAlign: 'center', marginTop: 48 }}>
             <a href="/strategies" className="btn btn-ghost">View all strategies in detail →</a>
           </div>
-        </section>
-
-        {/* MCP Section */}
-        <section id="mcp" style={{
-          position: 'relative', zIndex: 5,
-          maxWidth: 'min(1800px, 100vw)', margin: '0 auto',
-          padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px)',
-        }}>
-          <div className="kicker" style={{ marginBottom: 12 }}>// mcp server</div>
-          <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', margin: 0, letterSpacing: '-0.03em', fontWeight: 600, marginBottom: 16 }}>
-            Connect from any AI client<span style={{ color: 'var(--accent)' }}>.</span>
-          </h2>
-          <p style={{ fontSize: 'clamp(14px, 2.5vw, 16px)', color: 'var(--text-2)', maxWidth: 720, marginBottom: 12, lineHeight: 1.6 }}>
-            EdgeBalancer exposes an MCP server at <code style={{ fontFamily: 'var(--mono)', fontSize: 'clamp(12px, 2vw, 13px)', color: 'var(--accent)', background: 'var(--accent-dim)', padding: '2px 6px', borderRadius: 4 }}>api.edge.nexoral.in/mcp</code> — manage load balancers and gateways from Claude Code, Cursor, Codex, and more.
-          </p>
-          <p style={{ fontSize: 'clamp(13px, 2vw, 14px)', color: 'var(--text-3)', maxWidth: 720, marginBottom: 32, lineHeight: 1.6 }}>
-            15 tools: list, get, create, update, delete, pause, resume for both load balancers and gateways, plus list Cloudflare zones.
-          </p>
-
-          {/* Code snippets for each client */}
-          {[
-            {
-              name: 'Claude Code',
-              code: `claude mcp add edgebalancer --transport http https://api.edge.nexoral.in/mcp`,
-            },
-            {
-              name: 'Cursor',
-              code: `// Cursor Settings → MCP Servers → Add new
-{
-  "mcpServers": {
-    "edgebalancer": {
-      "url": "https://api.edge.nexoral.in/mcp"
-    }
-  }
-}`,
-            },
-            {
-              name: 'OpenCode',
-              code: `// opencode.json
-{
-  "mcp": {
-    "edgebalancer": {
-      "type": "http",
-      "url": "https://api.edge.nexoral.in/mcp"
-    }
-  }
-}`,
-            },
-            {
-              name: 'Codex',
-              code: `# ~/.codex/config.toml
-[mcp_servers.edgebalancer]
-url = "https://api.edge.nexoral.in/mcp"
-transport = "http"`,
-            },
-            {
-              name: 'Anti Gravity',
-              code: `// Anti Gravity → Settings → MCP Servers
-{
-  "edgebalancer": {
-    "url": "https://api.edge.nexoral.in/mcp",
-    "transport": "http"
-  }
-}`,
-            },
-            {
-              name: 'Cline (VS Code)',
-              code: `// VS Code Settings → Cline → MCP Servers
-{
-  "edgebalancer": {
-    "url": "https://api.edge.nexoral.in/mcp",
-    "transport": "http"
-  }
-}`,
-            },
-          ].map((client, i) => (
-            <div key={client.name} className="feature-card animate-on-scroll fade-in-up" style={{ padding: 0, overflow: 'hidden', animationDelay: `${i * 0.08}s` }}>
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)' }} />
-                <span style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>{client.name}</span>
-              </div>
-              <pre style={{
-                margin: 0, padding: '16px',
-                background: 'var(--bg)',
-                fontSize: 'clamp(11px, 1.8vw, 13px)',
-                fontFamily: 'var(--mono)',
-                color: 'var(--text-2)',
-                lineHeight: 1.6,
-                overflowX: 'auto',
-                whiteSpace: 'pre',
-              }}>{client.code}</pre>
-            </div>
-          ))}
         </section>
 
         {/* FAQ Section */}
