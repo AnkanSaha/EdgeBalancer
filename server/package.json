@@ -20,6 +20,8 @@
     "@fastify/rate-limit": "^11.0.0",
     "@langchain/core": "^1.2.3",
     "@langchain/openai": "^1.5.5",
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@simplewebauthn/server": "^13.3.2",
     "axios": "^1.14.0",
     "bullmq": "^5.34.0",
@@ -36,7 +38,8 @@
     "otpauth": "^9.5.1",
     "qrcode": "^1.5.4",
     "redis": "^6.0.0",
-    "terser": "^5.50.0"
+    "terser": "^5.50.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
