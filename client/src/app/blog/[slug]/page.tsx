@@ -68,11 +68,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
-      <div className="grid-bg" />
       <Nav />
 
       <main style={{ position: 'relative', zIndex: 5 }}>
-        <article style={{ maxWidth: 800, margin: '0 auto', padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px) clamp(64px, 8vw, 128px)' }}>
+        <article style={{ maxWidth: 800, margin: '0 auto', padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)' }}>
           {/* Breadcrumb */}
           <nav style={{ marginBottom: 32, fontSize: 13, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
             <a href="/" style={{ color: 'var(--text-3)', textDecoration: 'none' }}>Home</a>

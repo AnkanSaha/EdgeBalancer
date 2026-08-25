@@ -11,11 +11,10 @@ export const metadata: Metadata = {
 export default function TestimonialsPage() {
   return (
     <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
-      <div className="grid-bg" />
       <Nav />
 
       <main style={{ position: 'relative', zIndex: 5 }}>
-        <section style={{ maxWidth: 'min(1100px, 100vw)', margin: '0 auto', padding: 'clamp(32px, 6vw, 64px) clamp(16px, 4vw, 48px) clamp(24px, 4vw, 32px)' }}>
+        <section style={{ padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)' }}>
           <div className="kicker" style={{ marginBottom: 12 }}>// testimonials</div>
           <h1 style={{ fontSize: 'clamp(32px, 5vw, 48px)', margin: 0, letterSpacing: '-0.03em', fontWeight: 700, lineHeight: 1.05 }}>
             What people are saying<span style={{ color: 'var(--accent)' }}>.</span>
@@ -25,7 +24,7 @@ export default function TestimonialsPage() {
           </p>
         </section>
 
-        <section style={{ maxWidth: 'min(1100px, 100vw)', margin: '0 auto', padding: '0 clamp(16px, 4vw, 48px) clamp(48px, 6vw, 64px)' }}>
+        <section style={{ padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)', borderTop: '1px solid var(--line)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
             <div className="feature-card" style={{ padding: 32, textAlign: 'center' }}>
               <p style={{ fontSize: 16, color: 'var(--text-2)', lineHeight: 1.7, maxWidth: 520, margin: '0 auto' }}>

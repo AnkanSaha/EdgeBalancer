@@ -14,16 +14,12 @@ export const metadata: Metadata = {
 export default function StatsPage() {
   return (
     <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
-      <div className="grid-bg" />
-      <div className="topo" />
       <Nav />
 
       <main style={{ position: 'relative', zIndex: 5 }}>
         <section
           style={{
-            maxWidth: 'min(1400px, 100vw)',
-            margin: '0 auto',
-            padding: 'clamp(32px, 6vw, 64px) clamp(16px, 4vw, 48px) clamp(24px, 4vw, 32px)',
+            padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
           }}
         >
           <div
@@ -72,15 +68,12 @@ export default function StatsPage() {
 
         <section
           style={{
-            maxWidth: 'min(1400px, 100vw)',
-            margin: '0 auto',
-            padding: '0 clamp(16px, 4vw, 48px) clamp(32px, 4vw, 48px)',
+            padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
+            borderTop: '1px solid var(--line)',
           }}
         >
           <StatsClient />
         </section>
-
-
       </main>
 
       <Footer />

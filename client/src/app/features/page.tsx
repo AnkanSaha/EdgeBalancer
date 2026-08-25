@@ -61,16 +61,13 @@ function BentoCard({ feature }: { feature: FeatureCard }) {
 export default function FeaturesPage() {
   return (
     <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
-      <div className="grid-bg" />
       <Nav />
 
       <main style={{ position: 'relative', zIndex: 5 }}>
         {/* Header */}
         <section
           style={{
-            maxWidth: 'min(1400px, 100vw)',
-            margin: '0 auto',
-            padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px) clamp(32px, 4vw, 48px)',
+            padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
           }}
         >
           <div className="kicker" style={{ marginBottom: 12 }}>// features</div>
@@ -102,9 +99,8 @@ export default function FeaturesPage() {
         {/* Load Balancer */}
         <section
           style={{
-            maxWidth: 'min(1400px, 100vw)',
-            margin: '0 auto',
-            padding: '0 clamp(16px, 4vw, 48px) clamp(40px, 5vw, 64px)',
+            padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
+            borderTop: '1px solid var(--line)',
           }}
         >
           <div className="kicker" style={{ marginBottom: 12 }}>// load balancer</div>
@@ -169,9 +165,8 @@ export default function FeaturesPage() {
         {/* API Gateway */}
         <section
           style={{
-            maxWidth: 'min(1400px, 100vw)',
-            margin: '0 auto',
-            padding: '0 clamp(16px, 4vw, 48px) clamp(64px, 8vw, 128px)',
+            padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
+            borderTop: '1px solid var(--line)',
           }}
         >
           <div className="kicker" style={{ marginBottom: 12 }}>// api gateway</div>
