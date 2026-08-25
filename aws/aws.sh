@@ -19,6 +19,11 @@ USER="terraform-deploy"
 POLICY="TerraformEdgeBalancer"
 POLICY_FILE="$(mktemp)"
 
+# Force all regional AWS calls to ap-south-2 (your aws configure default is ap-south-1,
+# but the stack lives in ap-south-2 — without this, down misses the ALB/ECS/VPC)
+export AWS_DEFAULT_REGION="$REGION"
+export AWS_REGION="$REGION"
+
 cat > "$POLICY_FILE" <<'POLICY_JSON'
 {
   "Version": "2012-10-17",
