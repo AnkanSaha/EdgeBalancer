@@ -397,7 +397,7 @@ down() {
 
   echo ""
   echo "================ VERIFY (edgebalancer should be empty) ================"
-  echo "S3 $BUCKET:            $(aws s3api head-bucket --bucket "$BUCKET" 2>&1 | grep -q 'NoSuchBucket' && echo 'deleted' || echo 'exists')"
+  echo "S3 $BUCKET:            $(aws s3api head-bucket --bucket "$BUCKET" 2>&1 >/dev/null && echo 'exists' || echo 'deleted')"
   echo "IAM $USER:             $(aws iam get-user --user-name "$USER" --query 'User.UserName' --output text 2>/dev/null || echo 'deleted')"
   echo "IAM policy $POLICY:    $(aws iam get-policy --policy-arn "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text 2>/dev/null):policy/$POLICY" --query 'Policy.PolicyName' --output text 2>/dev/null || echo 'deleted')"
   echo "non-default VPCs:  $(aws ec2 describe-vpcs --filters Name=is-default,Values=false --query 'length(Vpcs)' --output text 2>/dev/null)"
