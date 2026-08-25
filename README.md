@@ -1,136 +1,106 @@
 # EdgeBalancer
 
-**Deploy load balancers on Cloudflare Workers in 90 seconds. No servers. No DevOps. No code.**
+**Deploy production load balancers on Cloudflare Workers in ~90 seconds. No servers. No config files.**
+
+Live: **[edge.nexoral.in](https://edge.nexoral.in)** — connect Cloudflare → add origins → pick strategy → deploy.
 
 ---
 
-## The Problem
+## Why EdgeBalancer?
 
-Running a load balancer today is expensive and complicated:
+Load balancers today are overkill for most teams:
 
-- **AWS ALB** costs ~$22/month before any traffic — and bills by the hour even when idle
-- **Cloudflare Load Balancing** starts at $5/month plus per-query fees
-- **Nginx/HAProxy** require a dedicated server, manual configuration, and constant maintenance
-- **All of them** require DevOps knowledge, infrastructure setup, and ongoing management
+- `AWS ALB` ~$22/mo even idle, billed hourly
+- `Cloudflare Load Balancing` $5/mo + per-request fees
+- `Nginx/HAProxy` needs a server, config, and upkeep
 
-For solo developers and small teams running backends on free tiers — two Oracle Always Free VMs, a couple of Cloudflare Workers, Railway hobby instances — paying $22+/month for a load balancer doesn't make sense. And spending hours configuring Nginx for a simple API with two backends is overkill.
+If you run 2+ backends — free VMs, Railway, Workers, VPS — you shouldn’t pay more for the balancer than the backends. EdgeBalancer runs the balancer **at Cloudflare’s edge (330+ locations)** inside **your** Cloudflare account. Traffic goes edge → your origins. We never see it.
 
-## The Solution
+**Under 100k requests/day: $0** (Cloudflare Workers free tier).
 
-EdgeBalancer turns your Cloudflare Worker into a production load balancer through a visual dashboard. You connect your Cloudflare account, add your origin servers, pick a routing strategy, and deploy — all in under 90 seconds.
+---
 
-The Worker runs on Cloudflare's edge (330+ data centers worldwide). Traffic flows directly from the edge to your origins. EdgeBalancer never sees your production traffic — it only manages the configuration.
+## What you get
 
-**Under 100k requests/day, it costs $0.**
+**7 routing strategies** — round-robin, weighted, IP hash, cookie-sticky, weighted-sticky, failover, geo-steering.
 
-## What It Solves
+**Health checks + auto failover** — unhealthy origin is skipped automatically, comes back when healthy.
 
-| Problem | How EdgeBalancer Solves It |
-|---------|---------------------------|
-| Load balancers are expensive | Runs on Cloudflare Workers free tier (100k req/day at $0) |
-| Configuration is complex | Visual dashboard — pick strategy, add origins, click deploy |
-| Requires DevOps knowledge | No servers to manage — Workers are serverless |
-| Takes hours to set up | Deploys in ~90 seconds |
-| Single point of failure | Runs at the edge (330+ PoPs), not a centralized server |
-| No health checks on free tier | Built-in health checks with automatic failover |
-| Vendor lock-in | Workers deploy to YOUR Cloudflare account — you own everything |
+**AI assistant** — describe in plain English (“create a failover LB for api.example.com with two origins”) and it builds it for you.
 
-## Vision
+**Visual dashboard** — pause/resume, attach domains, history, cancel in-flight deploys.
 
-Load balancing should be as easy as buying a domain. No servers to provision, no configuration files to write, no infrastructure to maintain. Pick your origins, choose a strategy, deploy. The edge handles the rest.
+**Security by default** — Cloudflare OAuth, encrypted credentials, optional 2FA (authenticator app + passkeys). The Worker lives in your account, you own everything.
 
-EdgeBalancer is the control plane. Cloudflare is the data plane. You own everything.
+---
 
-## Use Cases
+## How it works
 
-**API Gateway** — Route REST/GraphQL traffic across multiple backend services with weighted distribution and automatic failover.
+1. Connect Cloudflare (one click with OAuth)
+2. Add origins and choose a strategy
+3. We generate the Worker and deploy to your account
+4. Your hostname routes at the edge — 1-3ms overhead
 
-**Multi-Region Apps** — Geo-steer users to the closest origin based on location. Serve EU users from Frankfurt, US users from Virginia, Asia users from Singapore.
+That’s it. No servers to provision.
 
-**High Availability** — Failover strategy ensures requests automatically retry healthy origins if your primary server goes down.
+---
 
-**Stateful Workloads** — Cookie-sticky routing keeps users pinned to the same backend for sessions, shopping carts, and WebSocket connections.
+## Use cases
 
-**Microservices** — Deploy multiple load balancers for different services, each with its own routing strategy and origin set.
+- **API gateway** for REST/GraphQL across multiple backends
+- **Failover** for high availability (primary → backup)
+- **Geo routing** — EU users → Frankfurt, US → Virginia, Asia → Singapore
+- **Sticky sessions** for carts, auth, websockets
+- **Cost cut** — replace ALB/LB with Workers
 
-**Cost Optimization** — Replace expensive AWS ALBs or Cloudflare Load Balancing with Workers at a fraction of the cost.
+---
 
-## Features
+## Pricing
 
-**7 Routing Strategies**
-- Round Robin — Equal distribution, zero configuration
-- Weighted Round Robin — Proportional traffic based on server capacity
-- IP Hash — Same visitor, same server, every time
-- Sticky Sessions — Cookie-based session persistence
-- Weighted Sticky Sessions — Capacity-aware with session persistence
-- Failover — Primary-backup with automatic recovery
-- Geographic Routing — Route by visitor location (city, country, continent)
+| Plan | Price | Load balancers | Health checks | AI |
+|------|-------|----------------|---------------|----|
+| Free | **₹0** | 5 | 2 | — |
+| Trial | **₹0** for 14 days | 10 | 5 | — |
+| Student | **₹49/mo** | 50 | 25 | ✓ |
+| Pro | **₹299/mo** | unlimited | unlimited | ✓ |
 
-**Health Checks**
-- Periodic health monitoring of all origin servers
-- Automatic failover when an origin goes down
-- Automatic recovery when the origin comes back
-- Configurable intervals, paths, and thresholds
+Annual saves 20%: Student **₹470/yr**, Pro **₹2,870/yr**.
 
-**Security**
-- OAuth connection to Cloudflare (no manual token management)
-- AES-256-GCM encrypted credentials at rest
-- JWT authentication with httpOnly cookies
-- Optional two-factor authentication (TOTP + Passkeys)
-- Worker scripts are obfuscated before deployment
+Full comparison → [edge.nexoral.in/pricing](https://edge.nexoral.in/pricing)
 
-**Deployment**
-- One-click deploy from the visual dashboard
-- Cloudflare Worker Versions + Deployments for safe updates
-- Automatic rollback on failure
-- Deployment history with full Worker script snapshots
-- Cancel in-flight operations
+**Traffic cost:** 100k req/day = ₹0, 500k ≈ ₹670/mo, 1M ≈ ₹920/mo (Workers paid tier). No idle fee.
 
-**AI Assistant**
-- Describe what you want in natural language
-- AI agent creates, updates, or manages load balancers
-- Streams progress in real-time via SSE
-- Searches docs and explains errors when deploys fail
+---
 
-## Who It's For
-
-- Solo developers running backends on free tiers
-- Small startups that need real load balancing without enterprise costs
-- Teams migrating from centralized load balancers to edge computing
-- Anyone running 2+ origin servers on Cloudflare
-
-## How It Works
-
-```
-1. You connect your Cloudflare account (OAuth or API token)
-2. You configure origins + strategy in the dashboard
-3. EdgeBalancer generates a Worker script
-4. The Worker is deployed to YOUR Cloudflare account
-5. Traffic routes at the edge (330+ PoPs, ~1-3ms overhead)
-6. Health checks monitor your origins automatically
-7. EdgeBalancer never sees your production traffic
-```
-
-## Cost
+## Cost vs alternatives
 
 | Traffic | EdgeBalancer | AWS ALB | Cloudflare LB |
-|---------|-------------|---------|---------------|
-| 10k req/day | **$0** | ~$22/mo | ~$5/mo |
-| 100k req/day | **$0** | ~$22/mo | ~$5/mo |
-| 500k req/day | **~$8/mo** | ~$25/mo | ~$13/mo |
-| 1M req/day | **~$11/mo** | ~$30/mo | ~$18/mo |
+|---------|--------------|---------|---------------|
+| 10k/day | **₹0** | ~₹1,850/mo | ~₹420/mo |
+| 100k/day | **₹0** | ~₹1,850/mo | ~₹420/mo |
+| 500k/day | ~₹670/mo | ~₹2,100/mo | ~₹1,090/mo |
 
-No idle fees. No egress charges. No per-query costs.
+---
+
+## Quick start (you, not dev)
+
+1. Go to [edge.nexoral.in](https://edge.nexoral.in) → Sign in with Google
+2. Onboarding → Connect Cloudflare (allow `Workers Scripts:Edit`, `Zone:Read`, `DNS:Edit`)
+3. Create Load Balancer → pick domain, subdomain, origins, strategy → Deploy
+4. Point your domain’s DNS in Cloudflare to the Worker (we guide you)
+
+Docs: strategies, pricing, and FAQ are on the site.
+
+---
 
 ## Links
 
-- **Website**: [edge.nexoral.in](https://edge.nexoral.in)
-- **Strategies**: [edge.nexoral.in/strategies](https://edge.nexoral.in/strategies)
-- **Pricing**: [edge.nexoral.in/pricing](https://edge.nexoral.in/pricing)
-- **FAQ**: [edge.nexoral.in/faq](https://edge.nexoral.in/faq)
-- **Blog**: [edge.nexoral.in/blog](https://edge.nexoral.in/blog)
-- **Contact**: [connect@ankan.in](mailto:connect@ankan.in)
+- Website: [edge.nexoral.in](https://edge.nexoral.in)
+- Pricing: [edge.nexoral.in/pricing](https://edge.nexoral.in/pricing)
+- Contact: [connect@ankan.in](mailto:connect@ankan.in)
+
+---
 
 ## License
 
-Proprietary — [EdgeBalancer Inc.](https://edge.nexoral.in)
+Proprietary — [EdgeBalancer](https://edge.nexoral.in)
