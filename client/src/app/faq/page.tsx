@@ -68,14 +68,11 @@ export default function FAQPage() {
   return (
     <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
       <FAQPageSchema faqs={FAQ_CATEGORIES.flatMap(c => c.faqs.map(f => ({ question: f.q, answer: f.a })))} />
-      <div className="grid-bg" />
       <Nav />
 
       <main style={{ position: 'relative', zIndex: 5 }}>
-        {/* Header */}
         <section style={{
-          maxWidth: 'min(1400px, 100vw)', margin: '0 auto',
-          padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px) clamp(32px, 4vw, 48px)',
+          padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
         }}>
           <div className="kicker" style={{ marginBottom: 12 }}>// frequently asked</div>
           <h1 style={{ fontSize: 'clamp(32px, 5vw, 56px)', margin: 0, letterSpacing: '-0.035em', fontWeight: 600, lineHeight: 1.05 }}>
@@ -88,10 +85,9 @@ export default function FAQPage() {
           </p>
         </section>
 
-        {/* FAQ by category */}
         <section style={{
-          maxWidth: 'min(1400px, 100vw)', margin: '0 auto',
-          padding: '0 clamp(16px, 4vw, 48px) clamp(64px, 8vw, 128px)',
+          padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
+          borderTop: '1px solid var(--line)',
           display: 'flex', flexDirection: 'column', gap: 'clamp(32px, 4vw, 48px)',
         }}>
           {FAQ_CATEGORIES.map((cat, ci) => {
@@ -129,10 +125,9 @@ export default function FAQPage() {
           })}
         </section>
 
-        {/* Contact CTA */}
         <section style={{
-          maxWidth: 'min(1400px, 100vw)', margin: '0 auto',
-          padding: '0 clamp(16px, 4vw, 48px) clamp(64px, 8vw, 128px)',
+          padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
+          borderTop: '1px solid var(--line)',
           textAlign: 'center',
         }}>
           <div className="feature-card" style={{ padding: 'clamp(32px, 5vw, 48px)' }}>

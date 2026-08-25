@@ -11,8 +11,7 @@ export const metadata: Metadata = {
 
 export default function CancellationPage() {
   return (
-    <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
-      <div className="grid-bg" />
+    <div style={{ minHeight: '100vh' }}>
       <Nav />
 
       <main

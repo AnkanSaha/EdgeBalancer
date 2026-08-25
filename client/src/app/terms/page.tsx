@@ -10,8 +10,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
-      <div className="grid-bg" />
+    <div style={{ minHeight: '100vh' }}>
       <Nav />
 
       <main style={{ position: 'relative', zIndex: 5, maxWidth: 800, margin: '0 auto', padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px) clamp(64px, 8vw, 128px)' }}>

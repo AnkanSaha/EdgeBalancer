@@ -99,14 +99,12 @@ export default function StrategiesPage() {
   return (
     <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
       <ScrollAnimator />
-      <div className="grid-bg" />
       <Nav />
 
       <main style={{ position: 'relative', zIndex: 5 }}>
         {/* Header */}
         <section style={{
-          maxWidth: 'min(1400px, 100vw)', margin: '0 auto',
-          padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px) clamp(32px, 4vw, 48px)',
+          padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
         }}>
           <div className="kicker" style={{ marginBottom: 12 }}>// routing strategies</div>
           <h1 style={{ fontSize: 'clamp(32px, 5vw, 56px)', margin: 0, letterSpacing: '-0.035em', fontWeight: 600, lineHeight: 1.05 }}>
@@ -120,8 +118,8 @@ export default function StrategiesPage() {
 
         {/* Quick comparison */}
         <section style={{
-          maxWidth: 'min(1400px, 100vw)', margin: '0 auto',
-          padding: '0 clamp(16px, 4vw, 48px) clamp(32px, 4vw, 48px)',
+          padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
+          borderTop: '1px solid var(--line)',
         }}>
           <div className="feature-card" style={{ padding: 'clamp(16px, 3vw, 24px)', overflowX: 'auto' }}>
             <div className="kicker" style={{ marginBottom: 16 }}>// quick comparison</div>
@@ -152,8 +150,8 @@ export default function StrategiesPage() {
 
         {/* Detailed strategies */}
         <section style={{
-          maxWidth: 'min(1400px, 100vw)', margin: '0 auto',
-          padding: '0 clamp(16px, 4vw, 48px) clamp(64px, 8vw, 128px)',
+          padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
+          borderTop: '1px solid var(--line)',
           display: 'flex', flexDirection: 'column', gap: 'clamp(24px, 3vw, 32px)',
         }}>
           {STRATEGIES.map((strategy, i) => {
@@ -242,8 +240,8 @@ export default function StrategiesPage() {
 
         {/* CTA */}
         <section style={{
-          maxWidth: 'min(1400px, 100vw)', margin: '0 auto',
-          padding: '0 clamp(16px, 4vw, 48px) clamp(64px, 8vw, 128px)',
+          padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
+          borderTop: '1px solid var(--line)',
           textAlign: 'center',
         }}>
           <div className="feature-card" style={{ padding: 'clamp(32px, 5vw, 48px)' }}>

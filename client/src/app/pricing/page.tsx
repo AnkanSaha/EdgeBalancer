@@ -73,14 +73,12 @@ const FAQS = [
 export default function PricingPage() {
   return (
     <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
-      <div className="grid-bg" />
       <Nav />
 
       <main style={{ position: 'relative', zIndex: 5 }}>
         {/* Header */}
         <section style={{
-          maxWidth: 'min(1400px, 100vw)', margin: '0 auto',
-          padding: 'clamp(48px, 6vw, 96px) clamp(16px, 4vw, 48px) clamp(32px, 4vw, 48px)',
+          padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
         }}>
           <div className="kicker" style={{ marginBottom: 12 }}>// pricing</div>
           <h1 style={{ fontSize: 'clamp(32px, 5vw, 56px)', margin: 0, letterSpacing: '-0.035em', fontWeight: 600, lineHeight: 1.05 }}>
@@ -94,8 +92,8 @@ export default function PricingPage() {
 
         {/* Pricing cards */}
         <section style={{
-          maxWidth: 'min(1400px, 100vw)', margin: '0 auto',
-          padding: '0 clamp(16px, 4vw, 48px) clamp(48px, 5vw, 64px)',
+          borderTop: '1px solid var(--line)',
+          padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
         }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(clamp(280px, 30vw, 340px), 1fr))', gap: 'clamp(16px, 3vw, 24px)' }}>
             {PLANS.map((plan) => (
@@ -151,8 +149,8 @@ export default function PricingPage() {
 
         {/* Comparison table */}
         <section style={{
-          maxWidth: 'min(1400px, 100vw)', margin: '0 auto',
-          padding: '0 clamp(16px, 4vw, 48px) clamp(48px, 5vw, 64px)',
+          borderTop: '1px solid var(--line)',
+          padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
         }}>
           <div className="kicker" style={{ marginBottom: 12 }}>// how does it compare</div>
           <h2 style={{ fontSize: 'clamp(24px, 3vw, 32px)', margin: 0, fontWeight: 600, letterSpacing: '-0.02em', marginBottom: 8 }}>
@@ -200,8 +198,8 @@ export default function PricingPage() {
 
         {/* FAQ */}
         <section style={{
-          maxWidth: 'min(1400px, 100vw)', margin: '0 auto',
-          padding: '0 clamp(16px, 4vw, 48px) clamp(48px, 5vw, 64px)',
+          borderTop: '1px solid var(--line)',
+          padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
         }}>
           <div className="kicker" style={{ marginBottom: 12 }}>// pricing faq</div>
           <h2 style={{ fontSize: 'clamp(24px, 3vw, 32px)', margin: 0, fontWeight: 600, letterSpacing: '-0.02em', marginBottom: 32 }}>
@@ -220,12 +218,12 @@ export default function PricingPage() {
 
         {/* CTA */}
         <section style={{
-          maxWidth: 'min(1400px, 100vw)', margin: '0 auto',
-          padding: '0 clamp(16px, 4vw, 48px) clamp(64px, 8vw, 128px)',
+          borderTop: '1px solid var(--line)',
+          padding: 'clamp(48px, 8vh, 80px) clamp(16px, 4vw, 48px)',
           textAlign: 'center',
         }}>
           <div className="feature-card" style={{ padding: 'clamp(32px, 5vw, 48px)' }}>
-            <h2 style={{ fontSize: 'clamp(24px, 3vw, 32px)', margin: 0, fontWeight: 600 }}>Start for free, scale when ready</h2>
+            <h2 style={{ fontSize: 'clamp(24px, 3vw, 32px)', margin: 0, fontWeight: 600, textAlign: 'left' }}>Start for free, scale when ready</h2>
             <p style={{ fontSize: 'clamp(14px, 2vw, 16px)', color: 'var(--text-2)', marginTop: 12, marginBottom: 24, maxWidth: 500, marginLeft: 'auto', marginRight: 'auto' }}>
               Deploy your first load balancer in 90 seconds. No credit card required.
             </p>
