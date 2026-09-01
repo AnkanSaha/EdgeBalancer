@@ -1,711 +1,98 @@
 # EdgeBalancer — Project Context
 
-## What It Is
-SaaS control plane for deploying and managing Cloudflare Worker-based load balancers without writing Worker code manually. Users connect their Cloudflare account, configure origins + strategy, and EdgeBalancer generates and deploys the Worker.
+## Objective
+SaaS control plane for deploying and managing Cloudflare Worker-based load balancers without writing Worker code. Users connect a Cloudflare account, configure origins + strategy, and EdgeBalancer generates and deploys the Worker.
 
----
+## Rules
+- All Cloudflare API calls are **server-only** (never from client). Client calls the backend directly via `NEXT_PUBLIC_API_URL` with httpOnly cookies (`withCredentials: true`).
+- Cloudflare credentials AES-256-GCM encrypted at rest; IV + GCM tag stored alongside. `ENCRYPTION_KEY` must be exactly 64 hex chars — fail fast otherwise.
+- Auth: Firebase (Google) OAuth → JWT in httpOnly cookie, 24h expiry. No password login. 2FA challenge tokens carry `stage` and `authenticate` rejects any token with `stage` — never forge/rename challenge cookies into sessions.
+- Destructive AI tools call the **same orchestrators** as REST routes (identical rollback semantics). No `ask_user` tool — clarifications are plain prose.
+- No code comments unless asked.
 
-## Monorepo Layout
+## Constraints
+- LB `name`: 3–50 chars, lowercase + hyphens, locked after creation. `scriptName` derived from name, unique per user (compound index `{userId, scriptName}`). Worker names unique only within a CF account.
+- 2FA: authenticator TOTP + passkeys only — no SMS/email/recovery codes. 2FA is on iff ≥1 confirmed device (`hasTotp()` in `services/totpService.ts` is the single source of truth).
+- AI model ladder: free OpenRouter tier first, then metered Mistral. Global Redis cooldowns only for quota exhaustion (24h provider / 90s model); 401/403 and transient failures are per-run only. One API key per provider = shared upstream budget.
+- All API responses: `{ success, data, message }`.
 
+## Monorepo
 ```
 EdgeBalancer/
-├── client/          # Next.js 16 frontend (App Router)
-├── server/          # Fastify API backend
-├── config/          # Nginx config (edgebalancer.conf)
-├── AGENTS.md        # canonical context
-└── CLAUDE.md        # identical copy — keep both in sync when editing either
+├── client/   # Next.js 16 (App Router), React 19, TS, Tailwind v4
+├── server/   # Fastify 5, TS strict, Mongoose
+├── config/   # Nginx (edgebalancer.conf)
+├── k8s/      # deployment.yaml
+├── AGENTS.md # canonical context
+└── CLAUDE.md # identical mirror of AGENTS.md — keep in sync when editing either
 ```
 
----
+## Architecture (small)
+**Server** (`server/src/`): `index.ts` + `app.ts` (buildServer). Domain modules in `modules/` (preferred): `controllers/` (one kebab-case file per op) → `orchestrators/` (multi-step, rollback) → `services/` (pure logic). Flat `routes/` + `controllers/` for auth/cloudflare/user/ai. Shared `services/` (CloudflareClient, workerGenerator/Deployment/Deletion/Domain), `utils/` (encryption, jwt, resourceLock, retry), `models/` (User, LoadBalancer, Session, AiRun).
 
-## Tech Stack
+**Client** (`client/src/`): App Router pages under `app/` (landing, overview, loadbalancers CRUD, sessions, settings, login/register, onboarding); components grouped under `components/` (auth, dashboard, loadbalancers, layout, ui, shared); `contexts/AuthContext.tsx`; `lib/api.ts` (axios singleton), `lib/aiStream.ts` (SSE reader).
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Axios |
-| Backend | Fastify, TypeScript (strict), Mongoose ODM |
-| Database | MongoDB Atlas |
-| Auth | JWT in httpOnly cookies + Firebase (Google OAuth) |
-| Edge Runtime | Cloudflare Workers (user-controlled accounts) |
-| Encryption | AES-256-GCM for Cloudflare credentials at rest |
-| Password | bcrypt (10 rounds) |
-| Tests (client) | Jest + React Testing Library — run with `--runInBand` |
-| Tests (server) | Jest integration tests — real DB, mocked Cloudflare/Firebase |
+**Create flow**: validate → decrypt CF credentials → claim Redis name lock → CF script-name check → generate Worker from `workerTemplates/` → deploy → hostname conflict check → attach domain → Mongo insert → session record.
 
----
-
-## Client Structure (`client/src/`)
-
-```
-app/                         # Next.js App Router pages
-  page.tsx                   # Landing page
-  layout.tsx                 # Root layout (AuthProvider, ToastProvider)
-  overview/page.tsx          # AI Agent prompt + fleet stats (active balancers / origins)
-  loadbalancers/
-    page.tsx                   # Load balancer list (search, filters, pause/delete)
-    create/page.tsx          # Create flow
-    [id]/edit/page.tsx       # Edit flow
-  sessions/page.tsx          # Deployment history
-  settings/page.tsx          # User settings / password change
-  login/page.tsx
-  register/page.tsx
-  onboarding/page.tsx        # Cloudflare credential setup
-
-components/
-  auth/                      # AuthLayout, GoogleAuthButton
-  dashboard/                 # LoadBalancerCard, SessionCard, Sidebar, AiBuilder
-  landing/                   # FlowDiagram
-  layout/                    # ProtectedRoute
-  loadbalancers/             # DeploymentExperience, LoadBalancerVisualization, PauseModal
-  providers/                 # ToastProvider
-  shared/                    # Icons, Logo
-  ui/                        # Badge, Button, Card, Input, Modal, MultiSelect
-
-contexts/
-  AuthContext.tsx             # Global auth state (user, loading, signOut)
-
-lib/
-  api.ts                     # Singleton ApiClient (Axios) — calls backend directly
-  aiStream.ts                # fetch-based SSE reader for POST /api/ai/generate
-  firebase.ts                # Firebase app init
-  cloudRegions.ts            # Cloudflare region list
-  geoData.ts                 # Geo targeting data
-  utils.ts                   # Generic helpers
-
-types/
-  api.ts                     # All shared TypeScript interfaces
-```
-
-**Client → Backend:** `api.ts` calls `NEXT_PUBLIC_API_URL/api/*` directly (no Next.js proxy). Credentials sent as httpOnly cookies via `withCredentials: true`.
-
----
-
-## Server Structure (`server/src/`)
-
-```
-index.ts                     # Entry: connects MongoDB, starts Fastify
-app.ts                       # buildServer() — registers plugins, middleware, routes
-
-config/
-  firebase.ts                # Firebase Admin SDK init
-
-middleware/
-  auth.ts                    # JWT extraction + verification → attaches req.user
-  cors.ts                    # CORS for configured CLIENT_URL
-  errorHandler.ts            # Global error handler (last in chain)
-  fastifyIdempotency.ts      # Idempotency plugin for POST/PUT
-  validation.ts              # Input validation helpers
-  validators/
-    authValidators.ts
-    cloudflareValidators.ts
-    loadBalancerValidators.ts
-    userValidators.ts
-
-models/
-  User.ts                    # IUser Mongoose schema
-  LoadBalancer.ts            # ILoadBalancer Mongoose schema
-  Session.ts                 # ISession Mongoose schema
-  AiRun.ts                   # IAiRun — audit trail for AI Agent runs
-
-routes/                      # Flat route handlers (auth, cloudflare, user, ai)
-  authRoutes.ts
-  cloudflareRoutes.ts
-  loadBalancerRoutes.ts      # Legacy — active routes are in modules/
-  userRoutes.ts
-  aiRoutes.ts
-
-controllers/                 # Flat controllers (auth, cloudflare, user, ai)
-  authController.ts
-  cloudflareController.ts
-  loadBalancerController.ts  # Legacy
-  userController.ts
-  aiController.ts            # generateWithAi (SSE)
-
-modules/                     # Domain-module pattern (preferred)
-  loadbalancer/
-    loadbalancer.routes.ts   # Fastify route registrations
-    controllers/             # One file per operation (kebab-case.controller.ts)
-      create.controller.ts
-      update.controller.ts
-      delete.controller.ts
-      list.controller.ts
-      get.controller.ts
-      cancel.controller.ts
-      validate.controller.ts
-      pause.controller.ts
-      resume.controller.ts
-      assign-domain.controller.ts
-    orchestrators/           # Multi-step workflows with rollback
-      create.orchestrator.ts
-      update.orchestrator.ts
-      delete.orchestrator.ts
-      pause.orchestrator.ts
-      resume.orchestrator.ts
-      assign-domain.orchestrator.ts
-      release-domain.orchestrator.ts
-    services/                # Pure domain logic (*.service.ts)
-      credentials.service.ts
-      validation.service.ts
-      strategy.service.ts
-      formatter.service.ts
-      hostname.service.ts
-      operation.service.ts
-      snapshot.service.ts
-    types/
-      loadBalancer.types.ts
-  session/
-    session.routes.ts
-    controllers/
-      list.controller.ts
-      script.controller.ts
-  ai/                        # AI Agent — natural-language provisioning (LangChain.js)
-                             # routes + controllers live in the flat folders above
-    config/
-      models.ts              # MISTRAL_MODELS + FREE_MODELS + MODEL_LADDER
-      systemPrompt.ts        # guardrails — service scope only, no chat
-    services/
-      model-provider.service.ts   # ladder entry → ChatOpenAI (mistral/openrouter baseURL)
-      quota.service.ts            # global cooldowns — 24h provider, 90s model
-      rate-limit.service.ts       # per-model rps pacing (falls through, never queues)
-      model-router.service.ts     # walk ladder, skip open breakers, fall through on failure
-      tools.service.ts            # LB tools, bound to the JWT userId
-      agent.service.ts            # tool-calling loop, emits SSE events
-      audit.service.ts            # persists the AiRun record
-      sse.service.ts              # SSE frame writer
-    types/
-      ai.types.ts
-
-services/                    # Cross-cutting infra services
-  cloudflareClient.ts        # Cloudflare REST API wrapper
-  workerGenerator.ts         # Generates Worker JS from templates
-  workerDeployment.ts        # CF Worker upload
-  workerDomain.ts            # CF Worker domain attach/detach
-  workerDeletion.ts          # CF Worker delete
-  sessionService.ts          # Session CRUD
-  credentialsService.ts      # Legacy
-  workerTemplates/           # Strategy-specific Worker JS templates
-    roundRobin.js
-    weightedRoundRobin.js
-    ipHash.js
-    cookieSticky.js
-    weightedCookieSticky.js
-    failover.js
-    geoSteering.js
-    paused.js
-    maintenance.js
-
-utils/
-  resourceLock.ts            # Redis SET NX mutex — serialises same-name concurrent creates
-  encryption.ts              # AES-256-GCM encrypt/decrypt
-  password.ts                # bcrypt hash/compare
-  jwt.ts                     # JWT generate/verify
-  database.ts                # Mongoose connect
-  workerName.ts              # Script name generation + WORKER_SCRIPT_NAME_REGEX
-  loadBalancerOperationStore.ts  # In-memory operation tracking for cancel
-  requestCancellation.ts     # Cancellation token pattern
-  mask.ts                    # Token/ID masking for API responses
-  username.ts                # Username generation from name
-  retry.ts                   # Retry with backoff
-  routeRunner.ts             # runHandlers() chains Fastify middleware + handler
-
-types/
-  http.ts                    # Fastify request/reply extensions
-```
-
----
-
-## Naming Conventions
-
-### Files
-| Context | Convention | Example |
+## Naming
+| Scope | Pattern | Example |
 |---|---|---|
-| Module controllers | `kebab-case.controller.ts` | `assign-domain.controller.ts` |
-| Module orchestrators | `kebab-case.orchestrator.ts` | `create.orchestrator.ts` |
-| Module services | `kebab-case.service.ts` | `credentials.service.ts` |
-| Module routes | `[module].routes.ts` | `loadbalancer.routes.ts` |
-| Module types | `[module].types.ts` | `loadBalancer.types.ts` |
-| Flat controllers | `camelCase` | `authController.ts` |
-| Flat routes | `camelCase` | `authRoutes.ts` |
-| Client components | `PascalCase.tsx` | `LoadBalancerCard.tsx` |
-| Client lib/utils | `camelCase.ts` | `cloudRegions.ts` |
-| Test files | mirror source path under `__tests__/` | `__tests__/unit/jwt.test.ts` |
-
-### Folders
-| Scope | Convention | Example |
-|---|---|---|
-| Server modules | `camelCase` | `loadbalancer/`, `session/` |
-| Client components | `camelCase` | `dashboard/`, `loadbalancers/` |
-| Client pages (App Router) | `camelCase` or `[param]` | `loadbalancers/[id]/edit/` |
-
-### TypeScript
-- Interfaces: `PascalCase` prefixed with `I` for Mongoose docs (`IUser`, `ILoadBalancer`)
-- Types: `PascalCase` (`LoadBalancerStrategy`, `ApiResponse<T>`)
-- Functions: `camelCase` for functions, `PascalCase` for React components
-
----
-
-## Database Models
-
-### User
-| Field | Type | Notes |
-|---|---|---|
-| name | String | required, 2–100 chars |
-| email | String | unique, sparse (null for Google-only) |
-| username | String | unique, lowercase |
-| password | String | nullable (null for Google-only users) |
-| firebaseUid | String | unique, sparse (Google OAuth users) |
-| cloudflareAccountId | String | AES-256-GCM encrypted |
-| cloudflareApiToken | String | AES-256-GCM encrypted |
-| cloudflareAccountIdIv / Tag | String | IV + GCM tag for accountId |
-| cloudflareTokenIv / Tag | String | IV + GCM tag for apiToken |
-| totpDevices | Array\<ITotpDevice\> | unbounded; each `{ name, secret, iv, tag, confirmed, createdAt }`, secret AES-256-GCM encrypted |
-| passkeys | Array\<IPasskey\> | unbounded; each `{ name, credentialId, publicKey, counter, transports, createdAt }` |
-| preferredSecondFactor | String | `totp` \| `passkey` \| null — which method sign-in opens on |
-
-### LoadBalancer
-| Field | Type | Notes |
-|---|---|---|
-| userId | ObjectId | ref User |
-| name | String | 3–50 chars, lowercase + hyphens only, locked after creation |
-| scriptName | String | derived from name at creation; unique per user (compound index with `userId`) |
-| domain | String | CF zone domain |
-| subdomain | String | optional prefix |
-| origins | Array\<IOriginServer\> | min 1, each has url, weight, geo fields, isFallback |
-| strategy | String | enum (see strategies) |
-| weightedEnabled | Boolean | derived from strategy |
-| exposeRealOrigin | Boolean | adds X-Origin-Url header in Worker |
-| placement | Object | { smartPlacement, region } |
-| zoneId | String | Cloudflare zone ID |
-| status | String | `active` \| `paused` \| `inactive` |
-| pauseMode | String | `release-domain` \| `keep-domain` |
-| workerUrl | String | deployed Worker URL |
-| pathRoutes | Array\<IPathRoute\> | optional path-based origin routing rules: `path`, `originIndex`, `priority` |
-| pathRateLimits | Array\<IPathRateLimit\> | optional path-based rate limits: `path`, `requestsPerMinute`, `priority` |
-
-### Session
-Stores deployment history snapshots (Worker JS + config) per load balancer action.
-
-| Field | Type | Notes |
-|---|---|---|
-| userId | ObjectId | |
-| email | String | nullable |
-| content | String | full Worker script at time of deploy |
-| loadBalancerName | String | |
-| domain / subdomain | String | |
-| strategy | String | |
-| placement | Object | nullable |
-| exposeRealOrigin | Boolean | nullable |
-| actionType | String | `create` \| `edit` |
-| isActive | Boolean | false once LB deleted/updated |
-| loadBalancerId | ObjectId | nullable |
-
----
-
-## API Routes
-
-### Auth (`/api/auth`)
-| Method | Path | Notes |
-|---|---|---|
-| POST | `/google` | Firebase ID token → JWT. **The only credential** — there is no password login. |
-| POST | `/logout` | clears session + challenge cookies |
-| GET | `/me` | current user (protected) |
-| POST | `/2fa/setup` | `{ name }` → `{ deviceId, name, secret, otpauthUrl, qrDataUrl }` (protected) |
-| POST | `/2fa/confirm` | `{ deviceId, code }` → activates the device (protected) |
-| POST | `/2fa/remove` | `{ deviceId, code }` → revokes a device (protected) |
-| POST | `/2fa/verify` | `{ code }` → trades the challenge cookie for a session |
-| POST | `/2fa/passkey/register/options` | → WebAuthn creation options (protected) |
-| POST | `/2fa/passkey/register/verify` | `{ name, response }` → stores the passkey (protected) |
-| POST | `/2fa/passkey/auth/options` | → WebAuthn request options (gated by `eb_2fa`) |
-| POST | `/2fa/passkey/auth/verify` | `{ response }` → trades the challenge for a session |
-| POST | `/2fa/passkey/remove` | `{ passkeyId }` (protected) |
-| POST | `/2fa/preference` | `{ method: 'totp' \| 'passkey' \| null }` (protected) |
-
-### Two-Factor Authentication (TOTP + Passkeys)
-
-Authenticator apps only — no SMS, no email, **no recovery codes**. Redundancy comes from enrolling
-**any number of apps**, each a separate `totpDevices[]` subdocument with its own AES-256-GCM
-encrypted secret and a user-chosen name (required, ≤30 chars), so a lost phone is revoked without
-disturbing the others. Verification is a linear scan over enrolled devices; growth is bounded only
-by the `STRICT` rate limit on `/2fa/setup`.
-
-There is no `totpEnabled` column: 2FA is on iff at least one device is `confirmed` (`hasTotp()` in
-`services/totpService.ts` is the single definition).
-
-**Login is two-stage when 2FA is on.** `POST /auth/google` issues an `eb_2fa` cookie (5 min, JWT
-carrying `stage: 'pending-2fa'`) and returns `{ totpRequired: true }` *instead of* the `token`
-cookie. `POST /auth/2fa/verify` exchanges it. The challenge deliberately uses a different cookie
-name, and `authenticate` rejects any token carrying `stage` — otherwise a user could rename their
-own challenge cookie and skip the code screen.
-
-**Removal rule:** the code must come from a *different* confirmed device than the target — the
-lost-phone case, where the target's codes are gone. Only when it is the last device is its own code
-accepted; that path turns 2FA off.
-
-Codes are single-use for 90s via `acquireLock('totp:used:{userId}:{code}')` — no new Redis code, the
-key just expires. Drift window is ±1 step. All four routes use the `STRICT` rate limit.
-
-Client: `components/auth/OtpInput.tsx` is one transparent input over six boxes (paste, backspace,
-`one-time-code` autofill work for free) and auto-submits on the sixth digit — there is no submit
-button anywhere in the 2FA flow.
-
-#### Passkeys (WebAuthn)
-
-A second, parallel method — never a password replacement. Unlimited named passkeys in
-`passkeys[]`, verified through `@simplewebauthn/server` in `services/passkeyService.ts` (the only
-file importing it).
-
-**`authenticatorSelection` deliberately omits `authenticatorAttachment`.** Pinning it to
-`'platform'` — the common tutorial default — silently excludes every USB security key and every
-extension-based manager (Bitwarden, 1Password). Paired with `residentKey: 'discouraged'` (Google
-already identified the user, so no discoverable credential is needed, which keeps limited-slot and
-U2F-era keys working) and `userVerification: 'preferred'` (a PIN-less key still passes).
-
-**Challenges are stateless.** Rather than a Redis entry, the WebAuthn challenge rides inside the
-signed JWT cookie: `eb_2fa` for login (re-issued by `/passkey/auth/options`), `eb_pk_reg` for
-enrolment. Both carry `stage`, which `authenticate` rejects — so neither can be renamed into a
-session.
-
-**`rpID`** comes from the `CLIENT_URL` hostname, since WebAuthn binds to the origin the page runs
-on, not the API's. `WEBAUTHN_RP_ID` overrides it when passkeys should span sibling subdomains.
-
-**Login is symmetric between the two methods.** `POST /auth/google` returns
-`{ twoFactorRequired, methods, preferred }`; the client opens on `preferred`, and both the passkey
-and TOTP screens carry the same **Try another way** control, hidden when only one method exists.
-Removing a passkey needs only the session plus a confirm (standard passkey UX); removing a TOTP app
-still demands a live code, because a code is the only thing that proves possession there.
-
-### Cloudflare (`/api/cloudflare`)
-| Method | Path | Notes |
-|---|---|---|
-| POST | `/credentials` | save CF account ID + API token |
-| PUT | `/credentials` | update CF credentials |
-| GET | `/credentials` | get masked credentials |
-| GET | `/zones` | list CF zones from user account |
-
-### Load Balancers (`/api/loadbalancers`)
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/` | list user's LBs |
-| POST | `/` | create (validates hostname, deploys Worker) |
-| GET | `/:id` | get single LB |
-| PUT | `/:id` | update (uses CF Worker Versions, rollback on failure) |
-| DELETE | `/:id` | delete (removes Worker + domain) |
-| POST | `/validate-hostname` | preflight hostname conflict check |
-| POST | `/operations/:operationId/cancel` | cancel in-flight create/update |
-| POST | `/:id/pause` | pause (release-domain or keep-domain) |
-| POST | `/:id/resume` | resume paused LB |
-
-### Sessions (`/api/sessions`)
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/` | cursor-paginated list (filter: all/active/inactive) |
-| GET | `/:id/script` | raw Worker JS for a session |
-
-### AI Agent (`/api/ai`)
-| Method | Path | Notes |
-|---|---|---|
-| POST | `/generate` | `{ prompt, messages? }` → SSE stream of the agent turn. 3 per 15 min. |
-| GET | `/runs` | cursor-paginated run history |
-| GET | `/runs/:id` | single run with full steps |
-
-**SSE events:** `run_start`, `model_active`, `model_switch`, `status`, `tool_start`, `tool_result`,
-`done`, `error`.
-
-**Tools:** `find_tools` (progressive disclosure), `list_zones`, `list_load_balancers`,
-`create_load_balancer`, `update_load_balancer`, `delete_load_balancer`, `pause_load_balancer`,
-`resume_load_balancer`. There is no `ask_user` tool — the chat input is always visible, so
-questions are ordinary prose endings and the user's answer arrives as the next message of the chain.
-
-**Every tool executes for real.** All five mutating tools call the same orchestrators the REST
-routes use, so rollback semantics are identical. The safety gate is conversational: before a
-destructive step (`update`, `delete`, `pause`, `resume`) the agent ends its turn with a plain-text
-confirmation question — a zero-tool-call ending that settles as `success` — and only calls the
-tool after a clear yes appears in the conversation. Loading a mutating tool without calling it is
-therefore a legitimate pause, not a silent failure, and never triggers RCA.
-
-**Conversation chain:** the client owns the transcript and replays it on every call
-(`messages: [{role, content}]`, capped at 30 turns × 4000 chars). The server validates it,
-appends `prompt` as the newest user message, and rebuilds model context from it — so a
-clarification ("which balancer?", "are you confirm?") is just another turn.
-
-**One history entry per conversation:** a multi-turn session would otherwise litter `airuns`
-with one document per turn. The client captures the `runId` of the conversation's first
-`run_start` and echoes it back as `conversationId` on every continuation; `recordAiRun` then
-updates that document in place (`turns`, outcome, steps appended via `$push` with `$slice`,
-`durationMs` accumulated) instead of creating a new one. No schema field — the echoed runId is
-the key. A stale echo falls back to a standalone document. Closing the modal resets the chain.
-
-**Outcomes:** `success`, `failure`. Every turn that ends without tools — question, answer,
-acknowledged exit, out-of-scope refusal — settles as `success` with its prose as the message;
-only a broken run is `failure` (a user-cancelled run records `failure` with "Request cancelled").
-Retired values (`refused`, `needs_input`) may still exist in old documents and render via
-fallbacks. There is no REST confirmation endpoint any more — destructive actions happen inside
-the agent run after an in-conversation agreement.
-
-**Failure handling:** a tool that fails twice stops the run; a 409 conflict stops it on the first
-attempt — the agent must never rename or re-target to work around a conflict. Either way a final
-model call with `RCA_PROMPT` (no tools bound) writes the root-cause paragraph shown to the user.
-
-**Model ladder:** the OpenRouter free tier first, then the metered Mistral tier. Every id on the
-ladder passed a 3-step compliance
-eval against the real system prompt — `find_tools` → `list_zones` → a mandatory mid-conversation
-checkpoint — chained as real turns so each step replays the model's own prior
-response verbatim (synthetic canned history causes false rejections). Models that answer the
-checkpoint in plain prose dead-end a run, and a dead-end "success" is worse than a 429
-fall-through, so failed models are removed outright; when a whole tier fails, the provider goes
-(OpenCode Zen, then Gemini). The OpenRouter tier is additionally quality-gated — only
-large-flagship-class MoE models are even considered (nano/mini/xs variants removed) — and the
-Aug 21 2026 eval left `dots-3-note-preview:free` as its sole survivor: nemotron-super and
-nemotron-ultra answered the checkpoint in prose, the `openrouter/free` auto-router skipped the
-mandatory first tool call, and glm-5.2 stayed upstream-saturated. Within Mistral models are
-ordered by measured requests-per-second allowance, largest first. Free quota is spent before the
-metered one. Failures are classified, and only quota exhaustion is shared with other users:
-
-| Disposition | Trigger | Effect |
-|---|---|---|
-| `provider-exhausted` | OpenRouter 429 matching `DAILY_QUOTA_PATTERN` | 24h Redis cooldown, **global** |
-| `model-exhausted` | Mistral 429 | 90s Redis cooldown on that model, **global** |
-| `provider-dead` | 401/403 | provider skipped for **this run only** |
-| `transient` | anything else, incl. burst 429 | model skipped for **this run only** |
-
-Cooldown durations are defaults: a `Retry-After` header on the 429 overrides them, clamped to 24h.
-Mistral enforces limits **per model** (requests-per-second, which clears in a second, and
-tokens-per-minute, which clears within the minute) and also per workspace, shared across every API
-key in it — which is why one key means one shared budget for all users here.
-
-Mistral entries carry their header-measured `rps`; `tryConsume` paces them in Redis and the router
-moves down the ladder rather than waiting. Both providers are reached through `ChatOpenAI` with a
-different `baseURL`.
-
-**Concurrency:** runs are fully independent — separate HTTP calls, separate `trace`, separate tool
-instances. They share only the one server-wide API key per provider, so they share that upstream
-quota.
-
-### User (`/api/user`)
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/profile` | user profile |
-| PUT | `/password` | change password |
-
-### Health
-| Method | Path |
-|---|---|
-| GET | `/health` |
-
----
-
-## Routing Strategies
-
-| Strategy | Behavior |
-|---|---|
-| `round-robin` | Edge-local rotating cursor |
-| `weighted-round-robin` | Weighted random selection by origin weight |
-| `ip-hash` | Stable origin from `cf-connecting-ip` |
-| `cookie-sticky` | First request assigns origin, affinity by cookie |
-| `weighted-cookie-sticky` | Weighted first assignment, then affinity by cookie |
-| `failover` | Ordered retry; advances on 5xx or connection failure |
-| `geo-steering` | Match by CF `colo` → `country` → `continent` → fallback rotation |
-
----
-
-## Cloudflare Integration
-
-All Cloudflare API calls are **server-only** (never from client).
-
-**Required token permissions** — every one maps to an endpoint the code actually calls:
-
-| Permission | Used by |
-|---|---|
-| Account > Workers Scripts > Edit | `/accounts/{id}/workers/scripts` (deploy, versions, deployments, delete) and `/accounts/{id}/workers/domains` |
-| Account > Account Analytics > Read | `/client/v4/graphql` — request/error counts |
-| Zone > Zone > Read | `/zones` — zone list for the domain picker |
-| Zone > DNS > Edit | `/zones/{id}/dns_records` — grey-cloud records for raw-IP origins |
-
-**Optional:** Zone > Workers Routes > Read — `/zones/{id}/workers/routes`, the Worker Routes half of
-the hostname conflict check. Without it that check is skipped with a warning; deploys still work.
-
-**Not needed:** Workers KV Storage. Nothing binds or reads KV — it was only ever probed by its own
-validation check, which has been removed.
-
-**Hostname conflict detection:** `assertHostnameAvailable` checks two independent bindings —
-`GET /accounts/{id}/workers/domains` (Custom Domains) and `GET /zones/{id}/workers/routes` (Worker
-Routes). A Custom Domain silently takes precedence over a route covering the same hostname, so
-checking only the former would move live traffic off whatever Worker the route points at. Route
-patterns are matched with `routePatternCoversHostname` (`*` = zero or more chars, path ignored);
-routes with no `script` attached are bypass rules and are not conflicts. The route check needs a
-`zoneId` and is skipped when the caller has none. It is also skipped — with a warning, never an
-error — when the token returns 403/404 for the routes endpoint, since that permission is not part
-of the documented minimum and a missing safety net must not block deploys.
-
-**Key CF operations:**
-- `PUT /accounts/{id}/workers/scripts/{name}` — deploy Worker
-- `PUT /accounts/{id}/workers/domains` — attach hostname
-- Worker Versions + Deployments API — used for updates (not script re-deploy)
-- Domain detach → re-attach for hostname changes on update
-
----
-
-## Request Flow: Create Load Balancer
-
-```
-Client → POST /api/loadbalancers
-  → authenticate middleware
-  → createLoadBalancer controller
-    → createLoadBalancerOrchestrator
-      1. getCloudflareCredentialsForUser (decrypt from DB)
-      2. generateScriptName(name)
-      3. ensureWorkerNameAvailability (CF API check)
-      4. generateWorkerCode (from strategy template)
-      5. deployWorker → CF API
-      6. assertHostnameAvailable (CF API check — Custom Domains AND Worker Routes)
-      7. attachDomainToWorker → CF API → returns workerUrl
-      8. LoadBalancer.create() → MongoDB
-      9. createSession() → MongoDB (non-blocking, failure ignored)
-    ← formatted LB response
-  ← { success, data, message }
-```
-
-Step 2 first claims `lb:create:{accountId}:{scriptName}` via `acquireLock`, released in a
-`finally`. Cloudflare's script PUT is an upsert and `{userId, scriptName}` is uniquely indexed, so
-without the lock two concurrent creates of the same name overwrite each other's Worker and the
-loser's rollback deletes the winner's. The rollback is gated on holding that lock for the same
-reason. Redis being unreachable fails open — the create proceeds unlocked.
-
-The index is compound rather than global: Worker names only have to be unique within a Cloudflare
-account. **Migration** — Mongo does not drop the old global index automatically, so run
-`db.loadbalancers.dropIndex('scriptName_1')` once per environment.
-
-On any failure after Worker deploy: full rollback (delete Worker + DB record).
-
----
-
-## Response Format
-
-All API responses:
-```json
-{ "success": true|false, "data": <payload>, "message": "..." }
-```
-
----
-
-## Environment Variables
-
-### Client (`.env.local`)
-```
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
-```
-
-### Server (`.env`)
-```
-MONGODB_URI=mongodb+srv://...
-JWT_SECRET=                  # min 32 chars
-ENCRYPTION_KEY=              # exactly 64-char hex (32-byte AES key)
-PORT=8000
-CLIENT_URL=http://localhost:3000
-CORS_ORIGIN=http://localhost:3000
-FIREBASE_PROJECT_ID=
-FIREBASE_CLIENT_EMAIL=
-FIREBASE_PRIVATE_KEY=
-REDIS_URL=redis://localhost:6379
-MISTRAL_API_KEY=             # AI Agent — the metered Mistral tier
-OPENROUTER_API_KEY=          # AI Agent — leads the ladder with OpenRouter's free tier
-WEBAUTHN_RP_ID=              # optional — defaults to the CLIENT_URL hostname
-```
-
-### Kubernetes
-`k8s/deployment.yaml` pulls the whole server env from one secret via `envFrom.secretRef:
-edgebalancer-env`. That secret is rebuilt on every deploy from GitHub Actions secrets in
-`.github/workflows/deploy.yml`, so **a new variable is added there, not in the manifest**.
-`PORT` and `REDIS_URL` are the exceptions — they are literals in the deployment.
-
-Repository secrets required for the AI feature: `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`.
-
----
-
-## Development Commands
-
-### Client
+| Module files | `kebab-case.{controller,orchestrator,service,types}.ts` | `assign-domain.controller.ts` |
+| Flat controllers/routes | camelCase | `authRoutes.ts` |
+| Components | `PascalCase.tsx` | `LoadBalancerCard.tsx` |
+| Mongoose interfaces | `I` prefix | `IUser`, `ILoadBalancer` |
+| Client lib/utils | camelCase | `cloudRegions.ts` |
+
+## Key Concepts
+### Create lock & rollback
+Orchestrator claims `lb:create:{accountId}:{scriptName}` via `acquireLock` (Redis SET NX), released in `finally`. CF script PUT is an upsert, so the lock serialises same-name concurrent creates; rollback runs **only while holding the lock** (else it would delete the winning Worker). Redis down → fail open (create proceeds). Migration: drop old global index once per env — `db.loadbalancers.dropIndex('scriptName_1')`.
+
+### Idempotency & cancellation
+POST/PUT LB routes use the `fastifyIdempotency` plugin; clients send an `Idempotency-Key` header. Long ops register an `operationId` in `loadBalancerOperationStore`; `POST /operations/:id/cancel` sets a flag, and orchestrators call `cancellation.throwIfCancelled()` between steps → full rollback.
+
+### 2FA (TOTP + Passkeys)
+- Any number of named TOTP devices in `totpDevices[]`, each with its own AES-GCM encrypted secret. Remove must use a code from a **different** confirmed device; only the last device accepts its own code (that turns 2FA off).
+- Codes single-use for 90s via `acquireLock('totp:used:{userId}:{code}')`; drift ±1 step; all 2FA routes STRICT rate-limited. Client `OtpInput.tsx` auto-submits on 6th digit (no submit button).
+- Passkeys via `@simplewebauthn/server`. Stateless challenges ride inside the signed JWT cookie: `eb_2fa` (login) / `eb_pk_reg` (enroll). `authenticatorSelection` omits `authenticatorAttachment` (keeps USB keys + password managers), `residentKey: 'discouraged'`, `userVerification: 'preferred'`. `rpID` = CLIENT_URL hostname (`WEBAUTHN_RP_ID` overrides).
+- Login symmetric: `POST /auth/google` returns `{ twoFactorRequired, methods, preferred }`; both methods share a "Try another way" control (hidden if only one method).
+
+### AI Agent
+- `POST /api/ai/generate` streams SSE events: `run_start`, `model_active`, `model_switch`, `status`, `tool_start`, `tool_result`, `done`, `error`. 3 runs per 15 min.
+- Tools: `find_tools`, `list_zones`, `list_load_balancers`, `create/update/delete/pause/resume_load_balancer`. All execute for real via the REST orchestrators.
+- Conversation: client owns transcript, replays as `messages` (≤30 turns × 4000 chars). Client echoes the first `runId` as `conversationId` → one `AiRun` doc per conversation (in-place `$push`+`$slice` update). Stale echo → new standalone doc.
+- Safety: before `update/delete/pause/resume` the agent ends its turn with a prose confirmation (zero-tool ending = success, never RCA), calling the tool only after an explicit yes. Loading but not calling a mutating tool is a legitimate pause.
+- Failures: tool fails twice → stop run; 409 conflict → stop on first attempt (never rename/re-target); final model call with `RCA_PROMPT` (no tools) writes the root-cause paragraph. Outcomes: `success` | `failure`.
+- Ladder: free OpenRouter tier (quality-gated large MoE only) → Mistral (ordered by measured rps). Both via `ChatOpenAI` with different `baseURL`. `tryConsume` paces in Redis; router moves down, never waits.
+
+### Cloudflare integration
+- Required token permissions: Workers Scripts Edit, Account Analytics Read, Zone Read, DNS Edit (raw-IP origins). Optional: Workers Routes Read.
+- Hostname conflict check (`assertHostnameAvailable`) = Custom Domains + Worker Routes. Custom Domain silently beats a Route over the same hostname; `*` wildcards matched, path ignored; routes with no `script` are bypass rules (not conflicts). Route check skipped (warning, never error) on 403/404 or missing zoneId.
+- Updates use Worker Versions + Deployments API (not script re-deploy); hostname change = detach → re-attach. KV not used or bound.
+
+### Sessions (history)
+Every successful create/edit saves a `Session` with the full Worker JS + config snapshot. Immutable logs — marked `isActive: false` on update/delete, never edited.
+
+## Verification (run before ship)
+Client:
 ```bash
-cd client
-npm install
-npm run dev                  # localhost:3000
-npx tsc --noEmit             # type check
-npm test -- --runInBand      # tests (must use --runInBand)
+cd client && npx tsc --noEmit && npm test -- --runInBand
 ```
-
-### Server
+Server:
 ```bash
-cd server
-npm install
-npm run dev                  # localhost:8000 with pino-pretty
-npx tsc --ignoreDeprecations 6.0 --noEmit
-npm run build
-npm test                     # integration tests (requires DB + env)
+cd server && npx tsc --ignoreDeprecations 6.0 --noEmit && npm run build && npm test
 ```
+Test notes:
+- Client tests require `--runInBand`; Cloudflare + Firebase mocked.
+- Server tests are integration: real MongoDB via `mongodb-memory-server`, Redis mocked. Two users in one test must get distinct `firebaseUid` values (unique index — nulls collide).
+- AI tests need no API keys and make no network calls (provider + router services mocked; `/api/ai/generate` never exercised).
+- Worker generator tests are unit-level per strategy template.
 
----
-
-## Security Invariants
-
-- Cloudflare credentials: AES-256-GCM encrypted before MongoDB write; IV + GCM tag stored alongside
-- JWT: httpOnly cookie, 24h expiry
-- Passwords: bcrypt 10 rounds; null for Google-only users
-- CORS: restricted to `CORS_ORIGIN` env value
-- All inputs validated server-side before DB/CF operations
-- Error responses never leak credentials, stack traces, or internal IDs
-- `ENCRYPTION_KEY` must be exactly 64 hex chars; fail fast if wrong length
-
----
-
-## Idempotency
-
-POST and PUT routes on load balancers use the `fastifyIdempotency` plugin. Clients should send an `Idempotency-Key` header to safely retry in-flight operations.
-
----
-
-## Cancellation Pattern
-
-Long-running operations (create, update) register an `operationId` in `loadBalancerOperationStore`. The cancel endpoint calls `cancellation.cancel()` which sets a flag; orchestrators call `cancellation.throwIfCancelled()` between steps, triggering rollback cleanup.
-
----
-
-## Deployment History (Sessions)
-
-Every successful create/edit saves a `Session` record with the full generated Worker JS and config snapshot. Sessions are immutable logs — they are marked `isActive: false` when the LB is updated or deleted, never modified.
-
----
-
-## Responsive Layout (Client)
-
-| Breakpoint | Label | Behavior |
-|---|---|---|
-| < 640px | phone | sidebar hidden, full-width panels |
-| 640–1023px | tablet | collapsed sidebar |
-| ≥ 1024px | desktop | sidebar visible; create/edit panels use `.hide-lg` on list |
-
----
-
-## Test Notes
-
-- Client tests: `--runInBand` required; Cloudflare and Firebase are mocked
-- Server tests: integration only (real MongoDB); `firebaseUid` uses a unique index — two users in one test must be given distinct values, since nulls collide
-- AI tests need **no API keys** and make no network calls: `model-provider.service` and `model-router.service` are mocked, and no test exercises `/api/ai/generate`
-- Worker generator tests: unit-level, verify template output per strategy
-
----
+## Sync Rules
+- AGENTS.md ↔ root CLAUDE.md must remain byte-identical mirrors — never update one without the other.
+- Keep this file under 300 lines.
 
 ## graphify
-
-This project has a graphify knowledge graph at `graphify-out/`.
-
-Rules:
-- Use `graphify query "<question>"` as the DEFAULT codebase search: run it before any grep/glob/file-read, and fall back to raw search only when the graph returns nothing
-- Before answering architecture or codebase questions, read `graphify-out/GRAPH_REPORT.md` for god nodes and community structure
-- If `graphify-out/wiki/index.md` exists, navigate it instead of reading raw files
-- After modifying code files in this session, run `python3 -c "from graphify.watch import _rebuild_code; from pathlib import Path; _rebuild_code(Path('.'))"` to keep the graph current
+Knowledge graph at `graphify-out/`.
+- Default codebase search: `graphify query "<question>"` — before any grep/glob/file-read; fall back to raw search only when it returns nothing.
+- Read `graphify-out/GRAPH_REPORT.md` for god nodes/communities before architecture questions; navigate `graphify-out/wiki/index.md` if present.
+- After modifying code files: `python3 -c "from graphify.watch import _rebuild_code; from pathlib import Path; _rebuild_code(Path('.'))"`
