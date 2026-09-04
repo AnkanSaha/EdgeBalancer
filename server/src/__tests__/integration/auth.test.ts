@@ -105,8 +105,10 @@ describe('POST /api/auth/google', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().data.user.id).toBe(existing._id.toString());
 
-    const created = await User.findOne({ firebaseUid: 'uid-gh-merge-by-email' });
-    expect(created).toBeNull();
+    const stored = await User.findOne({ email: 'taken@example.com' });
+    expect(stored?._id.toString()).toBe(existing._id.toString());
+    expect(stored?.firebaseUid).toBe('uid-gh-merge-by-email');
+    expect(await User.countDocuments({ email: 'taken@example.com' })).toBe(1);
   });
 
   it('merges into an existing account via a verified email', async () => {
