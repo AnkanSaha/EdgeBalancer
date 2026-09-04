@@ -1,6 +1,8 @@
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
+import { useState } from 'react';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
+import { signInWithPopup } from 'firebase/auth';
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -92,5 +94,37 @@ describe('AuthContext', () => {
 
     await waitFor(() => expect(screen.getByText('Logged out')).toBeInTheDocument());
     expect(mockApi.logout).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects when the sign-in popup is closed without completing', async () => {
+    jest.useFakeTimers();
+    try {
+      mockApi.getCurrentUser.mockResolvedValueOnce({ success: true, data: { user: null }, message: 'ok' });
+      (signInWithPopup as jest.Mock).mockReturnValueOnce(new Promise(() => {}));
+
+      function LoginTester() {
+        const { loginWithGoogle } = useAuth();
+        const [error, setError] = useState('');
+        return (
+          <div>
+            <button onClick={() => loginWithGoogle().catch((e: Error) => setError(e.message))}>Login</button>
+            {error && <span>{error}</span>}
+          </div>
+        );
+      }
+
+      render(<AuthProvider><LoginTester /></AuthProvider>);
+      await act(async () => {});
+
+      fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+
+      await act(async () => {
+        jest.advanceTimersByTime(60001);
+      });
+
+      expect(screen.getByText(/The sign-in window did not complete/)).toBeInTheDocument();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

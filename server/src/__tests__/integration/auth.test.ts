@@ -2,6 +2,15 @@ import type { FastifyInstance } from 'fastify';
 import { buildServer } from '../../app';
 import { connectTestDb, clearCollections, closeTestDb } from '../helpers/db';
 import { createTestUser } from '../helpers/auth';
+import { User } from '../../models/User';
+
+const decodedToken = { email: '', name: 'GitHub User', uid: '', email_verified: false };
+
+jest.mock('../../config/firebase', () => ({
+  isFirebaseConfigured: () => true,
+  verifyFirebaseToken: async () => decodedToken,
+  initializeFirebaseAdmin: () => undefined,
+}));
 
 let app: FastifyInstance;
 
@@ -62,5 +71,51 @@ describe('GET /api/auth/me', () => {
       headers: { cookie: 'token=this.is.not.valid' },
     });
     expect(res.statusCode).toBe(401);
+  });
+});
+
+// ─── Federated sign-in (Google + GitHub) ──────────────────────────────────────
+
+describe('POST /api/auth/google', () => {
+  afterEach(() => {
+    decodedToken.email = '';
+    decodedToken.uid = '';
+    decodedToken.email_verified = false;
+  });
+
+  it('saves the email even when the provider reports it unverified (GitHub)', async () => {
+    decodedToken.email = 'gh-user@example.com';
+    decodedToken.uid = 'uid-gh-email';
+
+    const res = await app.inject({ method: 'POST', url: '/api/auth/google', payload: { idToken: 'x' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.user.email).toBe('gh-user@example.com');
+
+    const stored = await User.findOne({ firebaseUid: 'uid-gh-email' });
+    expect(stored?.email).toBe('gh-user@example.com');
+  });
+
+  it('does not merge into an existing account via an unverified email', async () => {
+    const { user: existing } = await createTestUser({ email: 'taken@example.com' });
+    decodedToken.email = 'taken@example.com';
+    decodedToken.uid = 'uid-gh-no-merge';
+
+    const res = await app.inject({ method: 'POST', url: '/api/auth/google', payload: { idToken: 'x' } });
+    expect(res.statusCode).toBe(200);
+
+    const created = await User.findOne({ firebaseUid: 'uid-gh-no-merge' });
+    expect(created).toBeDefined();
+    expect(created?._id.toString()).not.toBe(existing._id.toString());
+  });
+
+  it('merges into an existing account via a verified email', async () => {
+    const { user: existing } = await createTestUser({ email: 'verified@example.com' });
+    decodedToken.email = 'verified@example.com';
+    decodedToken.email_verified = true;
+    decodedToken.uid = 'uid-verified-merge';
+
+    const res = await app.inject({ method: 'POST', url: '/api/auth/google', payload: { idToken: 'x' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.user.id).toBe(existing._id.toString());
   });
 });

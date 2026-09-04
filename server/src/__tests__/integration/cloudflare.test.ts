@@ -4,6 +4,8 @@ import { connectTestDb, clearCollections, closeTestDb } from '../helpers/db';
 import { createTestUser } from '../helpers/auth';
 import { saveCloudflareCredentials, validateCloudflareCredentials } from '../../services/credentialsService';
 import { CloudflareClient } from '../../services/cloudflareClient';
+import { User } from '../../models/User';
+import { encrypt, hashCloudflareAccountId } from '../../utils';
 
 // Keep real save/get/mask — only mock the Cloudflare API hit
 jest.mock('../../services/credentialsService', () => {
@@ -111,6 +113,36 @@ describe('POST /api/cloudflare/credentials', () => {
     });
     expect(res.statusCode).toBe(401);
   });
+
+  it('409 when the same Cloudflare account is already linked to another user', async () => {
+    const { user: owner } = await createTestUser();
+    await saveCloudflareCredentials(owner._id.toString(), FAKE_ACCOUNT_ID, FAKE_API_TOKEN);
+
+    const { cookie } = await createTestUser({ firebaseUid: 'uid-dup-cf' });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/cloudflare/credentials',
+      headers: cookie,
+      payload: { accountId: FAKE_ACCOUNT_ID, apiToken: FAKE_API_TOKEN },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().success).toBe(false);
+    expect(res.json().message).toMatch(/already linked/i);
+  });
+
+  it('200 when the same user re-links their own Cloudflare account', async () => {
+    const { user, cookie } = await createTestUser();
+    await saveCloudflareCredentials(user._id.toString(), FAKE_ACCOUNT_ID, FAKE_API_TOKEN);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/cloudflare/credentials',
+      headers: cookie,
+      payload: { accountId: FAKE_ACCOUNT_ID, apiToken: FAKE_API_TOKEN },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().success).toBe(true);
+  });
 });
 
 // ─── Get Credentials ──────────────────────────────────────────────────────────
@@ -148,6 +180,61 @@ describe('GET /api/cloudflare/credentials', () => {
   it('401 when not authenticated', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/cloudflare/credentials' });
     expect(res.statusCode).toBe(401);
+  });
+});
+
+// ─── Disconnect OAuth ─────────────────────────────────────────────────────────
+
+describe('POST /api/cloudflare/oauth/disconnect', () => {
+  it('clears the encrypted account id when no manual token exists', async () => {
+    const { user, cookie } = await createTestUser({ firebaseUid: 'uid-oauth-disc' });
+    const enc = encrypt('some-account-id');
+    const token = encrypt('access-token');
+    await User.findByIdAndUpdate(user._id, {
+      cloudflareAccountId: enc.encrypted,
+      cloudflareAccountIdIv: enc.iv,
+      cloudflareAccountIdTag: enc.tag,
+      cloudflareAccountHash: hashCloudflareAccountId('some-account-id'),
+      cloudflareOAuthToken: token.encrypted,
+      cloudflareOAuthTokenIv: token.iv,
+      cloudflareOAuthTokenTag: token.tag,
+      cloudflareOAuthConnected: true,
+    });
+
+    const res = await app.inject({ method: 'POST', url: '/api/cloudflare/oauth/disconnect', headers: cookie });
+    expect(res.statusCode).toBe(200);
+
+    const stored = await User.findById(user._id);
+    expect(stored?.cloudflareOAuthConnected).toBe(false);
+    expect(stored?.cloudflareAccountId).toBeNull();
+    expect(stored?.cloudflareAccountIdIv).toBeNull();
+    expect(stored?.cloudflareAccountIdTag).toBeNull();
+    expect(stored?.cloudflareAccountHash).toBeUndefined();
+  });
+
+  it('keeps the encrypted account id when a manual token is in use', async () => {
+    const { user, cookie } = await createTestUser({ firebaseUid: 'uid-oauth-disc-manual' });
+    const enc = encrypt('manual-account-id');
+    const token = encrypt('access-token');
+    await User.findByIdAndUpdate(user._id, {
+      cloudflareAccountId: enc.encrypted,
+      cloudflareAccountIdIv: enc.iv,
+      cloudflareAccountIdTag: enc.tag,
+      cloudflareApiToken: encrypt('manual-token').encrypted,
+      cloudflareTokenIv: encrypt('manual-token').iv,
+      cloudflareTokenTag: encrypt('manual-token').tag,
+      cloudflareOAuthToken: token.encrypted,
+      cloudflareOAuthTokenIv: token.iv,
+      cloudflareOAuthTokenTag: token.tag,
+      cloudflareOAuthConnected: true,
+    });
+
+    const res = await app.inject({ method: 'POST', url: '/api/cloudflare/oauth/disconnect', headers: cookie });
+    expect(res.statusCode).toBe(200);
+
+    const stored = await User.findById(user._id);
+    expect(stored?.cloudflareOAuthConnected).toBe(false);
+    expect(stored?.cloudflareAccountId).not.toBeNull();
   });
 });
 

@@ -157,6 +157,20 @@ describe('GoogleAuthPanel', () => {
     expect(screen.getByText(/isn't configured on this deployment/i)).toBeInTheDocument();
   });
 
+  it('shows the busy label only on the clicked provider', async () => {
+    const pending = new Promise(() => {});
+    const loginWithGitHub = jest.fn().mockReturnValue(pending);
+    mockUseAuth.mockReturnValue(authState({ loginWithGitHub }));
+
+    render(<GoogleAuthPanel mode="signin" />);
+    await userEvent.click(screen.getByRole('button', { name: /Continue with GitHub/i }));
+
+    expect(screen.getByRole('button', { name: /Signing in with GitHub.../i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Continue with Google/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Signing in with Google/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Continue with Google/i })).toBeDisabled();
+  });
+
   it('redirects an already-authenticated visitor away', async () => {
     mockUseAuth.mockReturnValue(authState({ user: { id: '1', name: 'Ada', email: 'ada@example.com' } as any }));
     render(<GoogleAuthPanel mode="signin" />);

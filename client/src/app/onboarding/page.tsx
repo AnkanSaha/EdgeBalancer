@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
@@ -28,6 +28,18 @@ export default function OnboardingPage() {
       toast.error('Failed to sign out');
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('error');
+    if (error === 'account_linked') {
+      toast.error('That Cloudflare account is already linked to another EdgeBalancer account.');
+      window.history.replaceState(null, '', window.location.pathname);
+    } else if (error === 'oauth_failed') {
+      toast.error('Could not complete the Cloudflare connection. Please try again.');
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
 
   const handleOAuthConnect = async () => {
     setLoading(true);

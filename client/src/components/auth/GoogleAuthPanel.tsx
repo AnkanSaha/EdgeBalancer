@@ -20,7 +20,8 @@ const COPY = {
     subtitle: 'Continue with the account you signed up with.',
     cta: 'Continue with Google',
     ctaGithub: 'Continue with GitHub',
-    busy: 'Signing in...',
+    busy: 'Signing in with Google...',
+    busyGithub: 'Signing in with GitHub...',
     success: 'Signed in with Google',
     successGithub: 'Signed in with GitHub',
     failure: 'Google sign-in failed',
@@ -36,7 +37,8 @@ const COPY = {
     subtitle: 'Sign up with Google or GitHub — nothing to remember, no credit card.',
     cta: 'Sign up with Google',
     ctaGithub: 'Sign up with GitHub',
-    busy: 'Creating account...',
+    busy: 'Creating account with Google...',
+    busyGithub: 'Creating account with GitHub...',
     success: 'Account created with Google',
     successGithub: 'Account created with GitHub',
     failure: 'Google sign-up failed',
@@ -48,12 +50,13 @@ const COPY = {
 };
 
 type Stage = null | 'passkey' | 'totp' | 'choose';
+type Busy = 'google' | 'github' | 'passkey' | 'totp' | null;
 
 export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
   const router = useRouter();
   const { user, loginWithGoogle, loginWithGitHub, verifyTotp, verifyPasskey, loading: authLoading } = useAuth();
   const copy = COPY[mode];
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState<Busy>(null);
   const [stage, setStage] = useState<Stage>(null);
   const [methods, setMethods] = useState<SecondFactorMethod[]>([]);
   const [code, setCode] = useState('');
@@ -74,7 +77,7 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
   // cookie is single-use, so a second ceremony would fail with an expired-session error.
   const startPasskey = async () => {
     setStage('passkey');
-    setLoading(true);
+    setBusy('passkey');
     try {
       await verifyPasskey();
       finish('Signed in');
@@ -82,12 +85,12 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
       toast.error(error.message || 'Passkey sign-in failed');
       setStage('choose');
     } finally {
-      setLoading(false);
+      setBusy(null);
     }
   };
 
-  const handleLogin = async (login: () => Promise<{ twoFactorRequired: boolean; methods: SecondFactorMethod[]; preferred: SecondFactorMethod | null }>, success: string, failure: string) => {
-    setLoading(true);
+  const handleLogin = async (provider: 'google' | 'github', login: () => Promise<{ twoFactorRequired: boolean; methods: SecondFactorMethod[]; preferred: SecondFactorMethod | null }>, success: string, failure: string) => {
+    setBusy(provider);
     try {
       const { twoFactorRequired, methods: available, preferred } = await login();
 
@@ -109,15 +112,15 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
     } catch (error: any) {
       toast.error(error.message || failure);
     } finally {
-      setLoading(false);
+      setBusy(null);
     }
   };
 
-  const handleGoogle = () => handleLogin(loginWithGoogle, copy.success, copy.failure);
-  const handleGitHub = () => handleLogin(loginWithGitHub, copy.successGithub, copy.failureGithub);
+  const handleGoogle = () => handleLogin('google', loginWithGoogle, copy.success, copy.failure);
+  const handleGitHub = () => handleLogin('github', loginWithGitHub, copy.successGithub, copy.failureGithub);
 
   const handleCode = async (value: string) => {
-    setLoading(true);
+    setBusy('totp');
     setCodeError(false);
     try {
       await verifyTotp(value);
@@ -127,7 +130,7 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
       setCodeError(true);
       setCode('');
     } finally {
-      setLoading(false);
+      setBusy(null);
     }
   };
 
@@ -149,7 +152,7 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
   if (stage) {
     const tryAnotherWay = methods.length > 1 && (
       <div style={{ textAlign: 'center', marginTop: 24 }}>
-        <button type="button" onClick={() => setStage('choose')} disabled={loading}
+        <button type="button" onClick={() => setStage('choose')} disabled={busy !== null}
           style={{ color: 'var(--accent)', fontWeight: 500, fontSize: 13 }}>
           Try another way
         </button>
@@ -188,11 +191,11 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
               onChange={(value) => { setCode(value); if (codeError) setCodeError(false); }}
               onComplete={handleCode}
               error={codeError}
-              disabled={loading}
+              disabled={busy !== null}
             />
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 20, minHeight: 20, fontSize: 13, color: 'var(--text-3)' }}>
-              {loading ? (
+              {busy !== null ? (
                 <>
                   <div style={{
                     width: 14, height: 14,
@@ -242,18 +245,18 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
         <>
           <button type="button" className="btn btn-dark btn-lg"
             onClick={handleGoogle}
-            disabled={loading}
+            disabled={busy !== null}
             style={{ width: '100%', justifyContent: 'center' }}>
-            <GoogleG /> {loading ? copy.busy : copy.cta}
+            <GoogleG /> {busy === 'google' ? copy.busy : copy.cta}
           </button>
 
           <Divider label="or" />
 
           <button type="button" className="btn btn-dark btn-lg"
             onClick={handleGitHub}
-            disabled={loading}
+            disabled={busy !== null}
             style={{ width: '100%', justifyContent: 'center' }}>
-            <GithubMark /> {loading ? copy.busy : copy.ctaGithub}
+            <GithubMark /> {busy === 'github' ? copy.busyGithub : copy.ctaGithub}
           </button>
         </>
       ) : (

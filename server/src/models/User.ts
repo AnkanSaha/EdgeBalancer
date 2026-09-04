@@ -34,6 +34,7 @@ export interface IUser extends Document {
   cloudflareTokenIv?: string;
   cloudflareAccountIdTag?: string;
   cloudflareTokenTag?: string;
+  cloudflareAccountHash?: string;
   // OAuth credentials
   cloudflareOAuthToken?: string;
   cloudflareOAuthTokenIv?: string;
@@ -121,6 +122,13 @@ const UserSchema = new Schema<IUser>(
     cloudflareAccountId: {
       type: String,
       default: null,
+    },
+    cloudflareAccountHash: {
+      type: String,
+      index: {
+        unique: true,
+        partialFilterExpression: { cloudflareAccountHash: { $type: 'string' } },
+      },
     },
     cloudflareApiToken: {
       type: String,

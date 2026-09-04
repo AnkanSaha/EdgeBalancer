@@ -14,6 +14,7 @@ import {
   disconnectOAuth,
   validateState,
 } from '../services/oauth.service';
+import { CloudflareAccountAlreadyLinkedError } from '../utils/cloudflareHash';
 import type { AppRequest as Request, AppResponse as Response, NextFunction } from '../types/http';
 
 export const saveCredentials = async (req: Request, res: Response, next: NextFunction) => {
@@ -221,9 +222,10 @@ export const oauthCallback = async (req: Request, res: Response, _next: NextFunc
     // Redirect to dashboard with success indicator
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
     res.redirect(`${clientUrl}/loadbalancers?cf=connected`);
-  } catch {
+  } catch (error) {
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-    res.redirect(`${clientUrl}/onboarding?error=oauth_failed`);
+    const reason = error instanceof CloudflareAccountAlreadyLinkedError ? 'account_linked' : 'oauth_failed';
+    res.redirect(`${clientUrl}/onboarding?error=${reason}`);
   }
 };
 

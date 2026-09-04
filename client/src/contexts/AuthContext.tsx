@@ -26,6 +26,26 @@ export interface TwoFactorChallenge {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const POPUP_TIMEOUT_MS = 60000;
+
+const withPopupTimeout = <T,>(promise: Promise<T>): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error('The sign-in window did not complete. Please try again.')),
+      POPUP_TIMEOUT_MS
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const auth = getFirebaseAuth();
 
     try {
-      const result = await signInWithPopup(auth, provider);
+      const result = await withPopupTimeout(signInWithPopup(auth, provider));
       const idToken = await result.user.getIdToken();
 
       const response = await api.googleAuth({ idToken });

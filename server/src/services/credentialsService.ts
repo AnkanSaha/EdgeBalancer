@@ -1,5 +1,10 @@
 import { User } from '../models/User';
 import { encrypt, decrypt, maskToken, maskAccountId } from '../utils';
+import {
+  assertCloudflareAccountAvailable,
+  CloudflareAccountAlreadyLinkedError,
+  isDuplicateKeyError,
+} from '../utils/cloudflareHash';
 import { CloudflareClient } from './cloudflareClient';
 import { refreshOAuthToken, isOAuthTokenExpired } from './oauth.service';
 
@@ -56,19 +61,29 @@ export const saveCloudflareCredentials = async (
   accountId: string,
   apiToken: string
 ): Promise<void> => {
+  const accountHash = await assertCloudflareAccountAvailable(accountId, userId);
+
   // Encrypt credentials
   const encryptedAccountId = encrypt(accountId);
   const encryptedApiToken = encrypt(apiToken);
 
   // Update user
-  await User.findByIdAndUpdate(userId, {
-    cloudflareAccountId: encryptedAccountId.encrypted,
-    cloudflareAccountIdIv: encryptedAccountId.iv,
-    cloudflareAccountIdTag: encryptedAccountId.tag,
-    cloudflareApiToken: encryptedApiToken.encrypted,
-    cloudflareTokenIv: encryptedApiToken.iv,
-    cloudflareTokenTag: encryptedApiToken.tag,
-  });
+  try {
+    await User.findByIdAndUpdate(userId, {
+      cloudflareAccountId: encryptedAccountId.encrypted,
+      cloudflareAccountIdIv: encryptedAccountId.iv,
+      cloudflareAccountIdTag: encryptedAccountId.tag,
+      cloudflareApiToken: encryptedApiToken.encrypted,
+      cloudflareTokenIv: encryptedApiToken.iv,
+      cloudflareTokenTag: encryptedApiToken.tag,
+      cloudflareAccountHash: accountHash,
+    });
+  } catch (error) {
+    if (isDuplicateKeyError(error)) {
+      throw new CloudflareAccountAlreadyLinkedError();
+    }
+    throw error;
+  }
 };
 
 export const getCloudflareCredentials = async (userId: string): Promise<{
