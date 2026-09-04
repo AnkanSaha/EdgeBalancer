@@ -2,15 +2,16 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { api } from '@/lib/api';
-import { getFirebaseAuth, googleAuthProvider } from '@/lib/firebase';
+import { getFirebaseAuth, googleAuthProvider, githubAuthProvider } from '@/lib/firebase';
 import type { SecondFactorMethod, User } from '@/types/api';
 import { authenticateWithPasskey } from '@/lib/passkey';
-import { signInWithPopup, signOut } from 'firebase/auth';
+import { signInWithPopup, signOut, AuthProvider as FirebaseAuthProvider } from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   loginWithGoogle: () => Promise<TwoFactorChallenge>;
+  loginWithGitHub: () => Promise<TwoFactorChallenge>;
   verifyTotp: (code: string) => Promise<void>;
   verifyPasskey: () => Promise<void>;
   logout: () => Promise<void>;
@@ -48,16 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, []);
 
-  const loginWithGoogle = async (): Promise<TwoFactorChallenge> => {
+  const loginWithProvider = async (provider: FirebaseAuthProvider): Promise<TwoFactorChallenge> => {
     const auth = getFirebaseAuth();
 
     try {
-      const result = await signInWithPopup(auth, googleAuthProvider);
+      const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
 
       const response = await api.googleAuth({ idToken });
 
-      // With 2FA on, Google only earns a challenge — the session comes from a second factor.
+      // With 2FA on, the identity provider only earns a challenge — the session comes from a second factor.
       if (response.data?.twoFactorRequired) {
         return {
           twoFactorRequired: true,
@@ -67,18 +68,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (!response.success || !response.data?.user) {
-        throw new Error(response.message || 'Google sign-in failed');
+        throw new Error(response.message || 'Social sign-in failed');
       }
 
       setUser(response.data.user);
       return { twoFactorRequired: false, methods: [], preferred: null };
     } catch (error) {
-      console.error('Google login error:', error);
+      console.error('Social login error:', error);
       throw error;
     } finally {
       await signOut(auth);
     }
   };
+
+  const loginWithGoogle = () => loginWithProvider(googleAuthProvider);
+  const loginWithGitHub = () => loginWithProvider(githubAuthProvider);
 
   const verifyTotp = async (code: string) => {
     const response = await api.verifyTotp({ code });
@@ -110,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, loginWithGoogle, verifyTotp, verifyPasskey, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, loginWithGoogle, loginWithGitHub, verifyTotp, verifyPasskey, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

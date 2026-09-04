@@ -12,6 +12,7 @@ jest.mock('@/lib/firebase', () => ({
   isFirebaseConfigured: () => true,
   getFirebaseAuth: () => ({}),
   googleAuthProvider: {},
+  githubAuthProvider: {},
 }));
 jest.mock('firebase/auth', () => ({
   signInWithPopup: jest.fn().mockResolvedValue({ user: { getIdToken: async () => 'tok' } }),

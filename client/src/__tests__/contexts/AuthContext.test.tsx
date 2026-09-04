@@ -13,6 +13,7 @@ jest.mock('@/lib/api', () => ({
 jest.mock('@/lib/firebase', () => ({
   getFirebaseAuth: jest.fn(),
   googleAuthProvider: {},
+  githubAuthProvider: {},
   isFirebaseConfigured: jest.fn().mockReturnValue(false),
 }));
 

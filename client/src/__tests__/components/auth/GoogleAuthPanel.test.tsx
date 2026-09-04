@@ -19,6 +19,7 @@ const authState = (over: Partial<ReturnType<typeof useAuth>> = {}) => ({
   user: null,
   loading: false,
   loginWithGoogle: jest.fn().mockResolvedValue({ twoFactorRequired: false, methods: [], preferred: null }),
+  loginWithGitHub: jest.fn().mockResolvedValue({ twoFactorRequired: false, methods: [], preferred: null }),
   verifyTotp: jest.fn().mockResolvedValue(undefined),
   verifyPasskey: jest.fn().mockResolvedValue(undefined),
   logout: jest.fn(),
@@ -33,19 +34,21 @@ beforeEach(() => {
 });
 
 describe('GoogleAuthPanel', () => {
-  it('offers Google as the only credential in signin mode', () => {
+  it('offers Google and GitHub in signin mode', () => {
     render(<GoogleAuthPanel mode="signin" />);
     expect(screen.getByRole('button', { name: /Continue with Google/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Continue with GitHub/i })).toBeInTheDocument();
     expect(document.querySelectorAll('input')).toHaveLength(0);
   });
 
-  it('offers Google as the only credential in signup mode', () => {
+  it('offers Google and GitHub in signup mode', () => {
     render(<GoogleAuthPanel mode="signup" />);
     expect(screen.getByRole('button', { name: /Sign up with Google/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sign up with GitHub/i })).toBeInTheDocument();
     expect(document.querySelectorAll('input')).toHaveLength(0);
   });
 
-  it('signs in and redirects to overview', async () => {
+  it('signs in with Google and redirects to overview', async () => {
     const loginWithGoogle = jest.fn().mockResolvedValue({ twoFactorRequired: false, methods: [], preferred: null });
     mockUseAuth.mockReturnValue(authState({ loginWithGoogle }));
 
@@ -53,6 +56,17 @@ describe('GoogleAuthPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: /Continue with Google/i }));
 
     await waitFor(() => expect(loginWithGoogle).toHaveBeenCalledTimes(1));
+    expect(push).toHaveBeenCalledWith('/overview');
+  });
+
+  it('signs in with GitHub and redirects to overview', async () => {
+    const loginWithGitHub = jest.fn().mockResolvedValue({ twoFactorRequired: false, methods: [], preferred: null });
+    mockUseAuth.mockReturnValue(authState({ loginWithGitHub }));
+
+    render(<GoogleAuthPanel mode="signin" />);
+    await userEvent.click(screen.getByRole('button', { name: /Continue with GitHub/i }));
+
+    await waitFor(() => expect(loginWithGitHub).toHaveBeenCalledTimes(1));
     expect(push).toHaveBeenCalledWith('/overview');
   });
 
