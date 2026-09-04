@@ -56,43 +56,70 @@ export const googleAuth = async (req: Request, res: Response, next: NextFunction
     // Check if Firebase is configured
     if (!isFirebaseConfigured()) {
       res.status(503);
-      throw new Error('Google authentication is not configured on this server');
+      throw new Error('Authentication is not configured on this server');
     }
 
     const { idToken } = req.body;
 
     if (!idToken) {
       res.status(400);
-      throw new Error('Google authentication requires an ID token');
+      throw new Error('Social login requires an ID token');
     }
 
     // 1. Verify Firebase ID token
     const decodedToken = await verifyFirebaseToken(idToken);
-    const { email, name, uid, email_verified } = decodedToken;
+    const { email, name, uid } = decodedToken;
 
-    if (!email || !email_verified) {
+    if (!uid) {
       res.status(400);
-      throw new Error('A verified Google email is required');
+      throw new Error('Invalid Firebase ID token');
     }
 
+    const claimedEmail = email ? email.toLowerCase() : null;
+
     // 2. Find or create user
-    let user = await User.findOne({ 
-      $or: [{ firebaseUid: uid }, { email: email.toLowerCase() }] 
-    });
+    let user = claimedEmail
+      ? await User.findOne({ $or: [{ firebaseUid: uid }, { email: claimedEmail }] })
+      : await User.findOne({ firebaseUid: uid });
 
     if (!user) {
-      const username = await generateUsername(name || email.split('@')[0]);
-      user = await User.create({
-        name: name || email.split('@')[0],
-        email: email.toLowerCase(),
-        username,
-        firebaseUid: uid,
-      });
+      const base = name?.trim() || (claimedEmail ? claimedEmail.split('@')[0] : '') || 'user';
+      const username = await generateUsername(base);
+      const displayName = base.length >= 2 ? base : 'EdgeBalancer User';
+
+      try {
+        user = await User.create({
+          name: displayName,
+          email: claimedEmail,
+          username,
+          firebaseUid: uid,
+        });
+      } catch (error: any) {
+        if (error?.code === 11000 && claimedEmail) {
+          user = await User.findOne({ email: claimedEmail });
+        }
+        if (!user) {
+          throw error;
+        }
+      }
     } else {
       // Sync firebaseUid if not already set (e.g., if user registered with email previously)
       if (!user.firebaseUid) {
         user.firebaseUid = uid;
         await user.save();
+      }
+
+      // Backfill the provider email onto an account created without one (e.g. unverified GitHub)
+      if (claimedEmail && !user.email) {
+        try {
+          user.email = claimedEmail;
+          await user.save();
+        } catch (error: any) {
+          // Email already owned by someone else — keep the account as-is rather than failing login.
+          if (error?.code !== 11000) {
+            throw error;
+          }
+        }
       }
     }
 

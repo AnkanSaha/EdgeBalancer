@@ -1,7 +1,5 @@
-'use client';
-
-import { GoogleAuthPanel } from '@/components/auth/GoogleAuthPanel';
+import { redirect } from 'next/navigation';
 
 export default function RegisterPage() {
-  return <GoogleAuthPanel mode="signup" />;
+  redirect('/login');
 }

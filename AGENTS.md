@@ -6,7 +6,7 @@ SaaS control plane for deploying and managing Cloudflare Worker-based load balan
 ## Rules
 - All Cloudflare API calls are **server-only** (never from client). Client calls the backend directly via `NEXT_PUBLIC_API_URL` with httpOnly cookies (`withCredentials: true`).
 - Cloudflare credentials AES-256-GCM encrypted at rest; IV + GCM tag stored alongside. `ENCRYPTION_KEY` must be exactly 64 hex chars — fail fast otherwise.
-- Auth: Firebase (Google) OAuth → JWT in httpOnly cookie, 24h expiry. No password login. 2FA challenge tokens carry `stage` and `authenticate` rejects any token with `stage` — never forge/rename challenge cookies into sessions.
+- Auth: Firebase OAuth (Google + GitHub) → JWT in httpOnly cookie, 24h expiry. No password login, single sign-in page (`/login`; `/register` 307s to it). Identity anchor is the Firebase `uid` — the provider's claimed email (verified or not) may match into the account that already owns it; the same email is never allowed to create a duplicate account. Firebase's "One account per email address" must be OFF in the console (it otherwise rejects matching GitHub sign-ins with `auth/account-exists-with-different-credential` before our merge can run). 2FA challenge tokens carry `stage` and `authenticate` rejects any token with `stage` — never forge/rename challenge cookies into sessions.
 - Destructive AI tools call the **same orchestrators** as REST routes (identical rollback semantics). No `ask_user` tool — clarifications are plain prose.
 - No code comments unless asked.
 
@@ -66,6 +66,7 @@ POST/PUT LB routes use the `fastifyIdempotency` plugin; clients send an `Idempot
 
 ### Cloudflare integration
 - Required token permissions: Workers Scripts Edit, Account Analytics Read, Zone Read, DNS Edit (raw-IP origins). Optional: Workers Routes Read.
+- One Cloudflare account may link to exactly one EdgeBalancer account: a deterministic HMAC-SHA256 fingerprint of the account ID (`cloudflareAccountHash`, sparse-unique) + a pre-save 409 check on both the manual and OAuth connect paths. Disconnecting OAuth clears the fingerprint. Backfill existing users before the unique index builds.
 - Hostname conflict check (`assertHostnameAvailable`) = Custom Domains + Worker Routes. Custom Domain silently beats a Route over the same hostname; `*` wildcards matched, path ignored; routes with no `script` are bypass rules (not conflicts). Route check skipped (warning, never error) on 403/404 or missing zoneId.
 - Updates use Worker Versions + Deployments API (not script re-deploy); hostname change = detach → re-attach. KV not used or bound.
 

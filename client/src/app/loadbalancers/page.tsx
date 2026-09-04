@@ -38,6 +38,13 @@ export default function DashboardPage() {
     return () => clearTimeout(t);
   }, [searchValue]);
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('cf') === 'connected') {
+      toast.success('Cloudflare account connected');
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
+
   const fetchAnalytics = useCallback(async () => {
     try {
       setAnalyticsLoading(true);

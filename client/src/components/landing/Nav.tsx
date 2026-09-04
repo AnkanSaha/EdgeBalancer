@@ -38,7 +38,7 @@ export function Nav() {
           ) : (
             <>
               <button className="btn btn-ghost btn-sm" onClick={() => router.push('/login')} style={{ fontSize: 'clamp(12px, 2vw, 13px)' }}>Sign in</button>
-              <button className="btn btn-primary btn-sm" onClick={() => router.push('/register')} style={{ fontSize: 'clamp(12px, 2vw, 13px)' }}>
+              <button className="btn btn-primary btn-sm" onClick={() => router.push('/login')} style={{ fontSize: 'clamp(12px, 2vw, 13px)' }}>
                 Get started <Icons.Arrow size={14} />
               </button>
             </>

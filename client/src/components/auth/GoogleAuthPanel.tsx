@@ -3,51 +3,36 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { AuthLayout, GoogleG } from '@/components/auth/AuthLayout';
+import { AuthLayout, GoogleG, GithubMark, Divider } from '@/components/auth/AuthLayout';
 import { OtpInput } from '@/components/auth/OtpInput';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { Icons } from '@/components/shared/Icons';
 import toast from 'react-hot-toast';
 import type { SecondFactorMethod } from '@/types/api';
 
-/** Sign-in and sign-up are the same Google popup — the server does find-or-create.
- *  Only the copy differs, so both routes render this. */
 const COPY = {
-  signin: {
-    step: 'signin' as const,
-    kicker: '// Welcome back',
-    title: 'Sign in',
-    subtitle: 'Continue with the Google account you signed up with.',
-    cta: 'Continue with Google',
-    busy: 'Signing in...',
-    success: 'Signed in with Google',
-    failure: 'Google sign-in failed',
-    altPrompt: "Don't have an account?",
-    altLabel: 'Create account',
-    altHref: '/register',
-  },
-  signup: {
-    step: 'register' as const,
-    kicker: '// Step 01 of 03',
-    title: 'Create your account',
-    subtitle: 'Sign up with Google — nothing to remember, no credit card.',
-    cta: 'Sign up with Google',
-    busy: 'Creating account...',
-    success: 'Account created with Google',
-    failure: 'Google sign-up failed',
-    altPrompt: 'Already have an account?',
-    altLabel: 'Sign in',
-    altHref: '/login',
-  },
+  step: 'signin' as const,
+  kicker: '// Get started',
+  title: 'Sign in or create an account',
+  subtitle: 'Continue with Google or GitHub — your account is created automatically.',
+  cta: 'Continue with Google',
+  ctaGithub: 'Continue with GitHub',
+  busy: 'Signing in with Google...',
+  busyGithub: 'Signing in with GitHub...',
+  success: 'Signed in with Google',
+  successGithub: 'Signed in with GitHub',
+  failure: 'Google sign-in failed',
+  failureGithub: 'GitHub sign-in failed',
 };
 
 type Stage = null | 'passkey' | 'totp' | 'choose';
+type Busy = 'google' | 'github' | 'passkey' | 'totp' | null;
 
-export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
+export function GoogleAuthPanel() {
   const router = useRouter();
-  const { user, loginWithGoogle, verifyTotp, verifyPasskey, loading: authLoading } = useAuth();
-  const copy = COPY[mode];
-  const [loading, setLoading] = useState(false);
+  const { user, loginWithGoogle, loginWithGitHub, verifyTotp, verifyPasskey, loading: authLoading } = useAuth();
+  const copy = COPY;
+  const [busy, setBusy] = useState<Busy>(null);
   const [stage, setStage] = useState<Stage>(null);
   const [methods, setMethods] = useState<SecondFactorMethod[]>([]);
   const [code, setCode] = useState('');
@@ -59,8 +44,8 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
     }
   }, [user, authLoading, router]);
 
-  const finish = () => {
-    toast.success(copy.success);
+  const finish = (message: string) => {
+    toast.success(message);
     router.push('/overview');
   };
 
@@ -68,22 +53,22 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
   // cookie is single-use, so a second ceremony would fail with an expired-session error.
   const startPasskey = async () => {
     setStage('passkey');
-    setLoading(true);
+    setBusy('passkey');
     try {
       await verifyPasskey();
-      finish();
+      finish('Signed in');
     } catch (error: any) {
       toast.error(error.message || 'Passkey sign-in failed');
       setStage('choose');
     } finally {
-      setLoading(false);
+      setBusy(null);
     }
   };
 
-  const handleGoogle = async () => {
-    setLoading(true);
+  const handleLogin = async (provider: 'google' | 'github', login: () => Promise<{ twoFactorRequired: boolean; methods: SecondFactorMethod[]; preferred: SecondFactorMethod | null }>, success: string, failure: string) => {
+    setBusy(provider);
     try {
-      const { twoFactorRequired, methods: available, preferred } = await loginWithGoogle();
+      const { twoFactorRequired, methods: available, preferred } = await login();
 
       if (twoFactorRequired) {
         setMethods(available);
@@ -99,26 +84,29 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
         return;
       }
 
-      finish();
+      finish(success);
     } catch (error: any) {
-      toast.error(error.message || copy.failure);
+      toast.error(error.message || failure);
     } finally {
-      setLoading(false);
+      setBusy(null);
     }
   };
 
+  const handleGoogle = () => handleLogin('google', loginWithGoogle, copy.success, copy.failure);
+  const handleGitHub = () => handleLogin('github', loginWithGitHub, copy.successGithub, copy.failureGithub);
+
   const handleCode = async (value: string) => {
-    setLoading(true);
+    setBusy('totp');
     setCodeError(false);
     try {
       await verifyTotp(value);
-      finish();
+      finish('Signed in');
     } catch (error: any) {
       toast.error(error.message || 'That code is not valid');
       setCodeError(true);
       setCode('');
     } finally {
-      setLoading(false);
+      setBusy(null);
     }
   };
 
@@ -140,7 +128,7 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
   if (stage) {
     const tryAnotherWay = methods.length > 1 && (
       <div style={{ textAlign: 'center', marginTop: 24 }}>
-        <button type="button" onClick={() => setStage('choose')} disabled={loading}
+        <button type="button" onClick={() => setStage('choose')} disabled={busy !== null}
           style={{ color: 'var(--accent)', fontWeight: 500, fontSize: 13 }}>
           Try another way
         </button>
@@ -179,11 +167,11 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
               onChange={(value) => { setCode(value); if (codeError) setCodeError(false); }}
               onComplete={handleCode}
               error={codeError}
-              disabled={loading}
+              disabled={busy !== null}
             />
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 20, minHeight: 20, fontSize: 13, color: 'var(--text-3)' }}>
-              {loading ? (
+              {busy !== null ? (
                 <>
                   <div style={{
                     width: 14, height: 14,
@@ -227,34 +215,37 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
         {copy.subtitle}
       </p>
 
-      {/* Google is the only credential, so a missing Firebase config is a dead
+      {/* Google and GitHub are the only credentials, so a missing Firebase config is a dead
           end rather than a fallback to another method — say so plainly. */}
       {isFirebaseConfigured() ? (
-        <button type="button" className="btn btn-dark btn-lg"
-          onClick={handleGoogle}
-          disabled={loading}
-          style={{ width: '100%', justifyContent: 'center' }}>
-          <GoogleG /> {loading ? copy.busy : copy.cta}
-        </button>
+        <>
+          <button type="button" className="btn btn-dark btn-lg"
+            onClick={handleGoogle}
+            disabled={busy !== null}
+            style={{ width: '100%', justifyContent: 'center' }}>
+            <GoogleG /> {busy === 'google' ? copy.busy : copy.cta}
+          </button>
+
+          <Divider label="or" />
+
+          <button type="button" className="btn btn-dark btn-lg"
+            onClick={handleGitHub}
+            disabled={busy !== null}
+            style={{ width: '100%', justifyContent: 'center' }}>
+            <GithubMark /> {busy === 'github' ? copy.busyGithub : copy.ctaGithub}
+          </button>
+        </>
       ) : (
         <div style={{
           padding: 16, borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--line)', background: 'var(--bg-1)',
           fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6,
         }}>
-          Google sign-in isn&apos;t configured on this deployment. Set the
+          Sign-in isn&apos;t configured on this deployment. Set the
           {' '}<span className="mono" style={{ color: 'var(--accent)' }}>NEXT_PUBLIC_FIREBASE_*</span>{' '}
           environment variables and reload.
         </div>
       )}
-
-      <div style={{ textAlign: 'center', fontSize: 'clamp(12px, 2vw, 13px)', color: 'var(--text-3)', marginTop: 20 }}>
-        {copy.altPrompt}{' '}
-        <button type="button" onClick={() => router.push(copy.altHref)}
-          style={{ color: 'var(--accent)', fontWeight: 500 }}>
-          {copy.altLabel}
-        </button>
-      </div>
     </AuthLayout>
   );
 }

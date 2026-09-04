@@ -12,6 +12,7 @@ jest.mock('@/lib/firebase', () => ({
   isFirebaseConfigured: () => true,
   getFirebaseAuth: () => ({}),
   googleAuthProvider: {},
+  githubAuthProvider: {},
 }));
 jest.mock('firebase/auth', () => ({
   signInWithPopup: jest.fn().mockResolvedValue({ user: { getIdToken: async () => 'tok' } }),
@@ -42,7 +43,7 @@ it('runs the passkey ceremony exactly once and reports no error', async () => {
     .mockResolvedValueOnce({ success: true, data: { user: { id: '1', name: 'Ada' } } })
     .mockRejectedValue(new Error('Your sign-in session expired. Start again.'));
 
-  render(<AuthProvider><GoogleAuthPanel mode="signin" /></AuthProvider>);
+  render(<AuthProvider><GoogleAuthPanel /></AuthProvider>);
   await waitFor(() => screen.getByRole('button', { name: /Continue with Google/i }));
   await userEvent.click(screen.getByRole('button', { name: /Continue with Google/i }));
   await act(() => new Promise((resolve) => setTimeout(resolve, 150)));

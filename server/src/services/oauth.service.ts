@@ -1,6 +1,11 @@
 import crypto from 'crypto';
 import axios from 'axios';
 import { encrypt, decrypt } from '../utils/encryption';
+import {
+  assertCloudflareAccountAvailable,
+  CloudflareAccountAlreadyLinkedError,
+  isDuplicateKeyError,
+} from '../utils/cloudflareHash';
 import { User } from '../models/User';
 
 const CF_AUTH_ENDPOINT = 'https://dash.cloudflare.com/oauth2/auth';
@@ -171,6 +176,8 @@ export const saveOAuthCredentials = async (
   refreshToken: string,
   expiresIn: number
 ): Promise<void> => {
+  const accountHash = await assertCloudflareAccountAvailable(accountId, userId);
+
   const encryptedAccount = encrypt(accountId);
   const encryptedAccess = encrypt(accessToken);
   const encryptedRefresh = refreshToken ? encrypt(refreshToken) : null;
@@ -179,6 +186,7 @@ export const saveOAuthCredentials = async (
     cloudflareAccountId: encryptedAccount.encrypted,
     cloudflareAccountIdIv: encryptedAccount.iv,
     cloudflareAccountIdTag: encryptedAccount.tag,
+    cloudflareAccountHash: accountHash,
     cloudflareOAuthToken: encryptedAccess.encrypted,
     cloudflareOAuthTokenIv: encryptedAccess.iv,
     cloudflareOAuthTokenTag: encryptedAccess.tag,
@@ -196,12 +204,22 @@ export const saveOAuthCredentials = async (
     update.cloudflareRefreshTokenTag = encryptedRefresh.tag;
   }
 
-  await User.findByIdAndUpdate(userId, update);
+  try {
+    await User.findByIdAndUpdate(userId, update);
+  } catch (error) {
+    if (isDuplicateKeyError(error)) {
+      throw new CloudflareAccountAlreadyLinkedError();
+    }
+    throw error;
+  }
 };
 
 /** Disconnect OAuth and clear all OAuth fields. */
 export const disconnectOAuth = async (userId: string): Promise<void> => {
-  await User.findByIdAndUpdate(userId, {
+  const user = await User.findById(userId);
+  if (!user) return;
+
+  const update: Record<string, unknown> = {
     cloudflareOAuthToken: null,
     cloudflareOAuthTokenIv: null,
     cloudflareOAuthTokenTag: null,
@@ -210,8 +228,18 @@ export const disconnectOAuth = async (userId: string): Promise<void> => {
     cloudflareRefreshTokenTag: null,
     cloudflareTokenExpiresAt: null,
     cloudflareOAuthConnected: false,
-    // Also clear account ID if no manual token exists
-    // (check in controller before calling this)
+  };
+
+  if (!user.cloudflareApiToken) {
+    // No manual token uses this account ID, so the encrypted account fields are dead weight.
+    update.cloudflareAccountId = null;
+    update.cloudflareAccountIdIv = null;
+    update.cloudflareAccountIdTag = null;
+  }
+
+  await User.findByIdAndUpdate(userId, {
+    $set: update,
+    $unset: { cloudflareAccountHash: 1 },
   });
 };
 
