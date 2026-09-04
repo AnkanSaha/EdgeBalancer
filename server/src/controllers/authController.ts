@@ -68,21 +68,18 @@ export const googleAuth = async (req: Request, res: Response, next: NextFunction
 
     // 1. Verify Firebase ID token
     const decodedToken = await verifyFirebaseToken(idToken);
-    const { email, name, uid, email_verified } = decodedToken;
+    const { email, name, uid } = decodedToken;
 
     if (!uid) {
       res.status(400);
       throw new Error('Invalid Firebase ID token');
     }
 
-    // Store whatever email the provider shared (GitHub often unverified); only a verified
-    // email may merge into an existing account — the Firebase uid stays the identity anchor.
     const claimedEmail = email ? email.toLowerCase() : null;
-    const mergeEmail = email_verified && claimedEmail ? claimedEmail : null;
 
     // 2. Find or create user
-    let user = mergeEmail
-      ? await User.findOne({ $or: [{ firebaseUid: uid }, { email: mergeEmail }] })
+    let user = claimedEmail
+      ? await User.findOne({ $or: [{ firebaseUid: uid }, { email: claimedEmail }] })
       : await User.findOne({ firebaseUid: uid });
 
     if (!user) {
@@ -98,15 +95,10 @@ export const googleAuth = async (req: Request, res: Response, next: NextFunction
           firebaseUid: uid,
         });
       } catch (error: any) {
-        // Unique email already owned by another user — keep the Firebase uid identity
-        // and drop the email rather than violating the index.
-        if (error?.code === 11000) {
-          user = await User.create({
-            name: displayName,
-            username,
-            firebaseUid: uid,
-          });
-        } else {
+        if (error?.code === 11000 && claimedEmail) {
+          user = await User.findOne({ email: claimedEmail });
+        }
+        if (!user) {
           throw error;
         }
       }

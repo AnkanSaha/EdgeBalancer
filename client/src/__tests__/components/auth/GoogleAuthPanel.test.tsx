@@ -34,17 +34,10 @@ beforeEach(() => {
 });
 
 describe('GoogleAuthPanel', () => {
-  it('offers Google and GitHub in signin mode', () => {
-    render(<GoogleAuthPanel mode="signin" />);
+  it('offers Google and GitHub', () => {
+    render(<GoogleAuthPanel />);
     expect(screen.getByRole('button', { name: /Continue with Google/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Continue with GitHub/i })).toBeInTheDocument();
-    expect(document.querySelectorAll('input')).toHaveLength(0);
-  });
-
-  it('offers Google and GitHub in signup mode', () => {
-    render(<GoogleAuthPanel mode="signup" />);
-    expect(screen.getByRole('button', { name: /Sign up with Google/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Sign up with GitHub/i })).toBeInTheDocument();
     expect(document.querySelectorAll('input')).toHaveLength(0);
   });
 
@@ -52,7 +45,7 @@ describe('GoogleAuthPanel', () => {
     const loginWithGoogle = jest.fn().mockResolvedValue({ twoFactorRequired: false, methods: [], preferred: null });
     mockUseAuth.mockReturnValue(authState({ loginWithGoogle }));
 
-    render(<GoogleAuthPanel mode="signin" />);
+    render(<GoogleAuthPanel />);
     await userEvent.click(screen.getByRole('button', { name: /Continue with Google/i }));
 
     await waitFor(() => expect(loginWithGoogle).toHaveBeenCalledTimes(1));
@@ -63,7 +56,7 @@ describe('GoogleAuthPanel', () => {
     const loginWithGitHub = jest.fn().mockResolvedValue({ twoFactorRequired: false, methods: [], preferred: null });
     mockUseAuth.mockReturnValue(authState({ loginWithGitHub }));
 
-    render(<GoogleAuthPanel mode="signin" />);
+    render(<GoogleAuthPanel />);
     await userEvent.click(screen.getByRole('button', { name: /Continue with GitHub/i }));
 
     await waitFor(() => expect(loginWithGitHub).toHaveBeenCalledTimes(1));
@@ -74,7 +67,7 @@ describe('GoogleAuthPanel', () => {
     jest.fn().mockResolvedValue({ twoFactorRequired: true, methods, preferred });
 
   const signIn = async () => {
-    render(<GoogleAuthPanel mode="signin" />);
+    render(<GoogleAuthPanel />);
     await userEvent.click(screen.getByRole('button', { name: /Continue with Google/i }));
   };
 
@@ -151,7 +144,7 @@ describe('GoogleAuthPanel', () => {
   // page has to say so rather than render an empty card.
   it('explains the dead end when Firebase is not configured', () => {
     mockConfigured.mockReturnValue(false);
-    render(<GoogleAuthPanel mode="signin" />);
+    render(<GoogleAuthPanel />);
 
     expect(screen.queryByRole('button', { name: /Google/i })).not.toBeInTheDocument();
     expect(screen.getByText(/isn't configured on this deployment/i)).toBeInTheDocument();
@@ -162,7 +155,7 @@ describe('GoogleAuthPanel', () => {
     const loginWithGitHub = jest.fn().mockReturnValue(pending);
     mockUseAuth.mockReturnValue(authState({ loginWithGitHub }));
 
-    render(<GoogleAuthPanel mode="signin" />);
+    render(<GoogleAuthPanel />);
     await userEvent.click(screen.getByRole('button', { name: /Continue with GitHub/i }));
 
     expect(screen.getByRole('button', { name: /Signing in with GitHub.../i })).toBeInTheDocument();
@@ -173,7 +166,7 @@ describe('GoogleAuthPanel', () => {
 
   it('redirects an already-authenticated visitor away', async () => {
     mockUseAuth.mockReturnValue(authState({ user: { id: '1', name: 'Ada', email: 'ada@example.com' } as any }));
-    render(<GoogleAuthPanel mode="signin" />);
+    render(<GoogleAuthPanel />);
     await waitFor(() => expect(push).toHaveBeenCalledWith('/overview'));
   });
 });

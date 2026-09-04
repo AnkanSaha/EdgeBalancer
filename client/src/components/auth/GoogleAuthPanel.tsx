@@ -10,52 +10,28 @@ import { Icons } from '@/components/shared/Icons';
 import toast from 'react-hot-toast';
 import type { SecondFactorMethod } from '@/types/api';
 
-/** Sign-in and sign-up are the same provider popups — the server does find-or-create.
- *  Only the copy differs, so both routes render this. */
 const COPY = {
-  signin: {
-    step: 'signin' as const,
-    kicker: '// Welcome back',
-    title: 'Sign in',
-    subtitle: 'Continue with the account you signed up with.',
-    cta: 'Continue with Google',
-    ctaGithub: 'Continue with GitHub',
-    busy: 'Signing in with Google...',
-    busyGithub: 'Signing in with GitHub...',
-    success: 'Signed in with Google',
-    successGithub: 'Signed in with GitHub',
-    failure: 'Google sign-in failed',
-    failureGithub: 'GitHub sign-in failed',
-    altPrompt: "Don't have an account?",
-    altLabel: 'Create account',
-    altHref: '/register',
-  },
-  signup: {
-    step: 'register' as const,
-    kicker: '// Step 01 of 03',
-    title: 'Create your account',
-    subtitle: 'Sign up with Google or GitHub — nothing to remember, no credit card.',
-    cta: 'Sign up with Google',
-    ctaGithub: 'Sign up with GitHub',
-    busy: 'Creating account with Google...',
-    busyGithub: 'Creating account with GitHub...',
-    success: 'Account created with Google',
-    successGithub: 'Account created with GitHub',
-    failure: 'Google sign-up failed',
-    failureGithub: 'GitHub sign-up failed',
-    altPrompt: 'Already have an account?',
-    altLabel: 'Sign in',
-    altHref: '/login',
-  },
+  step: 'signin' as const,
+  kicker: '// Get started',
+  title: 'Sign in or create an account',
+  subtitle: 'Continue with Google or GitHub — your account is created automatically.',
+  cta: 'Continue with Google',
+  ctaGithub: 'Continue with GitHub',
+  busy: 'Signing in with Google...',
+  busyGithub: 'Signing in with GitHub...',
+  success: 'Signed in with Google',
+  successGithub: 'Signed in with GitHub',
+  failure: 'Google sign-in failed',
+  failureGithub: 'GitHub sign-in failed',
 };
 
 type Stage = null | 'passkey' | 'totp' | 'choose';
 type Busy = 'google' | 'github' | 'passkey' | 'totp' | null;
 
-export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
+export function GoogleAuthPanel() {
   const router = useRouter();
   const { user, loginWithGoogle, loginWithGitHub, verifyTotp, verifyPasskey, loading: authLoading } = useAuth();
-  const copy = COPY[mode];
+  const copy = COPY;
   const [busy, setBusy] = useState<Busy>(null);
   const [stage, setStage] = useState<Stage>(null);
   const [methods, setMethods] = useState<SecondFactorMethod[]>([]);
@@ -270,14 +246,6 @@ export function GoogleAuthPanel({ mode }: { mode: 'signin' | 'signup' }) {
           environment variables and reload.
         </div>
       )}
-
-      <div style={{ textAlign: 'center', fontSize: 'clamp(12px, 2vw, 13px)', color: 'var(--text-3)', marginTop: 20 }}>
-        {copy.altPrompt}{' '}
-        <button type="button" onClick={() => router.push(copy.altHref)}
-          style={{ color: 'var(--accent)', fontWeight: 500 }}>
-          {copy.altLabel}
-        </button>
-      </div>
     </AuthLayout>
   );
 }

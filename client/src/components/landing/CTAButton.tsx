@@ -29,7 +29,7 @@ export function CTAButton({ className = 'btn btn-primary', size = 'lg', style }:
   }
 
   return (
-    <button className={`${className} ${size === 'lg' ? 'btn-lg' : 'btn-sm'}`} onClick={() => router.push('/register')} style={style}>
+    <button className={`${className} ${size === 'lg' ? 'btn-lg' : 'btn-sm'}`} onClick={() => router.push('/login')} style={style}>
       {size === 'lg' ? 'Start free' : 'Deploy your first balancer'} <Icons.Arrow size={size === 'lg' ? 16 : 14} />
     </button>
   );

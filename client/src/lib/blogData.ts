@@ -65,7 +65,7 @@ Nothing. Your load balancers keep running. EdgeBalancer is only the control plan
 
 - [Compare routing strategies](/strategies)
 - [See pricing](/pricing)
-- [Deploy your first load balancer](/register)
+- [Deploy your first load balancer](/login)
     `,
   },
   {

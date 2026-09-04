@@ -93,7 +93,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(response.data.user);
       return { twoFactorRequired: false, methods: [], preferred: null };
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.code === 'auth/account-exists-with-different-credential') {
+        const other = provider === googleAuthProvider ? 'GitHub' : 'Google';
+        throw new Error(`Your email is already linked to ${other}. Please sign in with ${other}.`);
+      }
       console.error('Social login error:', error);
       throw error;
     } finally {

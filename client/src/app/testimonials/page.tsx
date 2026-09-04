@@ -31,7 +31,7 @@ export default function TestimonialsPage() {
                 This is a solo project. I don&apos;t have 50 testimonials yet. But if you try EdgeBalancer and have feedback — good or bad — I&apos;d love to hear it.
               </p>
               <div style={{ marginTop: 24, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-                <a href="https://edge.nexoral.in/register" className="btn btn-primary">Try it free</a>
+                <a href="https://edge.nexoral.in/login" className="btn btn-primary">Try it free</a>
                 <a href="/developers" className="btn btn-ghost">Read the docs</a>
               </div>
             </div>

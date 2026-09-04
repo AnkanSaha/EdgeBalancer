@@ -95,17 +95,18 @@ describe('POST /api/auth/google', () => {
     expect(stored?.email).toBe('gh-user@example.com');
   });
 
-  it('does not merge into an existing account via an unverified email', async () => {
+  it('merges into an existing account even when the email is unverified, never creating a duplicate', async () => {
     const { user: existing } = await createTestUser({ email: 'taken@example.com' });
     decodedToken.email = 'taken@example.com';
-    decodedToken.uid = 'uid-gh-no-merge';
+    decodedToken.email_verified = false;
+    decodedToken.uid = 'uid-gh-merge-by-email';
 
     const res = await app.inject({ method: 'POST', url: '/api/auth/google', payload: { idToken: 'x' } });
     expect(res.statusCode).toBe(200);
+    expect(res.json().data.user.id).toBe(existing._id.toString());
 
-    const created = await User.findOne({ firebaseUid: 'uid-gh-no-merge' });
-    expect(created).toBeDefined();
-    expect(created?._id.toString()).not.toBe(existing._id.toString());
+    const created = await User.findOne({ firebaseUid: 'uid-gh-merge-by-email' });
+    expect(created).toBeNull();
   });
 
   it('merges into an existing account via a verified email', async () => {

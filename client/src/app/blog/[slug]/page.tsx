@@ -125,7 +125,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             <p style={{ fontSize: 'clamp(14px, 1.8vw, 15px)', color: 'var(--text-2)', marginTop: 8, marginBottom: 20 }}>
               Deploy your first load balancer in 90 seconds. Free under 100k requests/day.
             </p>
-            <a href="/register" className="btn btn-primary">Start free →</a>
+            <a href="/login" className="btn btn-primary">Start free →</a>
           </div>
         </article>
       </main>
